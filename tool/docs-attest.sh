@@ -1,63 +1,93 @@
 #!/usr/bin/env bash
 # Public-Docs-QS — deterministisch, 0 Token. Hält die öffentlich sichtbaren
-# Artefakte (aktuell: Root-README) zum Repo-Stand konsistent.
+# Artefakte zum Repo-Stand konsistent:
+#   (1) Root-README  (2) CLI-Hilfe (loam --help)  (3) Website web/
 #
-#   docs-attest.sh check     Struktur-Invarianten gegen docs/readme-spec.md:
-#                            Pflicht-Marker vorhanden, Bild-/Link-Pfade existieren,
-#                            kein Anti-Vokabular. (immer erfüllen)
-#   docs-attest.sh attest    BEWUSSTE Bestätigung vor dem Push: README folgt dem
-#                            Aufbau UND ist inhaltlich aktuell -> stempelt den
-#                            aktuellen HEAD nach .docs-attest. Führt check vorher aus.
+#   docs-attest.sh check     Struktur-Invarianten je Artefakt gegen
+#                            docs/public-docs-spec.md. (immer erfüllen)
+#   docs-attest.sh attest    BEWUSSTE Bestätigung vor dem Push: ALLE Artefakte
+#                            folgen dem Aufbau UND sind inhaltlich aktuell ->
+#                            stempelt den aktuellen HEAD nach .docs-attest.
 #   docs-attest.sh attested  Gibt den zuletzt attestierten Commit aus (oder leer).
 #
-# Genutzt vom pre-push-Hook (Schranke) und vom dart-test-Gate (check).
+# Genutzt vom pre-push-Hook (Schranke), pre-commit-Hook und dart-test-Gate (check).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SPEC="$ROOT/docs/readme-spec.md"
+SPEC="$ROOT/docs/public-docs-spec.md"
 ATTEST="$ROOT/.docs-attest"
+README="$ROOT/README.md"
+CLI="$ROOT/packages/loam_cli/bin/loam.dart"
+WEB="$ROOT/web"
 
-# Öffentlich sichtbare Artefakte (erweiterbar: Hilfe-Texte, web/ …).
-PUBLIC_DOCS=( "README.md" )
+# Anti-Vokabular (PCRE via perl -> portabel macOS/Linux). Generische Wörter
+# bewusst ausgelassen, um False Positives in Prosa zu vermeiden.
+ANTIVOCAB='(Firebase|Firestore|Crashlytics|\bLoam\b(?!\.dev))'
+antivocab() { perl -ne "print \"  \$.: \$_\" if /$ANTIVOCAB/" "$1" 2>/dev/null || true; }
 
-cmd_check() {
-  local fail=0 doc="$ROOT/README.md"
+fail=0
+note() { echo "  ✗ $1"; fail=1; }
 
-  # 1) Pflicht-Marker aus der Spec (Single Source of Truth für den Aufbau)
-  local markers
-  markers="$(awk '/required:start/{f=1;next} /required:end/{f=0} f' "$SPEC" \
-             | sed '/^[[:space:]]*$/d')"
+check_readme() {
+  # Pflicht-Marker aus der Spec (Single Source of Truth für den Aufbau)
+  local markers; markers="$(awk '/required:start/{f=1;next} /required:end/{f=0} f' "$SPEC" \
+                            | sed '/^[[:space:]]*$/d')"
   while IFS= read -r m; do
     [ -z "$m" ] && continue
-    grep -qF -- "$m" "$doc" || { echo "  ✗ README fehlt Pflicht-Marker: $m"; fail=1; }
+    grep -qF -- "$m" "$README" || note "README fehlt Pflicht-Marker: $m"
   done <<< "$markers"
 
-  # 2) relative Bild-/Link-Pfade existieren
-  local refs
-  refs="$( { grep -oE 'src="[^"]+"' "$doc" | sed -E 's/src="([^"]+)"/\1/';
-             grep -oE '\]\([^)]+\)' "$doc" | sed -E 's/\]\(([^)]+)\)/\1/'; } \
-           | sort -u || true )"
+  # relative Bild-/Link-Pfade existieren
+  local refs; refs="$( { grep -oE 'src="[^"]+"' "$README" | sed -E 's/src="([^"]+)"/\1/';
+                         grep -oE '\]\([^)]+\)' "$README" | sed -E 's/\]\(([^)]+)\)/\1/'; } \
+                       | sort -u || true )"
   while IFS= read -r r; do
     [ -z "$r" ] && continue
     case "$r" in http://*|https://*|mailto:*|\#*) continue ;; esac
     r="${r%%#*}"; r="${r%%\?*}"; [ -z "$r" ] && continue
-    [ -e "$ROOT/$r" ] || { echo "  ✗ README verweist auf fehlenden Pfad: $r"; fail=1; }
+    [ -e "$ROOT/$r" ] || note "README verweist auf fehlenden Pfad: $r"
   done <<< "$refs"
 
-  # 3) Anti-Vokabular (PCRE via perl -> portabel auf macOS/Linux)
-  local hits
-  hits="$(perl -ne 'print "  $.: $_" if /(Firebase|Firestore|Crashlytics|\bLoam\b(?!\.dev))/' "$doc" || true)"
-  if [ -n "$hits" ]; then echo "  ✗ Anti-Vokabular in README (siehe CONTEXT.md):"; echo "$hits"; fail=1; fi
+  # Anti-Vokabular
+  local hits; hits="$(antivocab "$README")"
+  if [ -n "$hits" ]; then note "Anti-Vokabular in README:"; echo "$hits"; fi
+  return 0
+}
 
+check_cli() {
+  [ -f "$CLI" ] || { note "CLI-Entry fehlt: ${CLI#$ROOT/}"; return; }
+  # registrierte Commands extrahieren (name = '…') -> müssen in README stehen
+  local cmds; cmds="$(grep -oE "name = '[a-z][a-z-]*'" "$CLI" \
+                      | sed -E "s/name = '([a-z-]+)'/\1/" | sort -u || true)"
+  while IFS= read -r c; do
+    [ -z "$c" ] && continue
+    grep -qF -- "loam $c" "$README" || note "CLI-Command '$c' nicht in README dokumentiert"
+  done <<< "$cmds"
+  return 0
+}
+
+check_web() {
+  [ -d "$WEB" ] || { note "web/ fehlt"; return; }
+  # Anti-Vokabular über Web-Markdown und (sobald gebaut) HTML
+  while IFS= read -r f; do
+    local hits; hits="$(antivocab "$f")"
+    if [ -n "$hits" ]; then note "Anti-Vokabular in ${f#$ROOT/}:"; echo "$hits"; fi
+  done < <(find "$WEB" \( -name '*.md' -o -name '*.html' \) -type f 2>/dev/null)
+  return 0
+}
+
+cmd_check() {
+  fail=0
+  check_readme; check_cli; check_web
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok"
+  echo "Public-Docs-QS check: ok (README · CLI · web/)"
 }
 
 cmd_attest() {
   cmd_check
   git -C "$ROOT" rev-parse HEAD > "$ATTEST"
-  echo "README als aktuell & aufbaukonform bestätigt für $(cat "$ATTEST")."
-  echo "Hinweis: attest bedeutet — README GELESEN und gegen den Repo-Stand geprüft."
+  echo "Öffentliche Docs als aktuell & aufbaukonform bestätigt für $(cat "$ATTEST")."
+  echo "Hinweis: attest = README, CLI-Hilfe und web/ GELESEN und gegen den Repo-Stand geprüft."
 }
 
 cmd_attested() { [ -f "$ATTEST" ] && cat "$ATTEST" || true; }
