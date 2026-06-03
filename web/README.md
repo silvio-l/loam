@@ -16,11 +16,12 @@ LLM-Slop mit Cache, der interaktive HTML-Report) zeigen, und den Einstieg
   GitHub Pages) — kein Server, keine bezifferbare Quota-Last (siehe Free-Tier-Disziplin
   in der globalen `CLAUDE.md`). Konkrete Tech-Wahl ist noch offen.
 - **Naming:** Produktname überall **loam.dev**; `loam` nur als CLI-Befehl in Code-Snippets.
+  **Web-Domain ist `getloam.dev`** (loam.dev selbst ist Premium/vergeben) — der Name bleibt loam.dev, die URL ist getloam.dev.
 - **Eine mögliche Killer-Demo:** ein eingebetteter Beispiel-Report (das self-contained
   `loam-report.html` aus PRD §9) als Live-Showcase der Toggle-/Fix-Prompt-UX.
 
 ## Offene Punkte (vor dem Bau zu entscheiden)
 
 - Static-Site-Generator / Framework (oder Plain HTML).
-- Hosting-Ziel (Cloudflare Pages vs. GitHub Pages) + Domain `loam.dev`.
+- Hosting-Ziel (Cloudflare Pages vs. GitHub Pages); Domain **festgelegt: `getloam.dev`** (frei, ~€11/Jahr) — `loam.dev` ist Premium (~€6.000) und damit raus.
 - Verhältnis zur pub.dev-Package-Page (Doku-Single-Source vermeiden).
