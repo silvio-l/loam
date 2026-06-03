@@ -19,6 +19,8 @@ ATTEST="$ROOT/.docs-attest"
 README="$ROOT/README.md"
 CLI="$ROOT/packages/loam_cli/bin/loam.dart"
 WEB="$ROOT/web"
+PUBSPEC="$ROOT/packages/loam_cli/pubspec.yaml"
+PKGREADME="$ROOT/packages/loam_cli/README.md"
 
 # Anti-Vokabular (PCRE via perl -> portabel macOS/Linux). Generische Wörter
 # bewusst ausgelassen, um False Positives in Prosa zu vermeiden.
@@ -76,18 +78,42 @@ check_web() {
   return 0
 }
 
+check_pub() {
+  # pub.dev-Artefakt: pubspec `description` + die von pub.dev gerenderte Package-README.
+  [ -f "$PUBSPEC" ] || { note "pubspec.yaml fehlt"; return 0; }
+  local desc
+  desc="$(sed -nE 's/^description:[[:space:]]*"(.*)"[[:space:]]*$/\1/p' "$PUBSPEC")"
+  if [ -z "$desc" ]; then  # gefalteter Block (>-, |) als Fallback
+    desc="$(awk '/^description:/{c=1;next} c==1{ if($0 ~ /^[^[:space:]]/){c=0} else {l=$0; sub(/^[[:space:]]+/,"",l); printf "%s ",l} }' "$PUBSPEC")"
+  fi
+  desc="$(printf '%s' "$desc" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
+  local n=${#desc}
+  if [ "$n" -lt 60 ] || [ "$n" -gt 180 ]; then
+    note "pubspec description $n Zeichen (pub.dev-Richtwert 60–180): $desc"
+  fi
+  if printf '%s' "$desc" | perl -ne "exit(1) if /$ANTIVOCAB/"; then :; else note "Anti-Vokabular in pubspec description"; fi
+
+  if [ -f "$PKGREADME" ]; then
+    local hits; hits="$(antivocab "$PKGREADME")"
+    if [ -n "$hits" ]; then note "Anti-Vokabular in packages/loam_cli/README.md:"; echo "$hits"; fi
+  else
+    note "Package-README fehlt (pub.dev rendert sie)"
+  fi
+  return 0
+}
+
 cmd_check() {
   fail=0
-  check_readme; check_cli; check_web
+  check_readme; check_cli; check_web; check_pub
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev)"
 }
 
 cmd_attest() {
   cmd_check
   git -C "$ROOT" rev-parse HEAD > "$ATTEST"
   echo "Öffentliche Docs als aktuell & aufbaukonform bestätigt für $(cat "$ATTEST")."
-  echo "Hinweis: attest = README, CLI-Hilfe und web/ GELESEN und gegen den Repo-Stand geprüft."
+  echo "Hinweis: attest = README, CLI-Hilfe, web/ und pub.dev-Beschreibung GELESEN und gegen den Repo-Stand geprüft."
 }
 
 cmd_attested() { [ -f "$ATTEST" ] && cat "$ATTEST" || true; }
