@@ -9,8 +9,8 @@ LLM-Slop mit Cache, der interaktive HTML-Report) zeigen, und den Einstieg
 
 - **[Astro](https://astro.build) (latest, v6)** — reines Static-Site-Generation
   (`output: 'static'`, kein Adapter, kein Server).
-- **Free-Tier-Hosting** (Cloudflare Pages / GitHub Pages), das **aus der Quelle baut** —
-  `dist/` wird nicht eingecheckt (siehe `.gitignore`).
+- **Cloudflare Pages** (Free-Tier, Projekt `loam`, Domain `getloam.dev`), das **aus der
+  Quelle baut** — `dist/` wird nicht eingecheckt (siehe `.gitignore`).
 - Keine Integrations, keine Runtime-Abhängigkeiten: eine einzelne Seite, Brand-Tokens
   inline, Schrift via Google Fonts.
 
@@ -44,8 +44,15 @@ npm run preview  # gebautes dist/ lokal servieren
   in `src/pages/index.astro` gespiegelt und werden von `tool/docs-attest.sh check` erzwungen.
 - **Kein Anti-Vokabular** (siehe `CONTEXT.md`) in der Web-Quelle — ebenfalls von der QS geprüft.
 
+## Deployment
+
+- **Host:** Cloudflare Pages, Projekt `loam` (`loam-3e3.pages.dev`, Custom-Domain `getloam.dev`).
+- **Automatisch:** `.github/workflows/deploy-web.yml` baut bei jedem Push auf `main`, der `web/`
+  berührt, frisch aus der Quelle und deployt als Production (`wrangler pages deploy`). Secrets
+  `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` liegen als GitHub-Repo-Secrets.
+- **Manuell** (Notfall, aus `web/`): `npm run build && npx wrangler pages deploy dist --project-name=loam --branch=main`.
+
 ## Offene Punkte
 
 - Eingebetteter Beispiel-Report (das self-contained `loam-report.html` aus PRD §9) als
   Live-Showcase der Toggle-/Fix-Prompt-UX.
-- Hosting-Ziel final festzurren (Cloudflare Pages vs. GitHub Pages); Domain festgelegt: **`getloam.dev`**.

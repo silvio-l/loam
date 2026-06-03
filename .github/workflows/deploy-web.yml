@@ -1,0 +1,50 @@
+name: Deploy website
+
+# Baut die statische Astro-Website unter web/ reproduzierbar aus der Quelle und
+# deployt sie als Production zum Cloudflare-Pages-Projekt `loam` (getloam.dev).
+# dist/ ist gitignored — die Single Source of Truth ist immer web/src. Damit ist
+# jeder Push auf main, der web/ berührt, automatisch live; kein manueller Upload,
+# kein stale Deploy mehr.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# Nie zwei Deploys parallel; ein neuerer Push überholt einen laufenden.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build static site
+        working-directory: web
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages (production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy web/dist --project-name=loam --branch=main
