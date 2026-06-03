@@ -102,11 +102,28 @@ check_pub() {
   return 0
 }
 
+check_brand() {
+  # Corporate-Design: EINE Quelle (assets/brand/tokens.json). Drift verhindern,
+  # indem Off-Token-/Legacy-Farben in den Brand-Quellen + der Website verboten sind.
+  local legacy='282420|6A635A|7A7064|4A443C|ECE9E1|F2F2F2'
+  for f in "$ROOT/web/index.html" "$ROOT/assets/brand/_svg/build.py" \
+           "$ROOT/assets/brand/_ascii/gen.py" "$ROOT/assets/brand/_svg/wordmark_from_font.py"; do
+    [ -f "$f" ] || continue
+    local h; h="$(grep -niE "#($legacy)" "$f" || true)"
+    if [ -n "$h" ]; then note "Off-Token-/Legacy-Farbe in ${f#$ROOT/}:"; echo "$h"; fi
+  done
+  # Token-Werte müssen in der Website vorkommen (Konsistenz zum Logo)
+  for v in 88C840 564F47 ECEAE3 101014; do
+    grep -iqF "$v" "$ROOT/web/index.html" || note "Token #$v fehlt in web/index.html"
+  done
+  return 0
+}
+
 cmd_check() {
   fail=0
-  check_readme; check_cli; check_web; check_pub
+  check_readme; check_cli; check_web; check_pub; check_brand
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens)"
 }
 
 cmd_attest() {

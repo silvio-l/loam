@@ -21,10 +21,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, ".."))
 SVGDIR = os.path.join(OUT, "_svg")
 
-GREEN = (136, 200, 64)   # #88C840  Trieb / .dev
-SOIL  = (106, 99, 90)    # #6A635A  Erde (aufgehelltes Logo-Grau #282420)
-INK   = (236, 236, 236)  # loam
-TERMBG = (16, 18, 22)    # nur für PNG-Vorschau
+import json as _json
+_TOK = _json.load(open(os.path.join(HERE, "..", "tokens.json")))
+def _rgb(h): h = h.lstrip("#"); return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+GREEN = _rgb(_TOK["green"])   # Trieb / .dev   (aus tokens.json)
+SOIL  = _rgb(_TOK["soil"])    # Erde           (aus tokens.json)
+INK   = _rgb(_TOK["ink"])     # loam           (aus tokens.json)
+TERMBG = _rgb(_TOK["bg"])     # nur für PNG-Vorschau
 ESC = "\x1b"; R = f"{ESC}[0m"
 DIMSEQ = f"{ESC}[38;2;120;120;128m"
 TAG = "codebase intelligence + anti-ai-slop"
@@ -149,6 +152,10 @@ FALLBACK = [
     r"        " + TAG,
 ]
 
+# Marketing-Asset (Root-README): farbiges Banner als PNG, aus denselben Tokens.
+to_png(BIG, os.path.join(OUT, "terminal-banner.png"))
+print("wrote terminal-banner.png")
+
 if "preview" in sys.argv:
     to_png(BIG, "/tmp/_loam_big.png"); to_png(COMP, "/tmp/_loam_compact.png")
     print("PNG-Vorschauen: /tmp/_loam_{big,compact}.png")
@@ -161,7 +168,7 @@ f"""loam.dev — Terminal-Banner (farbige Pixel-Art)
 ==============================================
 
 Halbblock-Rasterung des echten Logos (Truecolor), Farben pro Zelle quantisiert
-auf Grün #88C840 / Erd-Grau #6A635A / Weiß. Technik wie GitHub Copilot CLI.
+auf die Marken-Tokens (assets/brand/tokens.json). Technik wie GitHub Copilot CLI.
 Die FARBIGE Fassung trägt die Form nur über Farbe und lässt sich nicht als
 Plain-Text zeigen — live ansehen:
 

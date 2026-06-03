@@ -1,35 +1,34 @@
 #!/usr/bin/env python3
-"""Single source of truth fuer das loam.dev-Logo.
+"""Single source of truth fuer das loam.dev-Logo — alles aus tokens.json.
 
-Faithful-Vektorisierung des freigegebenen KI-Drafts
-(_ai-drafts/lockup-horizontal-dark.png): Trieb, Boden, "loam" und ".dev" wurden
-mit potrace je als eigene Maske vektorisiert. Aus DIESEN Pfaden werden alle
-Varianten abgeleitet -> Mark ueberall pixel-identisch, font-frei, reproduzierbar.
+Mark (Trieb + Boden) = potrace-Vektor des freigegebenen Drafts, eingefaerbt mit
+den Marken-Tokens. Wortmarke = Spline-Sans-Mono-Outline (wordmark_from_font.py).
+Aus beidem werden Icon, Mono und die Lockups generiert — EINE Quelle, kein Drift.
 
-Regenerieren:
-  1) Masken+Trace erzeugen (siehe _svg/trace.sh)
-  2) python3 build.py
+Pipeline:
+  1) (einmalig) trace.py  -> _trace_*.svg / _mask_*.pbm  (Mark)
+  2) wordmark_from_font.py -> wordmark.svg               (Wortmarke, braucht venv+fonttools)
+  3) build.py             -> icon/mono SVG + PNG, Lockup-PNGs, web/loam-lockup.png
+Braucht: rsvg-convert, Pillow.
 """
-import os, re, glob
+import os, re, json, subprocess
+from PIL import Image
 
-GREEN = "#88C840"; SOIL = "#282420"; BG = "#101014"; INK = "#F2F2F2"
 HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
+TOK = json.load(open(os.path.join(HERE, "..", "tokens.json")))
+GREEN, SOIL, BG, INK = TOK["green"], TOK["soil"], TOK["bg"], TOK["ink"]
 FLIP = 'translate(0.000000,1024.000000) scale(0.100000,-0.100000)'
 
 def paths(name):
-    """Alle <path>-Elemente eines potrace-SVG als Blob (fill entfernt)."""
     txt = open(os.path.join(HERE, f"_trace_{name}.svg")).read()
     ps = re.findall(r'<path\b[^>]*\bd="[^"]*"[^>]*/>', txt)
-    ps = [re.sub(r'\sfill="[^"]*"', '', p) for p in ps]
-    return "\n".join(ps)
+    return "\n".join(re.sub(r'\sfill="[^"]*"', '', p) for p in ps)
 
 def bbox(name, minsize=50):
-    """Bounding-Box (Pixelkoord.) aus der Maske, ohne Streupixel."""
-    from PIL import Image
     from collections import deque
     im = Image.open(os.path.join(HERE, f"_mask_{name}.pbm")).convert("L")
-    w, h = im.size; px = im.load()
-    seen = bytearray(w * h)
+    w, h = im.size; px = im.load(); seen = bytearray(w * h)
     xs0 = ys0 = 10**9; xs1 = ys1 = -1
     for y in range(h):
         for x in range(w):
@@ -39,31 +38,22 @@ def bbox(name, minsize=50):
                     cx, cy = q.popleft(); pts.append((cx, cy))
                     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                         nx, ny = cx + dx, cy + dy
-                        if 0 <= nx < w and 0 <= ny < h and px[nx, ny] == 0 \
-                                and not seen[ny * w + nx]:
+                        if 0 <= nx < w and 0 <= ny < h and px[nx, ny] == 0 and not seen[ny * w + nx]:
                             seen[ny * w + nx] = 1; q.append((nx, ny))
                 if len(pts) >= minsize:
                     xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
-                    xs0 = min(xs0, min(xs)); xs1 = max(xs1, max(xs))
-                    ys0 = min(ys0, min(ys)); ys1 = max(ys1, max(ys))
+                    xs0, xs1 = min(xs0, min(xs)), max(xs1, max(xs))
+                    ys0, ys1 = min(ys0, min(ys)), max(ys1, max(ys))
     return (xs0, ys0, xs1, ys1)
 
-def union(*bs):
-    return (min(b[0] for b in bs), min(b[1] for b in bs),
-            max(b[2] for b in bs), max(b[3] for b in bs))
+P = {n: paths(n) for n in ("sprout", "soil")}
+B = {n: bbox(n) for n in ("sprout", "soil")}
+MARK = (min(B["sprout"][0], B["soil"][0]), min(B["sprout"][1], B["soil"][1]),
+        max(B["sprout"][2], B["soil"][2]), max(B["sprout"][3], B["soil"][3]))
 
-P = {n: paths(n) for n in ("sprout", "soil", "loam", "dev")}
-B = {n: bbox(n) for n in ("sprout", "soil", "loam", "dev")}
-MARK = union(B["sprout"], B["soil"])
-WORD = union(B["loam"], B["dev"])
-
-def fill_group(items, tx=0.0, ty=0.0):
-    """items: Liste (name, color). Optionaler Aussen-Translate in User-Units."""
-    inner = "\n".join(
-        f'<g fill="{c}"><g transform="{FLIP}">\n{P[n]}\n</g></g>' for n, c in items)
-    if tx or ty:
-        return f'<g transform="translate({tx:.2f},{ty:.2f})">\n{inner}\n</g>'
-    return inner
+def mark_group(soil_c, sprout_c):
+    return (f'<g fill="{soil_c}"><g transform="{FLIP}">{P["soil"]}</g></g>'
+            f'<g fill="{sprout_c}"><g transform="{FLIP}">{P["sprout"]}</g></g>')
 
 def svg(vb, body, bg=None):
     x0, y0, w, h = vb
@@ -72,54 +62,68 @@ def svg(vb, body, bg=None):
             f'viewBox="{x0} {y0} {w} {h}">\n{rect}\n{body}\n</svg>\n')
 
 def write(name, content):
-    open(os.path.join(HERE, name), "w").write(content)
-    print("wrote", name)
+    open(os.path.join(HERE, name), "w").write(content); print("wrote", name)
 
-# --- 1) Icon-Mark (transparent, quadratisch) -------------------------------
+# --- Icon (transparent, quadratisch) + Mono -------------------------------
 mx0, my0, mx1, my1 = MARK
 mcx, mcy = (mx0 + mx1) / 2, (my0 + my1) / 2
-side = max(mx1 - mx0, my1 - my0) + 90          # 45px Rand
+side = max(mx1 - mx0, my1 - my0) + 90
 icon_vb = (mcx - side / 2, mcy - side / 2, side, side)
-write("icon-mark.svg",
-      svg(icon_vb, fill_group([("soil", SOIL), ("sprout", GREEN)])))
+write("icon-mark.svg", svg(icon_vb, mark_group(SOIL, GREEN)))
+write("icon-mono-white.svg", svg(icon_vb, mark_group("#FFFFFF", "#FFFFFF")))
 
-# --- 2) Monochrom weiss (transparent) --------------------------------------
-write("icon-mono-white.svg",
-      svg(icon_vb, fill_group([("soil", "#FFFFFF"), ("sprout", "#FFFFFF")])))
+# --- PNG-Rendering ---------------------------------------------------------
+def rsvg(svg_path, out, h=None, w=None):
+    arg = ["-h", str(h)] if h else ["-w", str(w)]
+    subprocess.run(["rsvg-convert", *arg, svg_path, "-o", out], check=True)
 
-# --- 3) Lockup horizontal (1:1-Layout des Drafts, nur zugeschnitten) --------
-ux0, uy0, ux1, uy1 = union(MARK, WORD)
-pad = 70
-h_vb = (ux0 - pad, uy0 - pad, (ux1 - ux0) + 2 * pad, (uy1 - uy0) + 2 * pad)
-write("lockup-horizontal.svg",
-      svg(h_vb,
-          fill_group([("soil", SOIL), ("sprout", GREEN),
-                      ("loam", INK), ("dev", GREEN)]),
-          bg=BG))
+def trimmed(path):
+    im = Image.open(path).convert("RGBA"); return im.crop(im.split()[3].getbbox())
 
-# --- 4) Lockup gestapelt: Mark oben mittig, Wort darunter -------------------
-wx0, wy0, wx1, wy1 = WORD
-wcx, wcy = (wx0 + wx1) / 2, (wy0 + wy1) / 2
-mark_w, mark_h = mx1 - mx0, my1 - my0
-word_w, word_h = wx1 - wx0, wy1 - wy0
-gap = 70; pad = 70
-canvas_w = max(mark_w, word_w) + 2 * pad
-target_cx = canvas_w / 2 + (h_vb[0])  # arbitrar; wir nutzen lokale coords unten
-# Wir arbeiten in einem frischen, lokalen Koordinatenrahmen:
-cw = max(mark_w, word_w) + 2 * pad
-ch = pad + mark_h + gap + word_h + pad
-mark_tx = (cw / 2 - mcx)            # Mark-Mitte -> Canvas-Mitte X
-mark_ty = (pad + mark_h / 2 - mcy)  # Mark-Mitte -> oben
-word_tx = (cw / 2 - wcx)
-word_ty = (pad + mark_h + gap + word_h / 2 - wcy)
-sbody = (fill_group([("soil", SOIL), ("sprout", GREEN)], mark_tx, mark_ty)
-         + fill_group([("loam", INK), ("dev", GREEN)], word_tx, word_ty))
-write("lockup-stacked.svg", svg((0, 0, cw, ch), sbody, bg=BG))
+OUT = os.path.normpath(os.path.join(HERE, ".."))
+rsvg(os.path.join(HERE, "icon-mark.svg"), os.path.join(OUT, "icon-mark.png"), w=1024)
+rsvg(os.path.join(HERE, "icon-mono-white.svg"), os.path.join(OUT, "icon-mono-white.png"), w=1024)
 
-# --- 5) Wortmarke solo (transparent) — für Terminal-Banner-Rendering --------
-wpad = 12
-w_vb = (wx0 - wpad, wy0 - wpad, (wx1 - wx0) + 2 * wpad, (wy1 - wy0) + 2 * wpad)
-write("wordmark.svg",
-      svg(w_vb, fill_group([("loam", INK), ("dev", GREEN)])))
+# --- Lockups (Mark + Wortmarke) via Komposition ----------------------------
+MARK_H = 520                          # Mark-Hoehe im Lockup (px)
+WORD_H = round(MARK_H * 0.50)         # Wortmarken-(Glyphen-)Hoehe -> Balance
+PAD, GAP = 90, 90
+bgcol = tuple(int(BG[i:i+2], 16) for i in (1, 3, 5))
 
-print("MARK bbox", MARK, " WORD bbox", WORD)
+rsvg(os.path.join(HERE, "icon-mark.svg"), "/tmp/_mk.png", h=MARK_H + 200)
+rsvg(os.path.join(HERE, "wordmark.svg"), "/tmp/_wm.png", h=WORD_H + 400)
+mk = trimmed("/tmp/_mk.png"); wm = trimmed("/tmp/_wm.png")
+# auf Zielhoehen skalieren
+mk = mk.resize((round(mk.width * MARK_H / mk.height), MARK_H), Image.LANCZOS)
+wm = wm.resize((round(wm.width * WORD_H / wm.height), WORD_H), Image.LANCZOS)
+
+def compose(layout):
+    if layout == "h":
+        cw = PAD + mk.width + GAP + wm.width + PAD
+        ch = PAD + max(mk.height, wm.height) + PAD
+        canvas = Image.new("RGBA", (cw, ch), (*bgcol, 255))
+        canvas.alpha_composite(mk, (PAD, (ch - mk.height) // 2))
+        canvas.alpha_composite(wm, (PAD + mk.width + GAP, (ch - wm.height) // 2))
+    else:  # stacked
+        cw = PAD + max(mk.width, wm.width) + PAD
+        ch = PAD + mk.height + GAP + wm.height + PAD
+        canvas = Image.new("RGBA", (cw, ch), (*bgcol, 255))
+        canvas.alpha_composite(mk, ((cw - mk.width) // 2, PAD))
+        canvas.alpha_composite(wm, ((cw - wm.width) // 2, PAD + mk.height + GAP))
+    return canvas.convert("RGB")
+
+compose("h").save(os.path.join(OUT, "lockup-horizontal-dark.png"))
+compose("v").save(os.path.join(OUT, "lockup-stacked-dark.png"))
+print("wrote lockup-horizontal-dark.png, lockup-stacked-dark.png")
+
+# Web nutzt dasselbe Lockup (pub.dev-README laedt es von getloam.dev)
+import shutil
+WEB = os.path.join(ROOT, "web")
+shutil.copy(os.path.join(OUT, "lockup-horizontal-dark.png"),
+            os.path.join(WEB, "loam-lockup.png"))
+# Website bindet exakt dieselben generierten Vektoren ein -> kein Drift.
+for f in ("icon-mark.svg", "wordmark.svg"):
+    shutil.copy(os.path.join(HERE, f), os.path.join(WEB, f))
+shutil.copy(os.path.join(OUT, "icon-mark.png"), os.path.join(WEB, "favicon.png"))
+print("copied -> web/ (loam-lockup.png, icon-mark.svg, wordmark.svg, favicon.png)")
+print("MARK bbox", MARK, "| soil", SOIL, "green", GREEN, "ink", INK)

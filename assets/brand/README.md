@@ -1,90 +1,68 @@
-# loam.dev — Brand-Assets
+# loam.dev — Corporate Design
 
-Logo, Farben und ASCII-Banner für loam.dev. **Single Source of Truth sind
-Vektorpfade** (SVG), nicht generierte Bilder — so ist das Mark in jedem Asset
-pixel-identisch und reproduzierbar (vgl. Kern-Invariante *Reproduzierbarkeit*).
-Generative Bildmodelle würfeln das Symbol bei jedem Lauf neu und sind für ein
-Logo ungeeignet.
+**Eine Quelle, kein Drift.** Alle vom User sichtbaren Marken-Elemente (Logo,
+Wortmarke, Farben, Schrift) werden aus **`tokens.json`** + zwei Vektor-Bausteinen
+generiert und überall identisch verwendet — README, PNG, SVG, Terminal, Website.
+Abweichungen sind durch die QS (`tool/docs-attest.sh check` → `brand-tokens`)
+mechanisch verboten.
 
-## Herkunft
-
-Das Logo wurde einmalig per KI-Bild entworfen (`_ai-drafts/`), der freigegebene
-Entwurf dann mit **potrace** zu sauberen Vektorpfaden **nachgezeichnet** (Trieb,
-Boden, „loam", „.dev" je als eigene Maske). Alle ausgelieferten Assets werden
-aus diesen Pfaden generiert.
-
-## Motiv
-
-Ein Trieb (zwei organische Blätter + Stiel) wächst aus drei gestapelten,
-gerundeten Boden-Horizonten. Doppeldeutig: Boden = *loam*, die Schichten =
-*Layer/Boundary* (was das Tool analysiert), der Spross = gesunder Code.
-Wortmarke in gerundeter Monospace, `.dev` im Trieb-Grün.
-
-## Farben
+## Farb-Tokens (`tokens.json`)
 
 | Token | Hex | Verwendung |
 |---|---|---|
-| Grün (Trieb / `.dev`) | `#88C840` | Akzent, Blätter, Stiel |
-| Erde (Boden) | `#282420` | Boden-Horizonte |
-| Grund (dunkel) | `#101014` | Lockup-Hintergrund |
-| Ink (Wortmarke) | `#F2F2F2` | „loam" auf dunklem Grund |
+| `green` | `#88C840` | Trieb, `.dev`, Akzent |
+| `soil` | `#564F47` | Boden-Schichten (sichtbar auf hell **und** dunkel) |
+| `ink` | `#ECEAE3` | „loam", Text auf dunklem Grund |
+| `bg` | `#101014` | dunkler Canvas (Lockups, Website) |
+| `dim` | `#8D8A7E` | Sekundärtext |
 
-## Assets
+**Keine Per-Oberflächen-Abweichung.** Frühere Drift-Werte (`#282420`, `#6A635A`,
+`#7A7064`, `#F2F2F2`, `#ECE9E1`) sind Anti-Vokabular und werden von der QS in
+Brand-Quellen + Website abgelehnt.
 
-| Datei | Zweck |
+## Schrift
+
+**Wortmarke: Spline Sans Mono** (SemiBold/`wght 600`), rundlich. Die Wortmarke
+wird **aus der Schrift zu Outlines** erzeugt (`wordmark_from_font.py`) → font-freie
+Pfade, überall identisch, kein Web-Font-Risiko. Auf der Website ist Spline Sans
+Mono auch die UI-/Body-Schrift (Google Fonts).
+
+## Logo-Aufbau
+
+Mark = Trieb (grün) über drei Boden-Schichten (`soil`). Wortmarke = `loam`(ink)
++ `.dev`(green). Mark stammt aus dem freigegebenen Draft (potrace-Vektor),
+eingefärbt mit den Tokens.
+
+## Assets (alle generiert)
+
+| Datei | Quelle |
 |---|---|
-| `icon-mark.png` / `_svg/icon-mark.svg` | Icon-Mark, transparent, quadratisch — Favicon, pub.dev-Avatar, App-Icon |
-| `icon-mono-white.png` / `_svg/icon-mono-white.svg` | Einfarbig weiß, transparent — dunkle Hintergründe |
-| `lockup-horizontal-dark.png` / `_svg/lockup-horizontal.svg` | Haupt-Logo (Symbol + Wort), README-Header, Web-Navbar |
-| `lockup-stacked-dark.png` / `_svg/lockup-stacked.svg` | Gestapelt — Website-Hero, quadratische Flächen |
-| `terminal-banner.png` | PNG des farbigen Terminal-Banners (Pixel-Art) — für README/Web als „so sieht's im Terminal aus" |
-| `ascii-banner.sh` / `ascii-banner.txt` | Farbiger Terminal-Banner (Big/Compact/Mini) + Plain-Fallback |
-
-Die **SVGs sind komplett font-frei** (Schrift ist als Pfad vektorisiert) und
-damit voll portabel — kein Font-Dependency beim Web-Einsatz.
+| `icon-mark.png` / `_svg/icon-mark.svg` | `build.py` (Mark, transparent) |
+| `icon-mono-white.png` / `_svg/icon-mono-white.svg` | `build.py` (einfarbig weiß) |
+| `_svg/wordmark.svg` | `wordmark_from_font.py` (Spline → Outline) |
+| `lockup-horizontal-dark.png` / `lockup-stacked-dark.png` | `build.py` (Mark + Wortmarke, Canvas `bg`) |
+| `terminal-banner.png` · `ascii-banner.sh/.txt` | `_ascii/gen.py` (Halbblock-Pixel-Art) |
+| `web/loam-lockup.png`, `web/icon-mark.svg`, `web/wordmark.svg`, `web/favicon.png` | von `build.py` nach `web/` kopiert (Website = exakt dieselben Dateien) |
 
 ## Neu generieren
 
-Voraussetzungen: `potrace`, `librsvg` (`rsvg-convert`), Python mit `Pillow`.
+Voraussetzungen: `rsvg-convert`, `Pillow`, `potrace` (nur für den Mark-Trace),
+`fonttools` (venv, für die Wortmarke).
 
 ```bash
-cd assets/brand/_svg
-python3 trace.py        # Schritt 1: Draft -> Masken -> potrace -> _trace_*.svg
-python3 build.py        # Schritt 2: ein Mark -> alle Varianten als SVG
-# Schritt 3: rastern (viewBox-treu, exakte Größe, Transparenz erhalten)
-rsvg-convert -w 1024 icon-mark.svg        -o ../icon-mark.png
-rsvg-convert -w 1024 icon-mono-white.svg  -o ../icon-mono-white.png
-rsvg-convert -w 1600 lockup-horizontal.svg -o ../lockup-horizontal-dark.png
-rsvg-convert -w 1100 lockup-stacked.svg    -o ../lockup-stacked-dark.png
+cd assets/brand
+# 1) Wortmarke aus der Schrift (einmalig venv: python3 -m venv .venv && .venv/bin/pip install fonttools)
+<venv>/bin/python _svg/wordmark_from_font.py
+# 2) Icon, Mono, Lockups, web/-Kopien
+python3 _svg/build.py
+# 3) Terminal-Banner + ASCII
+python3 _ascii/gen.py
 ```
 
-`_svg/_mask_*.pbm` und `_svg/_trace_*.svg` sind Zwischenstufen; sie liegen für
-Nachvollziehbarkeit bei und werden von `trace.py` neu erzeugt.
+`_svg/_mask_*.pbm` / `_svg/_trace_*.svg` sind die Mark-Zwischenstufen (potrace).
 
-## Terminal-Banner (farbige Pixel-Art)
+## ASCII / Terminal-Banner
 
-Der Banner ist **kein handgemaltes ASCII**, sondern eine farbige Pixel-Art-
-Rasterung des echten Logos — dieselbe Technik wie die GitHub-Copilot-CLI:
-Artwork rastern, in Terminal-Zellen sampeln. Pro Zelle ein **Halbblock `▀`**
-mit Vordergrund = oberer Pixel, Hintergrund = unterer Pixel (2 vertikale Pixel
-je Zelle), **Truecolor (24-bit)**. So bleibt der echte Trieb organisch und die
-Schichten exakt wie im Logo.
-
-Farben werden pro Zelle auf die Palette **quantisiert** (knackige Kanten statt
-Antialiasing): Trieb/`.dev` = `#88C840`; Erde = Logo-Grau `#282420`, für
-Terminal-Sichtbarkeit auf `#6A635A` aufgehellt (Grau-Familie, **kein Braun**);
-`loam` weiß. Auch die Wortmarke ist Pixel-Art aus der echten Logo-Schrift
-(`wordmark.svg`) — kein figlet.
-
-Größen:
-- **big** — gestapelt: Mark (32 Zellen) über Wortmarke (60), Tagline. Splash.
-- **compact** — horizontal: kleines Mark + lesbare Wortmarke (~7 Zeilen, <80 Spalten).
-- **mini** — farbiger Einzeiler.
-
-- **`ascii-banner.sh [big|compact|mini]`** — farbige Ausgabe (Truecolor).
-  Automatisch aus bei `NO_COLOR=1` / nicht-TTY / Pipe → **Plain-Fallback**.
-  Live ansehen: `bash assets/brand/ascii-banner.sh big`
-- **`ascii-banner.txt`** — Struktur-Referenz + Plain-Fallback (die farbige
-  Fassung lässt sich nicht sinnvoll als Plain-Text zeigen).
-- **`_ascii/gen.py [preview]`** — Generator (braucht `rsvg-convert`, `Pillow`);
-  rendert Banner + `terminal-banner.png` neu aus den Vektor-Quellen.
+Farbige Halbblock-Pixel-Art aus `icon-mark.svg` + `wordmark.svg`, Farben pro Zelle
+auf die Tokens quantisiert. `ascii-banner.sh [big|compact|mini]` (Truecolor;
+`NO_COLOR`/Pipe → Plain-Fallback).

@@ -2,7 +2,7 @@ loam.dev — Terminal-Banner (farbige Pixel-Art)
 ==============================================
 
 Halbblock-Rasterung des echten Logos (Truecolor), Farben pro Zelle quantisiert
-auf Grün #88C840 / Erd-Grau #6A635A / Weiß. Technik wie GitHub Copilot CLI.
+auf die Marken-Tokens (assets/brand/tokens.json). Technik wie GitHub Copilot CLI.
 Die FARBIGE Fassung trägt die Form nur über Farbe und lässt sich nicht als
 Plain-Text zeigen — live ansehen:
 
@@ -32,11 +32,11 @@ Struktur "big" (nur Belegung, ohne Farbe):
               ████████████████████████████████              
               ████████████████████████████████              
                                                             
-███                                        █                
-  █     █████   █████  ███████         █████   █████  █   ██
-  █     █   ██  █   █  ██ █  █        ██   █  ██████  ██  ██
-  █     █   ██  █████  ██ █  █        ██   █  ██████   █ ██ 
-██████  ██████  █████  ██ █  █   ██    █████  ██████   ███  
+████                                      ██                
+  ██     ████   █████ ███████          █████   ████  ██   ██
+  ██    ██ ███  ██ ██  ████ ██        ███ ██  ██  ██  ██ ███
+  ██    ██  ██ ██████  █ ██ ██   █    ██  ██  ██████  █████ 
+  ████  █████  ██████  █ ██ ██  ███    █████  ██████   ███  
 
 Plain-Fallback (NO_COLOR / Pipe / nicht-TTY):
 
