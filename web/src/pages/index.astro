@@ -55,11 +55,14 @@
   .lockup{ position:relative; display:inline-block; margin:1.5rem auto 0;
     animation:rise .9s .08s cubic-bezier(.2,.8,.2,1) both; }
   .wm-hero{ width:var(--wm); height:auto; display:block; }
+  /* Unterstrich-Cursor wie im Terminal: ~eine Zeichenzelle breit, Oberkante auf
+     der Grundlinie des letzten Zeichens (baseline ~.047·--wm über der Grafik-
+     Unterkante), Körper knapp darunter im Descender-Bereich. */
   .caret{ position:absolute; left:100%; bottom:0; display:block;
-    width:calc(var(--wm) * .066); height:calc(var(--wm) * .03);
-    margin-left:calc(var(--wm) * .02); margin-bottom:calc(var(--wm) * .04);
+    width:calc(var(--wm) * .104); height:calc(var(--wm) * .032);
+    margin-left:calc(var(--wm) * .015); margin-bottom:calc(var(--wm) * .015);
     background:var(--green); border-radius:2px;
-    box-shadow:0 0 14px rgba(136,200,64,.65);
+    box-shadow:0 0 16px rgba(136,200,64,.7);
     animation:blink 1.05s steps(1,end) infinite; }
 
   .tagline{ font-size:clamp(1.15rem,3vw,1.7rem); font-weight:500; line-height:1.35; color:var(--ink);
