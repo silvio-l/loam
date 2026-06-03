@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</title>
+  <meta name="description" content="Codebase intelligence and anti-AI-slop for Dart &amp; Flutter: dead code, cycles, duplication, complexity and architecture drift, behind a baseline/ratchet CI gate.">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta property="og:title" content="loam.dev">
+  <meta property="og:description" content="Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter.">
+  <meta name="theme-color" content="#101014">
+  <style>
+    :root{ --bg:#101014; --ink:#f2f2f2; --green:#88c840; --soil:#6a635a; --dim:#8a8a92; }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    html,body{ height:100%; }
+    body{
+      background:var(--bg); color:var(--ink);
+      font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+      display:flex; align-items:center; justify-content:center;
+      min-height:100svh; padding:6vw; text-align:center;
+      background-image:radial-gradient(120% 80% at 50% -10%, #16181d 0%, #101014 60%);
+    }
+    main{ max-width:680px; width:100%; }
+    .logo{ width:min(460px,82vw); height:auto; margin:0 auto 2.2rem; display:block; }
+    .tagline{ font-size:clamp(1rem,2.6vw,1.35rem); line-height:1.5; color:var(--ink); }
+    .tagline .accent{ color:var(--green); }
+    .soon{
+      margin-top:2.4rem; display:inline-flex; align-items:center; gap:.6rem;
+      font-size:.95rem; letter-spacing:.12em; text-transform:uppercase;
+      color:var(--dim); border:1px solid #2a2a30; border-radius:999px; padding:.5rem 1rem;
+    }
+    .dot{ width:.5rem; height:.5rem; border-radius:50%; background:var(--green);
+      box-shadow:0 0 0 0 rgba(136,200,64,.6); animation:pulse 2s infinite; }
+    @keyframes pulse{ 70%{ box-shadow:0 0 0 .5rem rgba(136,200,64,0);} 100%{ box-shadow:0 0 0 0 rgba(136,200,64,0);} }
+    .links{ margin-top:2.4rem; font-size:.95rem; }
+    .links a{ color:var(--green); text-decoration:none; border-bottom:1px solid transparent; }
+    .links a:hover{ border-bottom-color:var(--green); }
+    .sep{ color:#33333a; margin:0 .7rem; }
+    footer{ margin-top:3rem; color:var(--dim); font-size:.8rem; }
+    @media (prefers-reduced-motion:reduce){ .dot{ animation:none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <img class="logo" src="loam-lockup.png"
+         alt="loam.dev — Codebase intelligence and anti-AI-slop for Dart and Flutter">
+    <p class="tagline">
+      Codebase intelligence <span class="accent">&amp;</span> anti-AI-slop for Dart &amp; Flutter.<br>
+      Catches the structural drift and AI-generated slop that
+      <code>dart analyze</code> never sees — behind a baseline/ratchet CI gate.
+    </p>
+    <div class="soon"><span class="dot"></span> Coming soon</div>
+    <p class="links">
+      <a href="https://github.com/silvio-l/loam">GitHub</a>
+      <span class="sep">·</span>
+      <span style="color:var(--dim)">CLI: <code>dart pub global activate loam</code> (soon)</span>
+    </p>
+    <footer>© 2026 Silvio Lindstedt · MIT · loam.dev</footer>
+  </main>
+</body>
+</html>
