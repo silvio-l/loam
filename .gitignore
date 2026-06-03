@@ -1,8 +1,9 @@
 # Dart / Pub
 .dart_tool/
 .packages
-pubspec.lock   # Anwendungs-CLI: lock wird nicht eingecheckt, bis pub.dev-Release entscheidet
 build/
+# Hinweis: pubspec.lock wird BEWUSST eingecheckt — Loam ist eine CLI/Executable
+# (Dart-Konvention für Apps), nicht eine reine Library.
 
 # Loam runtime artifacts
 .loam/
