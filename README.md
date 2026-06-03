@@ -13,7 +13,7 @@ optional, cache-stabilised LLM layer.
 ## Status
 
 🚧 Early development — walking skeleton. See the founding spec in
-`.scratch/loam-mvp/PRD.md` and the domain glossary in [`CONTEXT.md`](./CONTEXT.md).
+[`docs/PRD.md`](./docs/PRD.md) and the domain glossary in [`CONTEXT.md`](./CONTEXT.md).
 
 ## Commands (target)
 

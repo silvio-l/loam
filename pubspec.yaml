@@ -4,7 +4,7 @@ description: >-
   duplication, circular dependencies, complexity hotspots, architecture
   boundaries and AI-slop detection, with a baseline/ratchet CI gate.
 version: 0.0.1
-repository: https://github.com/silvio/loam
+repository: https://github.com/silvio-l/loam
 publish_to: none # bis zum ersten pub.dev-Release
 
 environment:
