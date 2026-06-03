@@ -1,6 +1,6 @@
 name: loam
 description: "Codebase intelligence and anti-AI-slop for Dart & Flutter: dead code, cycles, duplication, complexity and architecture drift, behind a baseline/ratchet CI gate."
-version: 0.0.1
+version: 0.0.2
 repository: https://github.com/silvio-l/loam
 homepage: https://getloam.dev
 

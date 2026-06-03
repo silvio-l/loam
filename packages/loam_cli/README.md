@@ -1,50 +1,65 @@
-# loam
+<p align="center">
+  <img src="https://raw.githubusercontent.com/silvio-l/loam/main/assets/brand/lockup-horizontal-dark.png" alt="loam.dev" width="440">
+</p>
 
-> Codebase intelligence & anti-AI-slop for Dart & Flutter.
+<p align="center"><strong>Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter.</strong></p>
 
-`loam` is the CLI command and pub.dev package name for **loam.dev** — a Dart-native,
-semantically accurate, project-wide quality tool. It surfaces what `dart analyze`
-misses: structural drift (dead code, duplication, circular dependencies, complexity
-hotspots, architecture boundary violations) **and** AI-slop — with a baseline/ratchet
-CI gate.
+<p align="center">
+  <a href="https://pub.dev/packages/loam"><img src="https://img.shields.io/pub/v/loam.svg?color=88C840" alt="pub version"></a>
+  <a href="https://github.com/silvio-l/loam/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-88C840" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/built%20with-Dart%20analyzer-0175C2?logo=dart&logoColor=white" alt="Built with the Dart analyzer">
+  <img src="https://img.shields.io/badge/status-walking%20skeleton-A2635A" alt="Status: early development">
+</p>
 
-Built on the Dart `analyzer` package. Deterministic core (offline, free) plus an
-optional, cache-stabilised LLM layer.
+---
 
-This is the CLI package of the loam.dev monorepo. For the project overview, the
-founding spec and the domain glossary, see the
-[repository root](https://github.com/silvio-l/loam).
+> **loam.dev** is the product; **`loam`** is this CLI command and pub.dev package.
+> Web: [getloam.dev](https://getloam.dev) · Source: [github.com/silvio-l/loam](https://github.com/silvio-l/loam)
+
+`loam` catches the **structural drift** and **AI-generated slop** that
+`dart analyze` never sees — behind a baseline/ratchet CI gate that never paints a
+grown codebase red on day one. Built on the Dart `analyzer` package: semantically
+accurate, project-wide, offline by default.
+
+## What it catches
+
+| Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) |
+|---|---|
+| Unused public exports, files, members | Empty / swallowing `catch` blocks |
+| Circular dependencies | Narrative filler comments |
+| Code duplication (AST-normalised) | Ungrounded `// ignore:` |
+| Complexity hotspots + health score | Duplicated helpers, dead guards |
+| Architecture-boundary violations | Hallucinated / superfluous abstractions |
+
+## What makes it different
+
+- **🌱 Semantic, not regex** — resolved Dart element model + project-wide graphs.
+- **🔒 Baseline / ratchet gate (default)** — freeze today's findings; only **new** ones fail CI.
+- **♻️ Reproducible even with an LLM** — verdicts cached by `sha(code)+prompt@ver`, fixed thresholds decide. Same code = cache hit = stable verdict, zero token cost.
+- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a fix-prompt for your AI agent.
 
 ## Install
 
-```
+```bash
 dart pub global activate loam
 ```
 
-## Commands (target)
+## Quick start
 
-```
-loam scan      # all active rules across the whole project
-loam health    # score + hotspots
-loam gate      # CI: baseline/ratchet (default) | --absolute
-loam slop      # anti-AI-slop layer (--llm opt-in)
-loam init      # materialise config + inferred layers
-loam fix       # safe auto-fixes (--safe)
+> 🚧 **Early development.** The walking skeleton wires the pipeline and the tracer
+> rule (`unused-public-exports`); the remaining capabilities land as individual
+> rules. Commands below are the target surface.
+
+```bash
+loam scan                 # full audit: every active rule, whole repo
+loam baseline --write      # freeze the accepted state
+loam gate                  # CI: ratchet — only new findings fail
 ```
 
-Output format is chosen with `--format` (`human` | `sarif` | `json` | `markdown` |
-`html`). `--format html` writes a self-contained `loam-report.html` you can open in a
-browser to toggle findings and copy a fix-prompt for an AI agent.
+## Status
 
-## Develop
-
-```
-dart pub get
-dart format --output=none --set-exit-if-changed bin lib test
-dart analyze --fatal-infos --fatal-warnings
-dart test
-dart run bin/loam.dart scan
-```
+Walking skeleton in progress. Founding spec, domain glossary and architecture
+decisions live in the [repository](https://github.com/silvio-l/loam).
 
 ## License
 
