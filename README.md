@@ -76,7 +76,10 @@ a feature never changes the pipeline.
 ```bash
 dart pub global activate loam      # install the CLI
 
+loam init                          # scaffold loam.yaml config in the project
 loam scan                          # full audit: every active rule, whole repo
+loam health                        # project health score: complexity, drift, slop
+loam slop                          # AI-slop audit: slop-focused rules only
 loam fix --safe                    # apply mechanical fixes
 loam baseline --write              # freeze the remaining, accepted state
 loam gate                          # CI from now on — ratchet: only new findings fail

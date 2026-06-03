@@ -22,8 +22,12 @@ Future<int> run(List<String> args) async {
           'Codebase intelligence & anti-AI-slop for Dart/Flutter.',
         )
         ..addCommand(ScanCommand())
+        ..addCommand(_HealthCommand())
         ..addCommand(_GateCommand())
-        ..addCommand(_BaselineCommand());
+        ..addCommand(_BaselineCommand())
+        ..addCommand(_SlopCommand())
+        ..addCommand(_InitCommand())
+        ..addCommand(_FixCommand());
 
   runner.argParser.addOption(
     'format',
@@ -62,6 +66,19 @@ class ScanCommand extends LoamCommand {
   Future<int> run() => notImplemented('tracer: unused-public-exports');
 }
 
+/// Project health score: aggregates active rules into a single health metric.
+class _HealthCommand extends LoamCommand {
+  @override
+  final String name = 'health';
+  @override
+  final String description =
+      'Show project health score: aggregates complexity, drift, and slop metrics.';
+
+  @override
+  Future<int> run() =>
+      notImplemented('aggregate complexity/drift/slop into health score');
+}
+
 class _GateCommand extends LoamCommand {
   @override
   final String name = 'gate';
@@ -71,6 +88,46 @@ class _GateCommand extends LoamCommand {
 
   @override
   Future<int> run() => notImplemented('ratchet gate');
+}
+
+/// AI-slop audit: runs slop-focused rules across the whole project.
+class _SlopCommand extends LoamCommand {
+  @override
+  final String name = 'slop';
+  @override
+  final String description =
+      'AI-slop audit: run slop-focused rules across the whole project.';
+
+  @override
+  Future<int> run() => notImplemented(
+    'slop-focused rules: empty catch, filler comments, dead guards',
+  );
+}
+
+/// Initialises loam.dev configuration in the current project.
+class _InitCommand extends LoamCommand {
+  @override
+  final String name = 'init';
+  @override
+  final String description =
+      'Initialise loam.dev configuration (loam.yaml) in the current project.';
+
+  @override
+  Future<int> run() =>
+      notImplemented('scaffold loam.yaml with default ruleset');
+}
+
+/// Applies mechanical fixes for findings that have a safe auto-fix.
+class _FixCommand extends LoamCommand {
+  @override
+  final String name = 'fix';
+  @override
+  final String description =
+      'Apply mechanical fixes for findings that have a safe auto-fix.';
+
+  @override
+  Future<int> run() =>
+      notImplemented('apply mechanical fixes for auto-fixable findings');
 }
 
 /// Writes/updates the baseline — the bridge between the full audit and the
