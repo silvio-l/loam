@@ -1,61 +1,174 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</title>
-  <meta name="description" content="Codebase intelligence and anti-AI-slop for Dart &amp; Flutter: dead code, cycles, duplication, complexity and architecture drift, behind a baseline/ratchet CI gate.">
-  <link rel="icon" type="image/png" href="favicon.png">
-  <meta property="og:title" content="loam.dev">
-  <meta property="og:description" content="Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter.">
-  <meta name="theme-color" content="#101014">
-  <style>
-    :root{ --bg:#101014; --ink:#f2f2f2; --green:#88c840; --soil:#6a635a; --dim:#8a8a92; }
-    *{ box-sizing:border-box; margin:0; padding:0; }
-    html,body{ height:100%; }
-    body{
-      background:var(--bg); color:var(--ink);
-      font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
-      display:flex; align-items:center; justify-content:center;
-      min-height:100svh; padding:6vw; text-align:center;
-      background-image:radial-gradient(120% 80% at 50% -10%, #16181d 0%, #101014 60%);
-    }
-    main{ max-width:680px; width:100%; }
-    .logo{ width:min(460px,82vw); height:auto; margin:0 auto 2.2rem; display:block; }
-    .tagline{ font-size:clamp(1rem,2.6vw,1.35rem); line-height:1.5; color:var(--ink); }
-    .tagline .accent{ color:var(--green); }
-    .soon{
-      margin-top:2.4rem; display:inline-flex; align-items:center; gap:.6rem;
-      font-size:.95rem; letter-spacing:.12em; text-transform:uppercase;
-      color:var(--dim); border:1px solid #2a2a30; border-radius:999px; padding:.5rem 1rem;
-    }
-    .dot{ width:.5rem; height:.5rem; border-radius:50%; background:var(--green);
-      box-shadow:0 0 0 0 rgba(136,200,64,.6); animation:pulse 2s infinite; }
-    @keyframes pulse{ 70%{ box-shadow:0 0 0 .5rem rgba(136,200,64,0);} 100%{ box-shadow:0 0 0 0 rgba(136,200,64,0);} }
-    .links{ margin-top:2.4rem; font-size:.95rem; }
-    .links a{ color:var(--green); text-decoration:none; border-bottom:1px solid transparent; }
-    .links a:hover{ border-bottom-color:var(--green); }
-    .sep{ color:#33333a; margin:0 .7rem; }
-    footer{ margin-top:3rem; color:var(--dim); font-size:.8rem; }
-    @media (prefers-reduced-motion:reduce){ .dot{ animation:none; } }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</title>
+<meta name="description" content="loam.dev catches the structural drift and AI-generated slop that dart analyze never sees — behind a baseline/ratchet CI gate. Semantic, project-wide, offline by default.">
+<link rel="icon" type="image/png" href="favicon.png">
+<meta name="theme-color" content="#0b0c0f">
+<meta property="og:type" content="website">
+<meta property="og:title" content="loam.dev">
+<meta property="og:description" content="Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter.">
+<meta property="og:image" content="https://getloam.dev/loam-lockup.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0c0f; --panel:#0f1115;
+    --ink:#ece9e1; --dim:#8d8a7e; --faint:#3a3a40;
+    --green:#88c840; --green-soft:#a6dd6a; --green-deep:#5f8f2b;
+    --clay:#7a7064; --clay-dim:#4a443c;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --serif:'Fraunces',Georgia,'Times New Roman',serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    min-height:100svh; background:var(--bg); color:var(--ink);
+    font-family:var(--mono); position:relative; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  /* atmosphere: green glow + fine grid + grain */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(60% 50% at 50% 30%, rgba(136,200,64,.10) 0%, rgba(136,200,64,0) 60%),
+      linear-gradient(180deg,#0c0d11 0%, #0b0c0f 55%, #0d0e0c 100%);
+  }
+  body::after{ /* grain */
+    content:""; position:fixed; inset:0; z-index:2; pointer-events:none; opacity:.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .grid{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
+    background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+    background-size:64px 64px; mask-image:radial-gradient(80% 70% at 50% 35%,#000 30%,transparent 78%);}
+
+  /* top bar */
+  header{ position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between;
+    padding:clamp(1.1rem,3vw,1.8rem) clamp(1.2rem,5vw,3rem); font-size:.82rem; letter-spacing:.02em; }
+  .brand{ display:flex; align-items:center; gap:.55rem; color:var(--ink); font-weight:700; }
+  .brand .b-dot{ width:.5rem; height:.5rem; border-radius:50%; background:var(--green); box-shadow:0 0 12px var(--green); }
+  .brand .accent{ color:var(--green); }
+  .chip{ font-size:.7rem; letter-spacing:.16em; text-transform:uppercase; color:var(--green-soft);
+    border:1px solid rgba(136,200,64,.28); border-radius:999px; padding:.42rem .8rem; background:rgba(136,200,64,.05); }
+
+  /* hero */
+  main{ position:relative; z-index:3; flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; text-align:center; padding:2rem clamp(1.2rem,5vw,3rem) 3rem; }
+  .mark{ width:clamp(96px,16vw,150px); height:auto; filter:drop-shadow(0 6px 30px rgba(136,200,64,.22));
+    animation:rise .9s cubic-bezier(.2,.8,.2,1) both; }
+  .mark .soil{ fill:var(--clay); }
+  .mark .soil-2{ fill:var(--clay-dim); }
+  .mark .sprout{ fill:var(--green); }
+  .leaf{ transform-origin:50% 70%; animation:sway 7s ease-in-out infinite; }
+
+  .wordmark{ font-family:var(--mono); font-weight:700; letter-spacing:-.02em;
+    font-size:clamp(2.8rem,9vw,5.2rem); line-height:1; margin-top:1.6rem;
+    animation:rise .9s .08s cubic-bezier(.2,.8,.2,1) both; }
+  .wordmark .dev{ color:var(--green); }
+  .wordmark .cursor{ color:var(--green); animation:blink 1.15s steps(1) infinite; font-weight:400; }
+
+  .tagline{ font-family:var(--serif); font-weight:400; font-optical-sizing:auto;
+    font-size:clamp(1.25rem,3.4vw,2rem); line-height:1.32; color:var(--ink); max-width:20ch;
+    margin:1.5rem auto 0; animation:rise .9s .16s cubic-bezier(.2,.8,.2,1) both; }
+  .tagline em{ font-style:italic; color:var(--green-soft); }
+
+  .sub{ font-family:var(--mono); font-size:clamp(.82rem,1.7vw,.95rem); line-height:1.65; color:var(--dim);
+    max-width:54ch; margin:1.4rem auto 0; animation:rise .9s .24s cubic-bezier(.2,.8,.2,1) both; }
+  .sub code{ color:var(--ink); background:rgba(255,255,255,.05); padding:.05em .4em; border-radius:5px; }
+
+  .cmd{ margin:2.2rem auto 0; display:inline-flex; align-items:center; gap:.9rem;
+    font-family:var(--mono); font-size:clamp(.82rem,1.8vw,.98rem);
+    background:linear-gradient(180deg,#15171c,#101216); border:1px solid #23252b; border-radius:12px;
+    padding:.8rem 1rem .8rem 1.1rem; box-shadow:0 12px 40px rgba(0,0,0,.45);
+    animation:rise .9s .32s cubic-bezier(.2,.8,.2,1) both; }
+  .cmd .p{ color:var(--green); }
+  .cmd .t{ color:var(--ink); }
+  .cmd button{ font-family:var(--mono); font-size:.68rem; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--dim); background:transparent; border:1px solid #2b2d33; border-radius:7px;
+    padding:.34rem .6rem; cursor:pointer; transition:.18s; }
+  .cmd button:hover{ color:var(--green); border-color:rgba(136,200,64,.5); }
+  .cmd button.ok{ color:var(--green); border-color:rgba(136,200,64,.5); }
+
+  .links{ margin-top:2.1rem; display:flex; gap:1.4rem; align-items:center; justify-content:center;
+    font-size:.85rem; animation:rise .9s .4s cubic-bezier(.2,.8,.2,1) both; }
+  .links a{ color:var(--ink); text-decoration:none; border-bottom:1px solid rgba(236,233,225,.22); padding-bottom:2px; transition:.18s; }
+  .links a:hover{ color:var(--green); border-color:var(--green); }
+  .links .sep{ width:4px; height:4px; border-radius:50%; background:var(--faint); }
+
+  /* soil strata at the very bottom — echoes the logo layers */
+  .strata{ position:fixed; left:0; right:0; bottom:0; height:34vh; z-index:1; pointer-events:none;
+    background:
+      linear-gradient(180deg, transparent 0%, rgba(40,36,32,.0) 30%, rgba(40,36,32,.45) 72%, rgba(28,25,22,.9) 100%);
+    mask-image:linear-gradient(180deg,transparent,#000 60%); }
+  .strata::before{ content:""; position:absolute; left:0; right:0; bottom:0; height:120px;
+    background:repeating-linear-gradient(180deg, rgba(122,112,100,.10) 0 10px, rgba(0,0,0,0) 10px 22px); opacity:.6; }
+
+  footer{ position:relative; z-index:3; text-align:center; padding:1.4rem; font-size:.74rem;
+    color:var(--dim); letter-spacing:.04em; animation:rise .9s .48s cubic-bezier(.2,.8,.2,1) both; }
+  footer .accent{ color:var(--clay); }
+
+  @keyframes rise{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
+  @keyframes blink{ 50%{ opacity:0; } }
+  @keyframes sway{ 0%,100%{ transform:rotate(-2deg);} 50%{ transform:rotate(2deg);} }
+  @media (prefers-reduced-motion:reduce){ *{ animation:none !important; } }
+</style>
 </head>
 <body>
-  <main>
-    <img class="logo" src="loam-lockup.png"
-         alt="loam.dev — Codebase intelligence and anti-AI-slop for Dart and Flutter">
-    <p class="tagline">
-      Codebase intelligence <span class="accent">&amp;</span> anti-AI-slop for Dart &amp; Flutter.<br>
-      Catches the structural drift and AI-generated slop that
-      <code>dart analyze</code> never sees — behind a baseline/ratchet CI gate.
-    </p>
-    <div class="soon"><span class="dot"></span> Coming soon</div>
-    <p class="links">
-      <a href="https://github.com/silvio-l/loam">GitHub</a>
-      <span class="sep">·</span>
-      <span style="color:var(--dim)">CLI: <code>dart pub global activate loam</code> (soon)</span>
-    </p>
-    <footer>© 2026 Silvio Lindstedt · MIT · loam.dev</footer>
-  </main>
+<div class="grid"></div>
+
+<header>
+  <span class="brand"><span class="b-dot"></span>loam<span class="accent">.dev</span></span>
+  <span class="chip">v0.0.1 · preview</span>
+</header>
+
+<main>
+  <!-- inline mark: sprout (green) over clay-tone soil layers, contrast-tuned for dark -->
+  <svg class="mark" viewBox="150 301 405 405" role="img" aria-label="loam.dev">
+    <g class="soil"><g transform="translate(0,1024) scale(0.1,-0.1)">
+      <path d="M2455 5175 c-49 -17 -90 -61 -104 -112 -6 -21 -11 -79 -11 -128 0 -102 22 -162 73 -199 28 -21 36 -21 1108 -24 1206 -3 1115 -8 1166 70 25 37 28 52 31 145 6 155 -30 227 -126 252 -23 7 -419 10 -1067 10 -853 0 -1037 -3 -1070 -14z"/>
+      <path d="M2431 4623 c-18 -9 -45 -34 -60 -57 -24 -37 -26 -46 -26 -160 0 -103 3 -126 20 -155 26 -44 62 -70 111 -81 22 -5 491 -10 1066 -10 1133 0 1078 -3 1133 62 36 42 48 100 43 209 -3 84 -7 102 -30 136 -52 78 32 73 -1160 73 -968 0 -1066 -2 -1097 -17z"/>
+      <path d="M2434 4080 c-62 -31 -86 -82 -92 -194 -7 -143 21 -210 102 -247 39 -18 90 -19 1086 -19 996 0 1047 1 1086 19 82 37 108 103 102 251 -4 115 -25 157 -92 189 -42 21 -51 21 -1097 21 -1037 0 -1055 0 -1095 -20z"/>
+    </g></g>
+    <g class="sprout leaf"><g transform="translate(0,1024) scale(0.1,-0.1)">
+      <path d="M2356 6761 c-14 -16 -15 -29 -7 -103 13 -117 36 -198 82 -297 117 -251 326 -410 599 -456 193 -32 216 -37 262 -57 58 -25 123 -93 137 -144 6 -23 11 -135 11 -264 0 -162 3 -229 12 -238 7 -7 40 -12 78 -12 38 0 71 5 78 12 9 9 12 76 12 238 0 124 5 241 10 261 15 54 80 122 142 149 29 12 109 31 178 41 214 33 325 76 450 176 174 139 282 343 310 590 7 63 6 82 -6 101 -14 21 -19 22 -182 22 -284 0 -413 -23 -563 -101 -190 -99 -347 -299 -397 -506 -9 -41 -22 -73 -29 -73 -7 0 -17 19 -23 43 -54 216 -169 383 -341 496 -162 106 -316 141 -632 141 -147 0 -166 -2 -181 -19z"/>
+    </g></g>
+  </svg>
+
+  <h1 class="wordmark">loam<span class="dev">.dev</span><span class="cursor">_</span></h1>
+
+  <p class="tagline">Codebase intelligence &amp; <em>anti-AI-slop</em> for Dart&nbsp;&amp;&nbsp;Flutter.</p>
+
+  <p class="sub">Catches the structural drift and AI-generated slop that <code>dart&nbsp;analyze</code>
+     never sees — semantic, project-wide, behind a baseline/ratchet CI gate that never paints a
+     grown codebase red on day one.</p>
+
+  <div class="cmd">
+    <span class="p">$</span><span class="t" id="cmd">dart pub global activate loam</span>
+    <button id="copy" aria-label="Copy install command">copy</button>
+  </div>
+
+  <nav class="links">
+    <a href="https://pub.dev/packages/loam">pub.dev</a>
+    <span class="sep"></span>
+    <a href="mailto:silvio-lindstedt@outlook.com">contact</a>
+  </nav>
+</main>
+
+<div class="strata"></div>
+<footer>© 2026 Silvio Lindstedt &nbsp;<span class="accent">·</span>&nbsp; MIT &nbsp;<span class="accent">·</span>&nbsp; built in the open</footer>
+
+<script>
+  const btn=document.getElementById('copy');
+  btn?.addEventListener('click',async()=>{
+    try{ await navigator.clipboard.writeText(document.getElementById('cmd').textContent.trim());
+      btn.textContent='copied'; btn.classList.add('ok');
+      setTimeout(()=>{ btn.textContent='copy'; btn.classList.remove('ok'); },1600);
+    }catch(e){}
+  });
+</script>
 </body>
 </html>
