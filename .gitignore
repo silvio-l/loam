@@ -16,3 +16,6 @@ baseline.json
 .DS_Store
 *.iml
 .idea/
+
+# README/Docs-Attestierung (lokaler Push-Stempel)
+.docs-attest

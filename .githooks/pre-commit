@@ -1,22 +1,9 @@
 #!/usr/bin/env bash
-# loam.dev pre-commit: README-QS (deterministisch, 0 Token).
+# loam.dev pre-commit: Struktur-Check der öffentlichen Docs (deterministisch, 0 Token).
+# Die bewusste Push-Attestierung sitzt im pre-push-Hook, nicht hier.
 # Aktivieren (einmalig pro Clone):  git config core.hooksPath .githooks
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
-QA="$ROOT/tool/readme-qa.sh"
+QA="$ROOT/tool/docs-attest.sh"
 [ -x "$QA" ] || { echo "pre-commit: $QA fehlt/nicht ausführbar"; exit 1; }
-
-# 1) Inhalts-Invarianten — immer.
 "$QA" check
-
-# 2) Attestierung — nur relevant, wenn README-Quellen im Commit stecken.
-#    Sonst überspringen (kein Reibungsverlust bei unbeteiligten Commits).
-staged="$(git diff --cached --name-only)"
-if printf '%s\n' "$staged" | grep -qE '^(README\.md|CONTEXT\.md|docs/PRD\.md|packages/loam_cli/bin/loam\.dart)$'; then
-  if ! "$QA" freshness; then
-    echo ""
-    echo "Commit blockiert: README nicht als aktuell bestätigt." >&2
-    echo "Bewusste Bestätigung ist die EINZIGE Art, dies zu passieren." >&2
-    exit 1
-  fi
-fi

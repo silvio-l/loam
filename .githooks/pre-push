@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# loam.dev pre-push: Public-Docs-Attestierungs-Schranke (deterministisch, 0 Token).
+#
+# Vor JEDEM Push muss die KI bewusst bestätigt haben, dass die README dem
+# aktuellen Repo-Stand entspricht (Aufbau + Inhalt). Die einzige Art, die
+# Schranke zu passieren, ist diese bewusste Bestätigung:
+#
+#     tool/docs-attest.sh attest      # nach echter Prüfung der README
+#
+# Aktivieren (einmalig pro Clone):  git config core.hooksPath .githooks
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+QA="$ROOT/tool/docs-attest.sh"
+[ -x "$QA" ] || { echo "pre-push: $QA fehlt/nicht ausführbar"; exit 1; }
+
+ZERO="0000000000000000000000000000000000000000"
+attested="$("$QA" attested)"
+
+block() {
+  cat >&2 <<EOF
+
+╳ Push blockiert — README nicht für diesen Stand attestiert.
+  $1
+  → README.md gegen den aktuellen Repo-Stand & docs/readme-spec.md PRÜFEN,
+    dann BEWUSST bestätigen:   tool/docs-attest.sh attest
+  Das ist die EINZIGE Art, die Schranke zu passieren (kein --no-verify).
+EOF
+  exit 1
+}
+
+# Struktur muss ohnehin stimmen.
+"$QA" check >/dev/null || block "Struktur-Check (docs-attest.sh check) fehlgeschlagen."
+
+# Für jeden zu pushenden Ref: ist genau dieser Commit attestiert?
+pushed_any=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue          # Branch-Löschung -> egal
+  pushed_any=1
+  if [ "$local_sha" != "$attested" ]; then
+    block "Zu pushen: ${local_sha:0:12} · zuletzt attestiert: ${attested:0:12}"
+  fi
+done
+
+# Falls git keine Refs auf stdin lieferte, gegen HEAD prüfen.
+if [ "$pushed_any" -eq 0 ]; then
+  head="$(git rev-parse HEAD)"
+  [ "$head" = "$attested" ] || block "HEAD ${head:0:12} ist nicht attestiert."
+fi
+
+echo "Public-Docs-QS: README für $(echo "${attested:0:12}") attestiert — Push frei."

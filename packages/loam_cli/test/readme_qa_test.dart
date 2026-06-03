@@ -5,30 +5,29 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-/// README-QS im Gate: die deterministischen Inhalts-Invarianten der
-/// Repo-README (Bild-/Link-Existenz, Anti-Vokabular, Pflichtsektionen) laufen
-/// bei jedem `dart test` mit — 0 Token, scheitert bei Drift.
+/// Public-Docs-QS im Gate: die deterministischen Struktur-Invarianten der
+/// Root-README (Pflicht-Marker aus docs/readme-spec.md, Bild-/Link-Existenz,
+/// Anti-Vokabular) laufen bei jedem `dart test` mit — 0 Token, scheitert bei Drift.
 ///
-/// Die Attestierungs-Schranke (`freshness`/`ack`) sitzt bewusst NUR im
-/// git pre-commit-Hook, nicht hier — Testläufe sollen nicht an einem fehlenden
-/// bewussten ack scheitern.
+/// Die bewusste Push-Attestierung (`attest` + pre-push-Hook) sitzt bewusst NICHT
+/// hier — Testläufe sollen nicht an einem fehlenden Push-ack scheitern.
 void main() {
-  test('README content invariants hold (tool/readme-qa.sh check)', () {
+  test('public docs structure holds (tool/docs-attest.sh check)', () {
     // `dart test` läuft aus packages/loam_cli/ -> Repo-Wurzel ist zwei hoch.
     final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
-    final qa = File('${repoRoot}tool/readme-qa.sh');
+    final qa = File('${repoRoot}tool/docs-attest.sh');
     if (!qa.existsSync()) {
-      fail('tool/readme-qa.sh nicht gefunden unter $repoRoot');
+      fail('tool/docs-attest.sh nicht gefunden unter $repoRoot');
     }
 
     final r = Process.runSync(
       'bash',
-      ['tool/readme-qa.sh', 'check'],
+      ['tool/docs-attest.sh', 'check'],
       workingDirectory: repoRoot,
     );
 
     if (r.exitCode != 0) {
-      fail('README-QS check fehlgeschlagen:\n${r.stdout}\n${r.stderr}');
+      fail('Public-Docs-QS check fehlgeschlagen:\n${r.stdout}\n${r.stderr}');
     }
   });
 }
