@@ -120,6 +120,12 @@ class ProjectLoader {
         final someResult = await session.getResolvedUnit(filePath);
 
         if (someResult is ResolvedUnitResult) {
+          // A `part of` file resolves as a ResolvedUnitResult with isPart=true.
+          // It must not appear as a standalone library entry — its declarations
+          // are already reachable through the library file's libraryElement
+          // fragments. Skip it silently (neither resolved nor error).
+          if (someResult.isPart) continue;
+
           // Check for parse/semantic errors: files with error-severity
           // diagnostics are mapped to the error branch so downstream rules
           // never receive a broken element model.

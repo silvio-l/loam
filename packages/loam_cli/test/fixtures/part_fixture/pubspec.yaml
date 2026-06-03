@@ -1,0 +1,6 @@
+name: part_fixture
+description: "Test fixture for ProjectLoader part/part of handling tests."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0
