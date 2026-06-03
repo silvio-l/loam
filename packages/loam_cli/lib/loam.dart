@@ -4,4 +4,5 @@
 /// and PRD (`docs/PRD.md`) for the architecture.
 library;
 
+export 'src/command/loam_command.dart';
 export 'src/model/finding.dart';

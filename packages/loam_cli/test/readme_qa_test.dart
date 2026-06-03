@@ -19,15 +19,16 @@ void main() {
     if (!qa.existsSync()) {
       // Im veröffentlichten Paket (pub.dev) liegt das Repo-Tool nicht bei —
       // dann ist dieser Repo-QS-Test gegenstandslos und wird übersprungen.
-      markTestSkipped('tool/docs-attest.sh nicht vorhanden — Repo-only-Test übersprungen');
+      markTestSkipped(
+        'tool/docs-attest.sh nicht vorhanden — Repo-only-Test übersprungen',
+      );
       return;
     }
 
-    final r = Process.runSync(
-      'bash',
-      ['tool/docs-attest.sh', 'check'],
-      workingDirectory: repoRoot,
-    );
+    final r = Process.runSync('bash', [
+      'tool/docs-attest.sh',
+      'check',
+    ], workingDirectory: repoRoot);
 
     if (r.exitCode != 0) {
       fail('Public-Docs-QS check fehlgeschlagen:\n${r.stdout}\n${r.stderr}');
