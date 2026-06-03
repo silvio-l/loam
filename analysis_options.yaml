@@ -6,7 +6,7 @@ analyzer:
     strict-inference: true
     strict-raw-types: true
   errors:
-    # Loam soll an sich selbst streng sein.
+    # loam.dev soll an sich selbst streng sein.
     todo: ignore
 
 linter:

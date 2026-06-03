@@ -1,8 +1,9 @@
-# Loam
+# loam.dev
 
 > Codebase intelligence & anti-AI-slop for Dart & Flutter.
 
-**Loam.dev** — a Dart-native, semantically accurate, project-wide quality tool.
+**loam.dev** — a Dart-native, semantically accurate, project-wide quality tool.
+(`loam` is the CLI command and pub.dev package name; the tool itself is **loam.dev**.)
 It surfaces what `dart analyze` misses: structural drift (dead code, duplication,
 circular dependencies, complexity hotspots, architecture boundary violations)
 **and** AI-slop — with a baseline/ratchet CI gate.

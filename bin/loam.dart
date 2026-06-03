@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
-/// Loam CLI entrypoint.
+/// loam.dev CLI entrypoint (command: `loam`).
 ///
 /// Walking-skeleton stub: the command surface is wired, individual
 /// commands are filled in as tracer-bullet slices (see PRD §6).
