@@ -1,0 +1,17 @@
+# Dart / Pub
+.dart_tool/
+.packages
+pubspec.lock   # Anwendungs-CLI: lock wird nicht eingecheckt, bis pub.dev-Release entscheidet
+build/
+
+# Loam runtime artifacts
+.loam/
+baseline.json
+
+# Lokales Issue-Tracking & Doku (PROTECTED — niemals nach GitHub)
+.scratch/
+
+# OS / Editor
+.DS_Store
+*.iml
+.idea/
