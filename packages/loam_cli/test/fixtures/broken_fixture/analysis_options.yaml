@@ -1,0 +1,6 @@
+# Analysis options for the broken_fixture test package.
+# This file exists to prevent the parent loam_cli analysis_options.yaml
+# from being picked up and causing unexpected excludes.
+analyzer:
+  errors:
+    invalid_assignment: error

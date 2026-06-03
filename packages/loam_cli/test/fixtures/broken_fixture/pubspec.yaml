@@ -1,0 +1,6 @@
+name: broken_fixture
+description: "Test fixture with a syntax-error file and a healthy file."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0
