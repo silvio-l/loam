@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/silvio-l/loam/main/assets/brand/lockup-horizontal-dark.png" alt="loam.dev" width="440">
+  <img src="https://getloam.dev/loam-lockup.png" alt="loam.dev" width="440">
 </p>
 
 <p align="center"><strong>Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter.</strong></p>
