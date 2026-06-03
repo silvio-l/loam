@@ -158,6 +158,13 @@ class ProjectLoader {
         }
       }
 
+      // Invariant 5 (Reproduzierbarkeit): sort both lists by normalised
+      // absolute path so that two runs over the same codebase always yield
+      // identical order — independent of the AnalysisContextCollection's
+      // unspecified iteration order.
+      resolved.sort((a, b) => a.path.compareTo(b.path));
+      errors.sort((a, b) => a.path.compareTo(b.path));
+
       return ProjectLoadResult(resolved: resolved, errors: errors);
     } finally {
       await collection.dispose();
