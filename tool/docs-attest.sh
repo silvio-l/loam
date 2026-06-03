@@ -19,6 +19,7 @@ ATTEST="$ROOT/.docs-attest"
 README="$ROOT/README.md"
 CLI="$ROOT/packages/loam_cli/bin/loam.dart"
 WEB="$ROOT/web"
+WEBPAGE="$ROOT/web/src/pages/index.astro"   # Astro-Quelle der Startseite (Single Source des Markups)
 PUBSPEC="$ROOT/packages/loam_cli/pubspec.yaml"
 PKGREADME="$ROOT/packages/loam_cli/README.md"
 
@@ -70,11 +71,14 @@ check_cli() {
 
 check_web() {
   [ -d "$WEB" ] || { note "web/ fehlt"; return; }
-  # Anti-Vokabular über Web-Markdown und (sobald gebaut) HTML
+  # Anti-Vokabular über die Web-Quelle: Astro-Pages/-Components, Markdown, CSS und
+  # (falls gebaut) HTML. node_modules/ und dist/ (Build-Output) werden ausgespart —
+  # die Quelle ist deterministisch immer vorhanden, der Output ist daraus abgeleitet.
   while IFS= read -r f; do
     local hits; hits="$(antivocab "$f")"
     if [ -n "$hits" ]; then note "Anti-Vokabular in ${f#$ROOT/}:"; echo "$hits"; fi
-  done < <(find "$WEB" \( -name '*.md' -o -name '*.html' \) -type f 2>/dev/null)
+  done < <(find "$WEB" \( -path '*/node_modules/*' -o -path '*/dist/*' -o -path '*/.astro/*' \) -prune \
+                 -o \( -name '*.astro' -o -name '*.md' -o -name '*.html' -o -name '*.css' \) -type f -print 2>/dev/null)
   return 0
 }
 
@@ -106,15 +110,16 @@ check_brand() {
   # Corporate-Design: EINE Quelle (assets/brand/tokens.json). Drift verhindern,
   # indem Off-Token-/Legacy-Farben in den Brand-Quellen + der Website verboten sind.
   local legacy='282420|6A635A|7A7064|4A443C|ECE9E1|F2F2F2'
-  for f in "$ROOT/web/index.html" "$ROOT/assets/brand/_svg/build.py" \
+  for f in "$WEBPAGE" "$ROOT/assets/brand/_svg/build.py" \
            "$ROOT/assets/brand/_ascii/gen.py" "$ROOT/assets/brand/_svg/wordmark_from_font.py"; do
     [ -f "$f" ] || continue
     local h; h="$(grep -niE "#($legacy)" "$f" || true)"
     if [ -n "$h" ]; then note "Off-Token-/Legacy-Farbe in ${f#$ROOT/}:"; echo "$h"; fi
   done
-  # Token-Werte müssen in der Website vorkommen (Konsistenz zum Logo)
+  # Token-Werte müssen in der Website-Quelle vorkommen (Konsistenz zum Logo)
+  [ -f "$WEBPAGE" ] || note "Website-Quelle fehlt: ${WEBPAGE#$ROOT/}"
   for v in 88C840 564F47 ECEAE3 101014; do
-    grep -iqF "$v" "$ROOT/web/index.html" || note "Token #$v fehlt in web/index.html"
+    grep -iqF "$v" "$WEBPAGE" 2>/dev/null || note "Token #$v fehlt in ${WEBPAGE#$ROOT/}"
   done
   return 0
 }

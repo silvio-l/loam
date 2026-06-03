@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</title>
 <meta name="description" content="loam.dev catches the structural drift and AI-generated slop that dart analyze never sees — behind a baseline/ratchet CI gate. Semantic, project-wide, offline by default.">
-<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/png" href="/favicon.png">
 <meta name="theme-color" content="#101014">
 <meta property="og:type" content="website">
 <meta property="og:title" content="loam.dev">
@@ -14,12 +14,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spline+Sans+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<style>
+<style is:inline>
   /* Tokens — identisch zu assets/brand/tokens.json (Corporate Design). */
   :root{
     --bg:#101014; --ink:#ECEAE3; --green:#88C840; --soil:#564F47; --dim:#8D8A7E;
     --panel:#15171c; --line:#23252b;
     --font:'Spline Sans Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --wm:clamp(248px,46vw,430px);
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
   body{
@@ -50,8 +51,16 @@
     justify-content:center; text-align:center; padding:2.4rem clamp(1.2rem,5vw,3rem) 3rem; }
   .mark{ width:clamp(86px,13vw,128px); height:auto; display:block;
     filter:drop-shadow(0 6px 26px rgba(136,200,64,.18)); animation:rise .9s cubic-bezier(.2,.8,.2,1) both; }
-  .wm-hero{ width:clamp(248px,46vw,430px); height:auto; display:block; margin:1.5rem auto 0;
+  /* Hero-Lockup: Wortmarke-Grafik + blinkender Terminal-Cursor dahinter. */
+  .lockup{ position:relative; display:inline-block; margin:1.5rem auto 0;
     animation:rise .9s .08s cubic-bezier(.2,.8,.2,1) both; }
+  .wm-hero{ width:var(--wm); height:auto; display:block; }
+  .caret{ position:absolute; left:100%; bottom:0; display:block;
+    width:calc(var(--wm) * .066); height:calc(var(--wm) * .03);
+    margin-left:calc(var(--wm) * .02); margin-bottom:calc(var(--wm) * .04);
+    background:var(--green); border-radius:2px;
+    box-shadow:0 0 14px rgba(136,200,64,.65);
+    animation:blink 1.05s steps(1,end) infinite; }
 
   .tagline{ font-size:clamp(1.15rem,3vw,1.7rem); font-weight:500; line-height:1.35; color:var(--ink);
     max-width:26ch; margin:1.5rem auto 0; animation:rise .9s .16s cubic-bezier(.2,.8,.2,1) both; }
@@ -86,6 +95,7 @@
   footer .accent{ color:var(--soil); }
 
   @keyframes rise{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
+  @keyframes blink{ 0%,50%{ opacity:1; } 50.01%,100%{ opacity:0; } }
   @media (prefers-reduced-motion:reduce){ *{ animation:none !important; } }
 </style>
 </head>
@@ -93,13 +103,16 @@
 <div class="grid"></div>
 
 <header>
-  <a class="brand" href="/" aria-label="loam.dev"><span class="b-dot"></span><img class="wm-sm" src="wordmark.svg" alt="loam.dev"></a>
+  <a class="brand" href="/" aria-label="loam.dev"><span class="b-dot"></span><img class="wm-sm" src="/wordmark.svg" alt="loam.dev"></a>
   <span class="chip">v0.0.2 · preview</span>
 </header>
 
 <main>
-  <img class="mark" src="icon-mark.svg" alt="loam.dev logo — a sprout growing from layered soil">
-  <img class="wm-hero" src="wordmark.svg" alt="loam.dev">
+  <img class="mark" src="/icon-mark.svg" alt="loam.dev logo — a sprout growing from layered soil">
+  <span class="lockup">
+    <img class="wm-hero" src="/wordmark.svg" alt="loam.dev">
+    <span class="caret" aria-hidden="true"></span>
+  </span>
   <p class="tagline">Codebase intelligence &amp; <em>anti-AI-slop</em> for Dart&nbsp;&amp;&nbsp;Flutter.</p>
   <p class="sub">Catches the structural drift and AI-generated slop that <code>dart&nbsp;analyze</code>
      never sees — semantic, project-wide, behind a baseline/ratchet CI gate that never paints a
@@ -120,7 +133,7 @@
 <div class="strata"></div>
 <footer>© 2026 Silvio Lindstedt &nbsp;<span class="accent">·</span>&nbsp; MIT &nbsp;<span class="accent">·</span>&nbsp; built in the open</footer>
 
-<script>
+<script is:inline>
   const b=document.getElementById('copy');
   b?.addEventListener('click',async()=>{ try{
     await navigator.clipboard.writeText(document.getElementById('cmd').textContent.trim());

@@ -1,0 +1,10 @@
+# Astro / Node — Build-Output & Abhängigkeiten werden NICHT eingecheckt;
+# die Seite wird reproduzierbar aus der Quelle gebaut (Hosting baut from source).
+node_modules/
+dist/
+.astro/
+
+# Env / Logs
+.env
+.env.production
+npm-debug.log*
