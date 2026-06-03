@@ -19,3 +19,6 @@ baseline.json
 
 # README/Docs-Attestierung (lokaler Push-Stempel)
 .docs-attest
+
+# Wrangler (Cloudflare) lokaler Cache
+.wrangler/
