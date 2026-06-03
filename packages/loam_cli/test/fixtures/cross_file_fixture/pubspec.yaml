@@ -1,0 +1,6 @@
+name: cross_file_fixture
+description: "Test fixture for ProjectLoader cross-file resolution tests."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0

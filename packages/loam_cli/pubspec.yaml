@@ -12,6 +12,7 @@ executables:
 dependencies:
   analyzer: ^13.0.0
   args: ^2.7.0
+  path: ^1.9.0
 dev_dependencies:
   lints: ^6.1.0
   test: ^1.31.1
