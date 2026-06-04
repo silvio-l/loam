@@ -1,5 +1,5 @@
-/// Severity of a [Finding].
-enum Severity { info, warning, error }
+import 'severity.dart';
+export 'severity.dart';
 
 /// A single result emitted by a `Rule`.
 ///
