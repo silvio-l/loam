@@ -89,3 +89,41 @@ enum MemberEnum {
   /// A public method on the enum NEVER referenced anywhere — REPORTED.
   String unusedEnumMethod() => name.toLowerCase();
 }
+
+// ---------------------------------------------------------------------------
+// Member-name collision (regression guard, derived from a real HellerIO case).
+//
+// Two unrelated classes each declare a public method with the SAME unqualified
+// name `fatal`. Only `SdkStyleLogger.fatal` is ever called; `AppLoggerLike.fatal`
+// has zero callers. A correct, *semantic* (element-model) usage resolution must
+// report `AppLoggerLike.fatal` while leaving `SdkStyleLogger.fatal` untouched.
+//
+// A naive *name-based* implementation would see the `.fatal(` call on the SDK
+// logger and wrongly mark ALL methods named `fatal` as used — suppressing the
+// genuine finding (a false negative). This is exactly the trap that fooled a
+// careful grep-based reviewer on HellerIO's `AppLogger.fatal` vs `Sentry.logger.fatal`.
+// ---------------------------------------------------------------------------
+
+/// Mirrors HellerIO's hand-written `AppLogger`: the class itself is used, but
+/// its `fatal` member is never called — `fatal` MUST be reported.
+class AppLoggerLike {
+  /// A public method that IS referenced from members_consumer.dart — keeps the
+  /// class "used" so member-level analysis applies. NOT reported.
+  String note(Object? message) => 'note: $message';
+
+  /// Same unqualified name as `SdkStyleLogger.fatal` but never called — REPORTED.
+  /// (Plain backticks, not a doc reference, so this comment is not a usage.)
+  void fatal(Object? message, [Object? error, StackTrace? stackTrace]) {}
+}
+
+/// Mirrors HellerIO's external structured logger (e.g. `Sentry.logger`): a
+/// different type that happens to expose a `fatal` method which IS called —
+/// `fatal` MUST NOT be reported.
+class SdkStyleLogger {
+  /// Same unqualified name as `AppLoggerLike.fatal` but IS called from
+  /// members_consumer.dart — NOT reported.
+  Future<void> fatal(
+    Object? message, {
+    Map<String, Object?>? attributes,
+  }) async {}
+}

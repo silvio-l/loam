@@ -689,4 +689,58 @@ void main() {
       );
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // Regression (real HellerIO case): a call to `SdkStyleLogger.fatal` must NOT
+  // suppress the unused `AppLoggerLike.fatal` — usage resolution is semantic
+  // (element-model), not name-based. A name-based implementation would report
+  // ZERO `fatal` findings here (false negative); the correct one reports EXACTLY
+  // ONE, anchored to AppLoggerLike.
+  //
+  // Background: HellerIO's `app_monitoring.dart` calls `Sentry.logger.fatal(...)`
+  // (a different type), which a grep-based reviewer mistook for a use of the
+  // hand-written `AppLogger.fatal`. loam correctly kept reporting it.
+  // ---------------------------------------------------------------------------
+  group('member-name collision (semantic resolution)', () {
+    test(
+      'calling fatal() on one type does not suppress the unused fatal() on another',
+      () {
+        final findings = makeRule().run(loadResult);
+        final fatalFindings = findings
+            .where((f) => f.message.contains('`fatal`'))
+            .toList();
+
+        expect(
+          fatalFindings,
+          hasLength(1),
+          reason:
+              'Exactly one `fatal` must be reported (AppLoggerLike.fatal). '
+              'Zero would mean usage was resolved by NAME — the call to '
+              'SdkStyleLogger.fatal wrongly suppressing the unrelated member.',
+        );
+
+        // Pin the single finding to AppLoggerLike (not the called SdkStyleLogger),
+        // robustly: read the fixture and locate both class bodies by line.
+        final memberLines = File(
+          p.join(fixturePath, 'lib', 'members.dart'),
+        ).readAsLinesSync();
+        final appLoggerLine =
+            memberLines.indexWhere((l) => l.contains('class AppLoggerLike')) +
+            1;
+        final sdkLoggerLine =
+            memberLines.indexWhere((l) => l.contains('class SdkStyleLogger')) +
+            1;
+
+        final reported = fatalFindings.single;
+        expect(reported.filePath, endsWith('members.dart'));
+        expect(
+          reported.line,
+          allOf(greaterThan(appLoggerLine), lessThan(sdkLoggerLine)),
+          reason:
+              'The reported `fatal` must be the one inside AppLoggerLike, not '
+              'the called SdkStyleLogger.fatal.',
+        );
+      },
+    );
+  });
 }

@@ -5,6 +5,21 @@ import 'package:unused_exports_fixture/members.dart';
 class MembersConsumer {
   final _host = MemberHost();
 
+  /// Uses [AppLoggerLike] at the class level (so it is not reported as an unused
+  /// class) but deliberately NEVER calls its `fatal` — that member stays unused.
+  final _appLogger = AppLoggerLike();
+
+  /// A different type whose `fatal` IS called — proves that calling
+  /// `SdkStyleLogger.fatal` must not suppress `AppLoggerLike.fatal`.
+  /// (Plain backticks, not doc references, so these comments are not usages.)
+  final _sdkLogger = SdkStyleLogger();
+
+  /// References `AppLoggerLike.note` only (NOT its `fatal`).
+  String logNote() => _appLogger.note('hello');
+
+  /// References `SdkStyleLogger.fatal` — the colliding name on the other type.
+  Future<void> logFatal() => _sdkLogger.fatal('boom');
+
   /// References [MemberHost.usedMethod].
   String callUsedMethod() => _host.usedMethod();
 
