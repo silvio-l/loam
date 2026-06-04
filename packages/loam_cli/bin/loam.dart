@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:loam/src/baseline/baseline_engine.dart';
 import 'package:loam/src/command/loam_command.dart';
+import 'package:loam/src/gate/gate_engine.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 
 /// loam.dev CLI entrypoint (command: `loam`).
@@ -119,15 +120,77 @@ class _HealthCommand extends LoamCommand {
       notImplemented('aggregate complexity/drift/slop into health score');
 }
 
+/// CI gate: evaluates the current findings against the baseline.
+///
+/// **Default mode — Ratchet** (Invariant 3): only NEW findings fail the build.
+/// Kept (frozen legacy) and fixed findings are always transparent.
+///
+/// The `--absolute` flag (Slice 04) is NOT implemented in this slice.
 class _GateCommand extends LoamCommand {
+  _GateCommand() {
+    argParser.addOption(
+      'project-root',
+      abbr: 'p',
+      help:
+          'Root directory of the Dart project to analyse. '
+          'Defaults to the current working directory.',
+      defaultsTo: null,
+    );
+  }
+
   @override
   final String name = 'gate';
   @override
   final String description =
-      'CI gate: baseline/ratchet (default) or --absolute.';
+      'CI gate: baseline/ratchet (default) or --absolute (Slice 04).';
 
   @override
-  Future<int> run() => notImplemented('ratchet gate');
+  Future<int> run() async {
+    final projectRoot =
+        argResults?['project-root'] as String? ?? Directory.current.path;
+
+    final engine = BaselineEngine(projectRoot: projectRoot);
+
+    // AC5: Missing baseline.json → clear error with hint.
+    Baseline baseline;
+    try {
+      baseline = engine.read();
+    } on BaselineException catch (e) {
+      stderr.writeln('loam gate: ${e.message}');
+      stderr.writeln(
+        'Hint: run `loam baseline --write` first, '
+        'or use `loam gate --absolute` for a threshold-based check.',
+      );
+      return 1;
+    }
+
+    // AC4: rulesetVersion mismatch → warning on stderr, diff continues normally.
+    if (baseline.rulesetVersion != AnalysisRunner.rulesetVersion) {
+      stderr.writeln(
+        'loam gate: warning — baseline rulesetVersion '
+        '(${baseline.rulesetVersion}) differs from current '
+        '(${AnalysisRunner.rulesetVersion}). '
+        'Consider refreshing with `loam baseline --update`.',
+      );
+    }
+
+    final findings = await const AnalysisRunner().run(projectRoot);
+    final diff = engine.diff(findings, baseline);
+    final result = const GateEngine().evaluate(
+      diff: diff,
+      mode: GateMode.ratchet,
+    );
+
+    // AC3: Terse summary line to stdout (neu/eingefroren/gefixt).
+    stdout.writeln(
+      'loam gate: ${result.newCount} neu, '
+      '${result.keptCount} eingefroren, '
+      '${result.fixedCount} gefixt '
+      '— ${result.passed ? 'grün' : 'rot'}.',
+    );
+
+    return result.exitCode;
+  }
 }
 
 /// AI-slop audit: runs slop-focused rules across the whole project.

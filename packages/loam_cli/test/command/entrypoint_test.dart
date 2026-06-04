@@ -59,10 +59,20 @@ void main() {
       expect(code, equals(0));
     });
 
-    test('gate subcommand → exit 0 (stub)', () async {
-      final code = await cli.run(['gate']);
-      expect(code, equals(0));
-    });
+    // gate is now implemented: no baseline.json → exit 1 (clear error + hint).
+    // See gate_command_test.dart for full coverage.
+    test(
+      'gate subcommand with no baseline.json → exit 1 (missing error)',
+      () async {
+        final dir = _makeCleanProject();
+        try {
+          final code = await cli.run(['gate', '--project-root', dir.path]);
+          expect(code, equals(1));
+        } finally {
+          dir.deleteSync(recursive: true);
+        }
+      },
+    );
 
     // baseline is now implemented: no baseline.json → exit 1 (clear error)
     // See baseline_command_test.dart for full coverage.
@@ -125,8 +135,8 @@ void main() {
       'fix',
     ];
 
-    // Stub commands (everything except scan and baseline which are now implemented).
-    const stubCommands = ['health', 'gate', 'slop', 'init', 'fix'];
+    // Stub commands (everything except scan, baseline, and gate which are now implemented).
+    const stubCommands = ['health', 'slop', 'init', 'fix'];
 
     test('all seven commands are registered (--help lists them)', () {
       final entrypoint = '${Directory.current.path}/bin/loam.dart';

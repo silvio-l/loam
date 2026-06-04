@@ -3,8 +3,10 @@ import 'dart:io';
 
 import '../model/finding.dart';
 import 'baseline.dart';
+import 'baseline_diff.dart';
 
 export 'baseline.dart';
+export 'baseline_diff.dart';
 
 /// Current schema version for `baseline.json`.
 ///
@@ -105,6 +107,48 @@ class BaselineEngine {
     // in git diffs, which improves reviewability.
     final encoder = JsonEncoder.withIndent('  ');
     File(baselinePath).writeAsStringSync('${encoder.convert(json)}\n');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Diff
+  // ---------------------------------------------------------------------------
+
+  /// Compares [current] findings against the frozen [baseline] using
+  /// **fingerprint-only** set arithmetic (Invariant 3).
+  ///
+  /// - `newFindings`   = current ∖ baseline  (fail the ratchet gate)
+  /// - `keptFindings`  = current ∩ baseline  (legacy; never fail)
+  /// - `fixedFindings` = baseline ∖ current  (improvements; never fail)
+  ///
+  /// A pure line-shift is transparent: the fingerprint stays the same → kept.
+  BaselineDiff diff(List<Finding> current, Baseline baseline) {
+    final baselineFingerprints = {
+      for (final f in baseline.findings) f.fingerprint: f,
+    };
+    final currentFingerprints = {for (final f in current) f.fingerprint};
+
+    final newFindings = <Finding>[];
+    final keptFindings = <Finding>[];
+    for (final f in current) {
+      if (baselineFingerprints.containsKey(f.fingerprint)) {
+        keptFindings.add(f);
+      } else {
+        newFindings.add(f);
+      }
+    }
+
+    final fixedFindings = <BaselineFinding>[];
+    for (final bf in baseline.findings) {
+      if (!currentFingerprints.contains(bf.fingerprint)) {
+        fixedFindings.add(bf);
+      }
+    }
+
+    return BaselineDiff(
+      newFindings: newFindings,
+      keptFindings: keptFindings,
+      fixedFindings: fixedFindings,
+    );
   }
 
   // ---------------------------------------------------------------------------
