@@ -206,6 +206,87 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Annotation registry: each known annotation → code-gen input, reason starts
+  // with 'annotation:' and includes the annotation name.
+  // Registry paths are checked BEFORE the heuristic fallback (order guarantee).
+  // ---------------------------------------------------------------------------
+
+  group('annotation registry', () {
+    // Helper: verifies annotation path is taken and the reason contains [name].
+    void expectAnnotationMatch(String className, String annotationName) {
+      final cls = _findClass(loadResult, className);
+      expect(cls, isNotNull, reason: '$className must exist in the fixture');
+
+      final result = classifier.classify(cls!);
+      expect(
+        result.isCodegenInput,
+        isTrue,
+        reason:
+            '$className carries @$annotationName → must be a code-gen input',
+      );
+      expect(
+        result.reason,
+        startsWith('annotation:'),
+        reason: 'Registry path must produce an annotation: reason',
+      );
+      expect(
+        result.reason,
+        contains(annotationName),
+        reason: 'reason must name the matched annotation ($annotationName)',
+      );
+    }
+
+    test('@DriftDatabase → code-gen input', () {
+      expectAnnotationMatch('AnnotatedDriftDatabase', 'DriftDatabase');
+    });
+
+    test('@DataClassName → code-gen input', () {
+      expectAnnotationMatch('AnnotatedDataClassName', 'DataClassName');
+    });
+
+    test('@Riverpod() (class form) → code-gen input', () {
+      expectAnnotationMatch('AnnotatedRiverpodClass', 'Riverpod');
+    });
+
+    test('@riverpod (constant form) → code-gen input', () {
+      expectAnnotationMatch('AnnotatedRiverpodConst', 'riverpod');
+    });
+
+    test('@freezed → code-gen input', () {
+      expectAnnotationMatch('AnnotatedFreezed', 'freezed');
+    });
+
+    test('@JsonSerializable → code-gen input', () {
+      expectAnnotationMatch('AnnotatedJsonSerializable', 'JsonSerializable');
+    });
+
+    test(
+      'annotation reason is NOT fallback:part_generated (registry path first)',
+      () {
+        // AnnotatedJsonSerializable has no part directive — if it were classified
+        // via the fallback, the reason would be 'fallback:part_generated'.
+        // Verifies that the annotation path runs BEFORE the fallback.
+        final cls = _findClass(loadResult, 'AnnotatedJsonSerializable');
+        expect(cls, isNotNull);
+        final result = classifier.classify(cls!);
+        expect(result.reason, isNot('fallback:part_generated'));
+        expect(result.reason, startsWith('annotation:'));
+      },
+    );
+
+    test(
+      'negative: class without annotation → NOT code-gen input (reason: none)',
+      () {
+        final cls = _findClass(loadResult, 'PlainClass');
+        expect(cls, isNotNull);
+        final result = classifier.classify(cls!);
+        expect(result.isCodegenInput, isFalse);
+        expect(result.reason, 'none');
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Fallback: class in a library with part '*.g.dart' is classified via heuristic
   // ---------------------------------------------------------------------------
 

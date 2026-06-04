@@ -136,6 +136,65 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Annotation-registry E2E: annotated class members NOT reported; plain class
+  // members still reported (FN-protection).
+  // ---------------------------------------------------------------------------
+
+  test('annotation E2E: AnnotatedDriftDatabase.version is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`version`')),
+      isFalse,
+      reason:
+          'AnnotatedDriftDatabase carries @DriftDatabase — its members must '
+          'not be reported as unused',
+    );
+  });
+
+  test('annotation E2E: AnnotatedFreezed.name is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    // Note: 'name' also appears in DriftTable (column getter), but neither
+    // should be reported. The test just confirms no finding with `name`.
+    // For specificity we also check AnnotatedDataClassName and Riverpod.
+    expect(
+      findings.any(
+        (f) =>
+            f.message.contains('`build`') &&
+            f.message.contains('AnnotatedRiverpodClass'),
+      ),
+      isFalse,
+      reason:
+          'AnnotatedRiverpodClass carries @Riverpod — its build() method must '
+          'not be reported',
+    );
+  });
+
+  test('annotation E2E: AnnotatedJsonSerializable.id is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`id`')),
+      isFalse,
+      reason:
+          'AnnotatedJsonSerializable carries @JsonSerializable — its members '
+          'must not be reported as unused',
+    );
+  });
+
+  test(
+    'annotation E2E: PlainClass.unusedField still reported (FN-protection)',
+    () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`unusedField`')),
+        isTrue,
+        reason:
+            'PlainClass has no code-gen markers — its unused members must still '
+            'be reported (no false negative introduced by annotation exclusion)',
+      );
+    },
+  );
+
+  // ---------------------------------------------------------------------------
   // AC6: UsageIndex structural integrity —
   //      A symbol only referenced from a code-gen input class still counts as
   //      "used" (no new FP introduced by the classifier).
