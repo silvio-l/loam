@@ -89,14 +89,14 @@ void main() {
     );
   });
 
-  test('AC5: PartHeuristicClass.heuristicMethod is NOT reported', () {
+  test('AC5: PartHeuristicNotifier.heuristicMethod is NOT reported', () {
     final findings = makeRule().run(loadResult);
     expect(
       findings.any((f) => f.message.contains('`heuristicMethod`')),
       isFalse,
       reason:
-          'PartHeuristicClass.heuristicMethod is a fallback code-gen input — '
-          'must NOT be reported',
+          'PartHeuristicNotifier.heuristicMethod is a fallback code-gen input '
+          '(binds _\$… in a part-bearing library) — must NOT be reported',
     );
   });
 
@@ -200,8 +200,8 @@ void main() {
   // (both in the same run, proving the negative case is fail-closed).
   // ---------------------------------------------------------------------------
 
-  test('part-heuristic E2E: PartHeuristicClass.heuristicMethod NOT reported '
-      '(library has part *.g.dart)', () {
+  test('part-heuristic E2E: PartHeuristicNotifier.heuristicMethod NOT reported '
+      '(part *.g.dart + extends _\$…)', () {
     // Explicit re-statement for Slice 03: already covered above but named for
     // AC traceability.
     final findings = makeRule().run(loadResult);
@@ -209,8 +209,8 @@ void main() {
       findings.any((f) => f.message.contains('`heuristicMethod`')),
       isFalse,
       reason:
-          'PartHeuristicClass lives in a library with part *.g.dart — '
-          'heuristicMethod must be suppressed via fallback heuristic',
+          'PartHeuristicNotifier binds _\$… in a library with part *.g.dart — '
+          'heuristicMethod must be suppressed via the narrowed fallback',
     );
   });
 
@@ -225,6 +225,23 @@ void main() {
       reason:
           'PlainClass lives in a library WITHOUT a generated part directive — '
           'its unused members must NOT be suppressed (fail-closed negative case)',
+    );
+  });
+
+  test('part-heuristic E2E (narrowed FN-protection): PlainColocatedClass.'
+      'colocatedLabel IS reported even though it shares a part-bearing library '
+      'with a generated notifier', () {
+    // Regression guard for the Hellerio over-suppression: a hand-written plain
+    // class colocated in the SAME library as a generated `_$` notifier (which
+    // pulls in part *.g.dart) must NOT be suppressed — only the notifier is.
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`colocatedLabel`')),
+      isTrue,
+      reason:
+          'PlainColocatedClass binds no generated _\$-counterpart; sharing a '
+          'part-bearing library with PartHeuristicNotifier must not suppress '
+          'its members (mirrors Hellerio PremiumEntitlement.* false negatives)',
     );
   });
 

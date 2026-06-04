@@ -323,17 +323,18 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Fallback: class in a library with part '*.g.dart' is classified via heuristic
+  // Narrowed fallback: a class in a library with part '*.g.dart' is a code-gen
+  // input ONLY when it itself binds a generated `_$`-counterpart.
   // ---------------------------------------------------------------------------
 
   test(
-    'fallback: PartHeuristicClass (library has part *.g.dart) → code-gen input',
+    'fallback: PartHeuristicNotifier (part *.g.dart + extends _\$…) → code-gen input',
     () {
-      final partClass = _findClass(loadResult, 'PartHeuristicClass');
+      final partClass = _findClass(loadResult, 'PartHeuristicNotifier');
       expect(
         partClass,
         isNotNull,
-        reason: 'PartHeuristicClass must exist in the fixture',
+        reason: 'PartHeuristicNotifier must exist in the fixture',
       );
 
       final result = classifier.classify(partClass!);
@@ -341,10 +342,35 @@ void main() {
         result.isCodegenInput,
         isTrue,
         reason:
-            'PartHeuristicClass lives in a library with part *.g.dart — '
-            'must be classified via fallback heuristic',
+            'PartHeuristicNotifier binds its generated counterpart '
+            '(extends _\$PartHeuristicNotifier) in a part-bearing library — '
+            'must be classified via the narrowed fallback heuristic',
       );
       expect(result.reason, 'fallback:part_generated');
+    },
+  );
+
+  test(
+    'narrowed fallback (FN-protection): PlainColocatedClass (part *.g.dart but '
+    'NO _\$ binding) → NOT code-gen input',
+    () {
+      final plain = _findClass(loadResult, 'PlainColocatedClass');
+      expect(
+        plain,
+        isNotNull,
+        reason: 'PlainColocatedClass must exist in the fixture',
+      );
+
+      final result = classifier.classify(plain!);
+      expect(
+        result.isCodegenInput,
+        isFalse,
+        reason:
+            'PlainColocatedClass is hand-written and binds no generated '
+            '_\$-counterpart, even though its library declares part *.g.dart — '
+            'it must NOT be suppressed (mirrors Hellerio PremiumEntitlement)',
+      );
+      expect(result.reason, 'none');
     },
   );
 }

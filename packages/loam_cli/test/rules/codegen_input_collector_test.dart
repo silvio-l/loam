@@ -131,17 +131,34 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Fallback heuristic: PartHeuristicClass members are NOT candidates
+  // Narrowed fallback heuristic: only the generated-bound class is excluded;
+  // a plain class colocated in the same part-bearing library stays a candidate.
   // ---------------------------------------------------------------------------
 
-  test('PartHeuristicClass.heuristicMethod is NOT a candidate (fallback)', () {
+  test(
+    'PartHeuristicNotifier.heuristicMethod is NOT a candidate (fallback)',
+    () {
+      final names = candidates.map((c) => c.semanticAnchor).toSet();
+      expect(
+        names.contains('PartHeuristicNotifier.heuristicMethod'),
+        isFalse,
+        reason:
+            'PartHeuristicNotifier binds _\$PartHeuristicNotifier in a library '
+            'with part *.g.dart — its members must be excluded via the fallback',
+      );
+    },
+  );
+
+  test('PlainColocatedClass.colocatedLabel IS a candidate (narrowed fallback — '
+      'no _\$ binding despite part *.g.dart)', () {
     final names = candidates.map((c) => c.semanticAnchor).toSet();
     expect(
-      names.contains('PartHeuristicClass.heuristicMethod'),
-      isFalse,
+      names.contains('PlainColocatedClass.colocatedLabel'),
+      isTrue,
       reason:
-          'PartHeuristicClass lives in a library with part *.g.dart — '
-          'its members must be excluded via the fallback heuristic',
+          'PlainColocatedClass is hand-written with no generated _\$ binding; '
+          'colocating it with a generated part must NOT suppress its members '
+          '(regression guard for Hellerio PremiumEntitlement over-suppression)',
     );
   });
 }

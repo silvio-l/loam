@@ -54,8 +54,11 @@ class CodegenInputClassification {
 /// 2. **Annotation registry** — the class carries one of the known code-gen
 ///    annotations (`@DriftDatabase`, `@DataClassName`, `@riverpod`, `@Riverpod`,
 ///    `@freezed`, `@JsonSerializable`).
-/// 3. **Structural fallback** — the primary library fragment of the class
-///    declares a `part '*.g.dart'` or `part '*.freezed.dart'` directive.
+/// 3. **Structural fallback** — the library declares a `part '*.g.dart'` or
+///    `part '*.freezed.dart'` directive AND the class itself binds a generated
+///    `_$`-counterpart (`extends _$X` / `with _$X`). The part directive alone is
+///    deliberately not enough: plain hand-written classes colocated with a
+///    generated notifier must stay candidates (no over-suppression).
 ///
 /// The `reason` field of [CodegenInputClassification] identifies which path
 /// matched, enabling diagnostics in dogfooding without altering [Finding] output.
@@ -122,7 +125,14 @@ class CodegenInputClassifier {
     }
 
     // --- 3. Structural fallback: part '*.g.dart' / '*.freezed.dart' ---
-    if (_hasGeneratedPartDirective(classElement)) {
+    // NARROWED: a generated part directive at library level is necessary but
+    // NOT sufficient. Riverpod/freezed colocate hand-written plain classes in
+    // the same library as a generated counterpart, so a library-wide rule would
+    // over-suppress those plain classes (false negatives — observed on Hellerio,
+    // e.g. `PremiumEntitlement` next to a `@riverpod` notifier). The class must
+    // ALSO bind its generated counterpart (`extends _$X` / `with _$X`).
+    if (_hasGeneratedPartDirective(classElement) &&
+        _bindsGeneratedSupertype(classElement)) {
       return const CodegenInputClassification(
         isCodegenInput: true,
         reason: 'fallback:part_generated',
@@ -195,6 +205,23 @@ class CodegenInputClassifier {
           }
         }
       }
+    }
+    return false;
+  }
+
+  /// Returns `true` if [element] binds a generated counterpart, i.e. it extends
+  /// or mixes in a supertype whose unqualified name starts with `_$`.
+  ///
+  /// This is the convention used by freezed (`class X with _$X`) and Riverpod
+  /// class-based notifiers (`class X extends _$X`): the generated `_$X` symbol
+  /// lives in the companion part file. Plain hand-written classes that merely
+  /// cohabit a part-bearing library carry no such binding and must stay
+  /// candidates (Invariant 1 — the check is over the element supertype chain,
+  /// not source text).
+  bool _bindsGeneratedSupertype(InterfaceElement element) {
+    for (final supertype in element.allSupertypes) {
+      final name = supertype.element.name;
+      if (name != null && name.startsWith(r'_$')) return true;
     }
     return false;
   }
