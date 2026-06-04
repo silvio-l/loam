@@ -217,4 +217,210 @@ void main() {
       expect(findings1[i].fingerprint, findings2[i].fingerprint);
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // Issue 02 — Unused symbols of every declaration kind are reported
+  // ---------------------------------------------------------------------------
+
+  test('unused top-level function is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedFunction`')),
+      isTrue,
+      reason: 'unusedFunction must be reported as unused',
+    );
+  });
+
+  test('used top-level function is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedFunction`')),
+      isFalse,
+      reason: 'usedFunction is referenced — must not appear in findings',
+    );
+  });
+
+  test('unused top-level getter is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedGetter`')),
+      isTrue,
+      reason: 'unusedGetter must be reported as unused',
+    );
+  });
+
+  test('used top-level getter is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedGetter`')),
+      isFalse,
+      reason: 'usedGetter is referenced — must not appear in findings',
+    );
+  });
+
+  test('unused top-level setter is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedSetter`')),
+      isTrue,
+      reason: 'unusedSetter must be reported as unused',
+    );
+  });
+
+  test('used top-level setter is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedSetter`')),
+      isFalse,
+      reason: 'usedSetter is referenced — must not appear in findings',
+    );
+  });
+
+  test('unused enum is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UnusedEnum`')),
+      isTrue,
+      reason: 'UnusedEnum must be reported as unused',
+    );
+  });
+
+  test('used enum is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UsedEnum`')),
+      isFalse,
+      reason: 'UsedEnum is referenced — must not appear in findings',
+    );
+  });
+
+  test('unused extension is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UnusedExtension`')),
+      isTrue,
+      reason: 'UnusedExtension must be reported as unused',
+    );
+  });
+
+  test('used extension is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UsedExtension`')),
+      isFalse,
+      reason: 'UsedExtension is referenced — must not appear in findings',
+    );
+  });
+
+  test('unused mixin is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UnusedMixin`')),
+      isTrue,
+      reason: 'UnusedMixin must be reported as unused',
+    );
+  });
+
+  test('used mixin is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UsedMixin`')),
+      isFalse,
+      reason: 'UsedMixin is referenced — must not appear in findings',
+    );
+  });
+
+  test('unused typedef is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UnusedTypedef`')),
+      isTrue,
+      reason: 'UnusedTypedef must be reported as unused',
+    );
+  });
+
+  test('used typedef is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UsedTypedef`')),
+      isFalse,
+      reason: 'UsedTypedef is referenced — must not appear in findings',
+    );
+  });
+
+  test('unused top-level variable is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedVariable`')),
+      isTrue,
+      reason: 'unusedVariable must be reported as unused',
+    );
+  });
+
+  test('used top-level variable is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedVariable`')),
+      isFalse,
+      reason: 'usedVariable is referenced — must not appear in findings',
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Issue 02 — Part-file deduplication
+  // ---------------------------------------------------------------------------
+
+  test('unused part-file declaration is reported exactly once', () {
+    final findings = makeRule().run(loadResult);
+    final partFindings = findings
+        .where((f) => f.message.contains('`UnusedPartClass`'))
+        .toList();
+    expect(
+      partFindings.length,
+      1,
+      reason:
+          'UnusedPartClass (in a part file) must produce exactly one Finding, '
+          'not duplicated across library + part file entries',
+    );
+  });
+
+  test('used part-file declaration is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UsedPartClass`')),
+      isFalse,
+      reason:
+          'UsedPartClass is referenced from kinds_consumer.dart — must not '
+          'appear in findings',
+    );
+  });
+
+  test(
+    'part-file finding carries the part file path (not the library path)',
+    () {
+      final findings = makeRule().run(loadResult);
+      final partFinding = findings.firstWhere(
+        (f) => f.message.contains('`UnusedPartClass`'),
+        orElse: () => throw StateError('UnusedPartClass finding not found'),
+      );
+      expect(
+        partFinding.filePath,
+        'lib/all_kinds_part.dart',
+        reason: 'Part-file finding must show the part file path',
+      );
+    },
+  );
+
+  test('no duplicate findings across all symbols (element-identity dedup)', () {
+    final findings = makeRule().run(loadResult);
+    final messages = findings.map((f) => f.message).toList();
+    final unique = messages.toSet();
+    expect(
+      messages.length,
+      unique.length,
+      reason:
+          'No duplicate findings — each symbol produces at most one '
+          'Finding regardless of fragments',
+    );
+  });
 }

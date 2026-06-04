@@ -1,5 +1,5 @@
-import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/source/line_info.dart';
 import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
@@ -39,6 +39,14 @@ class PublicApiCandidate {
 /// - Symbols annotated with `@visibleForTesting`.
 /// - Symbols in libraries that re-export them via `export` directives
 ///   (re-exported symbols are part of the public API).
+///
+/// **Part-file handling:** The [ProjectLoader] skips `part` files as
+/// standalone resolved entries (they are not libraries). This collector
+/// therefore traverses `libraryElement.fragments` for every resolved library
+/// file, which covers declarations in the library file itself (fragment 0)
+/// as well as declarations in each `part` file (fragment 1+). Deduplication
+/// is based on element identity (`element.id`), so each symbol yields
+/// exactly one candidate regardless of how many fragments the library has.
 class PublicApiCollector {
   const PublicApiCollector();
 
@@ -52,43 +60,234 @@ class PublicApiCollector {
   ) {
     final candidates = <PublicApiCandidate>[];
 
+    // Deduplicate by element id: an element can only appear in one fragment,
+    // but defensive guard prevents any accidental double-visits.
+    final seenIds = <int>{};
+
     // Build the set of element ids that are re-exported anywhere in the project.
     final reExported = _collectReExportedElements(result);
 
     for (final file in result.resolved) {
       if (!file.isUnderLib) continue;
-      if (_isGeneratedFile(file.path)) continue;
 
-      final unit = file.result.unit;
-      final lineInfo = file.result.lineInfo;
-      final relPath = _toRelativePosix(file.path, projectRoot);
+      final library = file.result.libraryElement;
 
-      for (final decl in unit.declarations) {
-        final element = _elementOfDeclaration(decl);
-        if (element == null) continue;
+      // Walk every fragment of the library (fragment 0 = the library file
+      // itself; fragment 1+ = part files). This ensures that declarations in
+      // part files are collected even though part files do not appear as
+      // standalone entries in ProjectLoadResult.resolved.
+      for (final fragment in library.fragments) {
+        final fragmentPath = fragment.source.fullName;
 
-        final name = element.name ?? '';
-        if (name.startsWith('_')) continue; // private
-        if (name == 'main') continue; // entrypoint
-        if (_hasConservativeAnnotation(element)) continue;
-        if (reExported.contains(element.id)) continue;
+        // Skip generated part files (e.g. *.g.dart included via `part`).
+        if (_isGeneratedFile(fragmentPath)) continue;
 
-        final kind = _kindLabel(decl);
-        final offset = decl.offset;
-        final loc = lineInfo.getLocation(offset);
+        final relPath = _toRelativePosix(fragmentPath, projectRoot);
+        final lineInfo = fragment.lineInfo;
 
-        candidates.add(
-          PublicApiCandidate(
-            element: element,
-            relativePath: relPath,
-            kind: kind,
-            line: loc.lineNumber,
-          ),
+        // Collect each declaration kind from this fragment.
+        _visitFragmentDeclarations(
+          fragment: fragment,
+          relPath: relPath,
+          lineInfo: lineInfo,
+          reExported: reExported,
+          seenIds: seenIds,
+          candidates: candidates,
         );
       }
     }
 
     return candidates;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Fragment traversal
+  // ---------------------------------------------------------------------------
+
+  void _visitFragmentDeclarations({
+    required LibraryFragment fragment,
+    required String relPath,
+    required LineInfo lineInfo,
+    required Set<int> reExported,
+    required Set<int> seenIds,
+    required List<PublicApiCandidate> candidates,
+  }) {
+    // Classes (including ClassDeclaration and ClassTypeAlias)
+    for (final f in fragment.classes) {
+      _addIfEligible(
+        element: f.element,
+        kind: 'class',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+
+    // Enums
+    for (final f in fragment.enums) {
+      _addIfEligible(
+        element: f.element,
+        kind: 'enum',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+
+    // Mixins
+    for (final f in fragment.mixins) {
+      _addIfEligible(
+        element: f.element,
+        kind: 'mixin',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+
+    // Extensions
+    for (final f in fragment.extensions) {
+      _addIfEligible(
+        element: f.element,
+        kind: 'extension',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+
+    // Top-level functions
+    for (final f in fragment.functions) {
+      _addIfEligible(
+        element: f.element,
+        kind: 'function',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+
+    // Typedefs (type aliases)
+    for (final f in fragment.typeAliases) {
+      _addIfEligible(
+        element: f.element,
+        kind: 'typedef',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+
+    // Top-level variables: only explicit declarations (const/var/final x = …),
+    // NOT the synthetic backing variable for an explicit getter/setter pair.
+    for (final f in fragment.topLevelVariables) {
+      if (!f.element.isOriginDeclaration) continue;
+      _addIfEligible(
+        element: f.element,
+        kind: 'variable',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+
+    // Explicit top-level getters (`int get foo => …`).
+    // We use the underlying PropertyInducingElement (variable) as the
+    // canonical element to match UsageIndex._canonical.
+    for (final f in fragment.getters) {
+      // Only explicit getter declarations — skip synthetic getters
+      // auto-generated for variable declarations.
+      if (!f.element.isOriginDeclaration) continue;
+      final canonicalElement = f.element.variable;
+      _addIfEligible(
+        element: canonicalElement,
+        kind: 'getter',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+
+    // Explicit top-level setters (`set foo(x) {…}`).
+    for (final f in fragment.setters) {
+      if (!f.element.isOriginDeclaration) continue;
+      final canonicalElement = f.element.variable;
+      // seenIds guards against a getter+setter pair reporting the same
+      // canonical variable element twice.
+      _addIfEligible(
+        element: canonicalElement,
+        kind: 'setter',
+        nameOffset: f.nameOffset,
+        relPath: relPath,
+        lineInfo: lineInfo,
+        reExported: reExported,
+        seenIds: seenIds,
+        candidates: candidates,
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Eligibility check & candidate creation
+  // ---------------------------------------------------------------------------
+
+  void _addIfEligible({
+    required Element element,
+    required String kind,
+    required int? nameOffset,
+    required String relPath,
+    required LineInfo lineInfo,
+    required Set<int> reExported,
+    required Set<int> seenIds,
+    required List<PublicApiCandidate> candidates,
+  }) {
+    final name = element.name ?? '';
+    if (name.isEmpty) return;
+    if (name.startsWith('_')) return; // private
+    if (name == 'main') return; // entrypoint
+    if (_hasConservativeAnnotation(element)) return;
+    if (reExported.contains(element.id)) return;
+
+    // Deduplicate: use element id as canonical key.
+    // This ensures a symbol shared across a getter+setter pair (or appearing
+    // in multiple fragments) is added at most once.
+    if (!seenIds.add(element.id)) return;
+
+    final offset = nameOffset ?? 0;
+    final loc = lineInfo.getLocation(offset);
+
+    candidates.add(
+      PublicApiCandidate(
+        element: element,
+        relativePath: relPath,
+        kind: kind,
+        line: loc.lineNumber,
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -150,36 +349,6 @@ class PublicApiCollector {
       }
     }
     return ids;
-  }
-
-  /// Returns the primary [Element] for a top-level [Declaration].
-  static Element? _elementOfDeclaration(Declaration decl) {
-    if (decl is ClassDeclaration) return decl.declaredFragment?.element;
-    if (decl is MixinDeclaration) return decl.declaredFragment?.element;
-    if (decl is EnumDeclaration) return decl.declaredFragment?.element;
-    if (decl is ExtensionDeclaration) return decl.declaredFragment?.element;
-    if (decl is FunctionDeclaration) return decl.declaredFragment?.element;
-    if (decl is TypeAlias) return decl.declaredFragment?.element;
-    if (decl is TopLevelVariableDeclaration) {
-      final variables = decl.variables.variables;
-      if (variables.isEmpty) return null;
-      final fragment = variables.first.declaredFragment;
-      if (fragment is TopLevelVariableFragment) return fragment.element;
-      return null;
-    }
-    return null;
-  }
-
-  /// Human-readable kind label for a declaration node.
-  static String _kindLabel(Declaration decl) {
-    if (decl is ClassDeclaration) return 'class';
-    if (decl is MixinDeclaration) return 'mixin';
-    if (decl is EnumDeclaration) return 'enum';
-    if (decl is ExtensionDeclaration) return 'extension';
-    if (decl is FunctionDeclaration) return 'function';
-    if (decl is TopLevelVariableDeclaration) return 'variable';
-    if (decl is TypeAlias) return 'typedef';
-    return 'declaration';
   }
 
   /// Returns a POSIX path relative to [projectRoot].
