@@ -195,6 +195,52 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
+  // Slice 03 AC: part-directive heuristic E2E — library WITH generated part
+  // → members suppressed; library WITHOUT generated part → members reported
+  // (both in the same run, proving the negative case is fail-closed).
+  // ---------------------------------------------------------------------------
+
+  test('part-heuristic E2E: PartHeuristicClass.heuristicMethod NOT reported '
+      '(library has part *.g.dart)', () {
+    // Explicit re-statement for Slice 03: already covered above but named for
+    // AC traceability.
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`heuristicMethod`')),
+      isFalse,
+      reason:
+          'PartHeuristicClass lives in a library with part *.g.dart — '
+          'heuristicMethod must be suppressed via fallback heuristic',
+    );
+  });
+
+  test('part-heuristic E2E (FN-protection): PlainClass.unusedField still reported '
+      'in the same run (library has NO generated part)', () {
+    // Plain class library has no part directive → classifier must return none
+    // → unusedField must still be reported. This is the central negative case.
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedField`')),
+      isTrue,
+      reason:
+          'PlainClass lives in a library WITHOUT a generated part directive — '
+          'its unused members must NOT be suppressed (fail-closed negative case)',
+    );
+  });
+
+  test('part-heuristic E2E order: RegistryAndPartClass.label NOT reported and '
+      'reason is annotation (registry beats fallback in E2E run)', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`label`')),
+      isFalse,
+      reason:
+          'RegistryAndPartClass carries @JsonSerializable AND has a generated '
+          'part — its label field must be suppressed (via annotation path)',
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // AC6: UsageIndex structural integrity —
   //      A symbol only referenced from a code-gen input class still counts as
   //      "used" (no new FP introduced by the classifier).

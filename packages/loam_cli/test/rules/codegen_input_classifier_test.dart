@@ -284,6 +284,42 @@ void main() {
         expect(result.reason, 'none');
       },
     );
+
+    test(
+      'order: class with BOTH annotation AND generated part → annotation reason '
+      '(registry runs before fallback)',
+      () {
+        // RegistryAndPartClass carries @JsonSerializable AND lives in a library
+        // with part 'registry_and_part.g.dart'. The annotation-registry path
+        // must win — reason must start with 'annotation:', NOT 'fallback:'.
+        final cls = _findClass(loadResult, 'RegistryAndPartClass');
+        expect(
+          cls,
+          isNotNull,
+          reason: 'RegistryAndPartClass must exist in the fixture',
+        );
+
+        final result = classifier.classify(cls!);
+        expect(
+          result.isCodegenInput,
+          isTrue,
+          reason:
+              'RegistryAndPartClass carries @JsonSerializable — must be code-gen input',
+        );
+        expect(
+          result.reason,
+          startsWith('annotation:'),
+          reason:
+              'Registry path must take priority over structural fallback; '
+              'got reason: ${result.reason}',
+        );
+        expect(
+          result.reason,
+          isNot('fallback:part_generated'),
+          reason: 'Fallback must NOT fire when a registry path already matched',
+        );
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
