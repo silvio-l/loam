@@ -6,3 +6,4 @@ library;
 
 export 'src/command/loam_command.dart';
 export 'src/model/finding.dart';
+export 'src/model/fingerprint.dart';
