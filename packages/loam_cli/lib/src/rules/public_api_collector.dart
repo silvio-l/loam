@@ -11,7 +11,8 @@ class PublicApiCandidate {
     required this.relativePath,
     required this.kind,
     required this.line,
-  });
+    String? semanticAnchor,
+  }) : _semanticAnchor = semanticAnchor;
 
   /// The resolved element for this symbol.
   final Element element;
@@ -19,7 +20,7 @@ class PublicApiCandidate {
   /// POSIX path relative to the project root.
   final String relativePath;
 
-  /// Human-readable kind label (e.g. `class`, `function`, `enum`).
+  /// Human-readable kind label (e.g. `class`, `function`, `method`).
   final String kind;
 
   /// 1-based line number of the declaration.
@@ -27,6 +28,15 @@ class PublicApiCandidate {
 
   /// The unqualified name of the symbol.
   String get name => element.name ?? '<unknown>';
+
+  /// Stable semantic key used for fingerprinting.
+  ///
+  /// For top-level symbols this is the unqualified name (same as [name]).
+  /// For member symbols this is the qualified name (`ClassName.memberName`)
+  /// so that fingerprints survive class renames without colliding.
+  String get semanticAnchor => _semanticAnchor ?? name;
+
+  final String? _semanticAnchor;
 }
 
 /// Collects public top-level declarations under `lib/` as candidates for the
@@ -124,6 +134,19 @@ class PublicApiCollector {
         seenIds: seenIds,
         candidates: candidates,
       );
+      // Skip member collection for re-exported, generated, or excluded classes:
+      // if the enclosing class is excluded from top-level candidates, its
+      // members carry the same exclusion reason.
+      if (_isMemberEligibleEnclosingType(f.element, reExported)) {
+        _visitInstanceMemberFragments(
+          instanceFragment: f,
+          enclosingName: f.element.name ?? '',
+          relPath: relPath,
+          lineInfo: lineInfo,
+          seenIds: seenIds,
+          candidates: candidates,
+        );
+      }
     }
 
     // Enums
@@ -138,6 +161,16 @@ class PublicApiCollector {
         seenIds: seenIds,
         candidates: candidates,
       );
+      if (_isMemberEligibleEnclosingType(f.element, reExported)) {
+        _visitInstanceMemberFragments(
+          instanceFragment: f,
+          enclosingName: f.element.name ?? '',
+          relPath: relPath,
+          lineInfo: lineInfo,
+          seenIds: seenIds,
+          candidates: candidates,
+        );
+      }
     }
 
     // Mixins
@@ -152,6 +185,16 @@ class PublicApiCollector {
         seenIds: seenIds,
         candidates: candidates,
       );
+      if (_isMemberEligibleEnclosingType(f.element, reExported)) {
+        _visitInstanceMemberFragments(
+          instanceFragment: f,
+          enclosingName: f.element.name ?? '',
+          relPath: relPath,
+          lineInfo: lineInfo,
+          seenIds: seenIds,
+          candidates: candidates,
+        );
+      }
     }
 
     // Extensions
@@ -166,6 +209,16 @@ class PublicApiCollector {
         seenIds: seenIds,
         candidates: candidates,
       );
+      if (_isMemberEligibleEnclosingType(f.element, reExported)) {
+        _visitInstanceMemberFragments(
+          instanceFragment: f,
+          enclosingName: f.element.name ?? '',
+          relPath: relPath,
+          lineInfo: lineInfo,
+          seenIds: seenIds,
+          candidates: candidates,
+        );
+      }
     }
 
     // Top-level functions
@@ -252,6 +305,212 @@ class PublicApiCollector {
   }
 
   // ---------------------------------------------------------------------------
+  // Member traversal (Slice B)
+  // ---------------------------------------------------------------------------
+
+  /// Visits public member declarations within an [InstanceFragment] (class,
+  /// enum, mixin, or extension fragment) and adds eligible member candidates.
+  ///
+  /// Conservative member-specific exclusions applied here (in addition to the
+  /// top-level exclusions in [_addIfEligible]):
+  ///
+  /// - **`@override` annotation**: any member annotated with `@override` is
+  ///   excluded (it already fulfils an inherited contract and is not standalone).
+  /// - **Inherited contract**: for [InterfaceElement] enclosing types, members
+  ///   for which [InterfaceElement.getOverridden] returns a non-null result are
+  ///   excluded (they implement or override a superclass/interface/mixin member).
+  /// - **Synthetic fields**: only fields whose [FieldElement.isOriginDeclaration]
+  ///   is `true` are collected; enum `values`/`index` fields (identified by
+  ///   [FieldElement.isOriginEnumValues] and enum constants identified by
+  ///   [FieldElement.isEnumConstant]) are excluded.
+  /// - **Synthetic accessor methods**: only methods with
+  ///   [MethodElement.isOriginDeclaration] are collected.
+  /// - **Operators**: operator methods (e.g. `==`, `[]`) are excluded
+  ///   conservatively because they are often part of implicit contracts.
+  /// - **Member getters/setters**: only explicit declarations
+  ///   ([PropertyAccessorElement.isOriginDeclaration]) are collected; synthetic
+  ///   field-induced getters/setters are excluded.
+  void _visitInstanceMemberFragments({
+    required InstanceFragment instanceFragment,
+    required String enclosingName,
+    required String relPath,
+    required LineInfo lineInfo,
+    required Set<int> seenIds,
+    required List<PublicApiCandidate> candidates,
+  }) {
+    // Skip anonymous extensions (no enclosing name → no qualified anchor).
+    if (enclosingName.isEmpty) return;
+
+    final enclosingElement = instanceFragment.element;
+
+    // Conservative: if the enclosing type itself carries a conservative
+    // annotation (@visibleForTesting, @pragma) its members are transitively
+    // excluded — the class is intended for special exposure and its member
+    // visibility is not independently meaningful.
+    if (_hasConservativeAnnotation(enclosingElement)) return;
+
+    // Methods
+    for (final mf in instanceFragment.methods) {
+      final method = mf.element;
+      if (!method.isOriginDeclaration) continue;
+      if (method.isOperator) continue; // conservative: operators excluded
+      // Abstract methods are interface contracts — never report them.
+      if (method.isAbstract) {
+        continue;
+      }
+      if (_hasMemberOverrideAnnotation(method)) continue;
+      if (_isInheritedMember(enclosingElement, method.name ?? '')) continue;
+      if (_hasConservativeAnnotation(method)) continue;
+
+      final memberName = method.name ?? '';
+      if (memberName.isEmpty || memberName.startsWith('_')) continue;
+
+      if (!seenIds.add(method.id)) continue;
+
+      final loc = lineInfo.getLocation(mf.nameOffset ?? mf.offset);
+      candidates.add(
+        PublicApiCandidate(
+          element: method,
+          relativePath: relPath,
+          kind: 'method',
+          line: loc.lineNumber,
+          semanticAnchor: '$enclosingName.$memberName',
+        ),
+      );
+    }
+
+    // Fields: only explicit non-synthetic, non-enum-constant fields.
+    for (final ff in instanceFragment.fields) {
+      final field = ff.element;
+      // Only explicit field declarations — skip induced/synthetic/enum values.
+      if (!field.isOriginDeclaration) continue;
+      if (field.isEnumConstant) continue;
+      if (field.isOriginEnumValues) continue;
+      if (_hasConservativeAnnotation(field)) continue;
+
+      final fieldName = field.name ?? '';
+      if (fieldName.isEmpty || fieldName.startsWith('_')) continue;
+
+      if (!seenIds.add(field.id)) continue;
+
+      final loc = lineInfo.getLocation(ff.offset);
+      candidates.add(
+        PublicApiCandidate(
+          element: field,
+          relativePath: relPath,
+          kind: 'field',
+          line: loc.lineNumber,
+          semanticAnchor: '$enclosingName.$fieldName',
+        ),
+      );
+    }
+
+    // Explicit member getters (not synthetic field-induced getters).
+    for (final gf in instanceFragment.getters) {
+      final getter = gf.element;
+      if (!getter.isOriginDeclaration) continue;
+      // Abstract getters are interface contracts — never report them.
+      if (getter.isAbstract) {
+        continue;
+      }
+      if (_hasMemberOverrideAnnotation(getter)) continue;
+      if (_isInheritedMember(enclosingElement, getter.name ?? '')) continue;
+      if (_hasConservativeAnnotation(getter)) continue;
+
+      final getterName = getter.variable.name ?? '';
+      if (getterName.isEmpty || getterName.startsWith('_')) continue;
+
+      // Use the canonical variable element as the key (same as UsageIndex).
+      final canonicalElement = getter.variable;
+      if (!seenIds.add(canonicalElement.id)) continue;
+
+      final loc = lineInfo.getLocation(gf.offset);
+      candidates.add(
+        PublicApiCandidate(
+          element: canonicalElement,
+          relativePath: relPath,
+          kind: 'getter',
+          line: loc.lineNumber,
+          semanticAnchor: '$enclosingName.$getterName',
+        ),
+      );
+    }
+
+    // Explicit member setters (not synthetic field-induced setters).
+    for (final sf in instanceFragment.setters) {
+      final setter = sf.element;
+      if (!setter.isOriginDeclaration) continue;
+      // Abstract setters are interface contracts — never report them.
+      if (setter.isAbstract) {
+        continue;
+      }
+      if (_hasMemberOverrideAnnotation(setter)) continue;
+      if (_isInheritedMember(enclosingElement, setter.name ?? '')) continue;
+      if (_hasConservativeAnnotation(setter)) continue;
+
+      // Setter name in the element model ends with `=`; strip it for display.
+      final rawName = setter.variable.name ?? '';
+      if (rawName.isEmpty || rawName.startsWith('_')) continue;
+
+      // Use the canonical variable element (getter+setter share the same var).
+      final canonicalElement = setter.variable;
+      if (!seenIds.add(canonicalElement.id)) continue;
+
+      final loc = lineInfo.getLocation(sf.offset);
+      candidates.add(
+        PublicApiCandidate(
+          element: canonicalElement,
+          relativePath: relPath,
+          kind: 'setter',
+          line: loc.lineNumber,
+          semanticAnchor: '$enclosingName.$rawName',
+        ),
+      );
+    }
+  }
+
+  /// Returns `true` if the enclosing type [element] is eligible for member
+  /// collection — i.e., it is not re-exported, not private, and does not carry
+  /// a conservative annotation.
+  ///
+  /// Members of re-exported types (part of the public API by re-export), of
+  /// types with `@visibleForTesting`/`@pragma`, or of private types are
+  /// excluded transitively.
+  static bool _isMemberEligibleEnclosingType(
+    Element element,
+    Set<int> reExported,
+  ) {
+    final name = element.name ?? '';
+    if (name.isEmpty || name.startsWith('_')) return false;
+    if (reExported.contains(element.id)) return false;
+    if (_hasConservativeAnnotation(element)) return false;
+    return true;
+  }
+
+  /// Returns `true` if [executable] carries an explicit `@override` annotation.
+  static bool _hasMemberOverrideAnnotation(ExecutableElement executable) {
+    for (final annotation in executable.metadata.annotations) {
+      if (annotation.isOverride) return true;
+    }
+    return false;
+  }
+
+  /// Returns `true` when a member named [memberName] in [enclosingElement]
+  /// would override (or implement) a member from a supertype.
+  ///
+  /// Uses [InterfaceElement.getOverridden] for interface types. Returns `false`
+  /// for non-interface types (extensions) since they cannot have inherited
+  /// members in the same sense.
+  static bool _isInheritedMember(
+    InstanceElement enclosingElement,
+    String memberName,
+  ) {
+    if (enclosingElement is! InterfaceElement) return false;
+    final name = Name(null, memberName);
+    return enclosingElement.getOverridden(name) != null;
+  }
+
+  // ---------------------------------------------------------------------------
   // Eligibility check & candidate creation
   // ---------------------------------------------------------------------------
 
@@ -264,6 +523,7 @@ class PublicApiCollector {
     required Set<int> reExported,
     required Set<int> seenIds,
     required List<PublicApiCandidate> candidates,
+    String? semanticAnchor,
   }) {
     final name = element.name ?? '';
     if (name.isEmpty) return;
@@ -286,6 +546,7 @@ class PublicApiCollector {
         relativePath: relPath,
         kind: kind,
         line: loc.lineNumber,
+        semanticAnchor: semanticAnchor,
       ),
     );
   }

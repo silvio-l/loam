@@ -4,6 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:loam/src/loader/project_loader.dart';
+import 'package:loam/src/model/fingerprint.dart';
 import 'package:loam/src/rules/unused_public_exports_rule.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -132,16 +133,23 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // AC7b: One finding per symbol (no duplicates)
+  // AC7b: One finding per symbol (no duplicate fingerprints)
+  //
+  // With Slice B (member support), multiple different classes can have members
+  // with the same unqualified name (e.g. `name` getter on many classes).
+  // Uniqueness is therefore checked via fingerprints, which incorporate the
+  // qualified semanticAnchor (ClassName.memberName), not via message text.
   // ---------------------------------------------------------------------------
-  test('exactly one finding per unused symbol', () {
+  test('exactly one finding per unused symbol (no duplicate fingerprints)', () {
     final findings = makeRule().run(loadResult);
-    final symbols = findings.map((f) => f.message).toList();
-    final unique = symbols.toSet();
+    final fingerprints = findings.map((f) => f.fingerprint).toList();
+    final unique = fingerprints.toSet();
     expect(
-      symbols.length,
+      fingerprints.length,
       equals(unique.length),
-      reason: 'No duplicate findings expected',
+      reason:
+          'No duplicate fingerprints expected — each symbol produces exactly '
+          'one finding with a unique fingerprint',
     );
   });
 
@@ -411,16 +419,20 @@ void main() {
     },
   );
 
-  test('no duplicate findings across all symbols (element-identity dedup)', () {
+  test('no duplicate findings across all symbols (fingerprint-identity dedup)', () {
     final findings = makeRule().run(loadResult);
-    final messages = findings.map((f) => f.message).toList();
-    final unique = messages.toSet();
+    // Uniqueness is by fingerprint: the fingerprint incorporates the qualified
+    // semanticAnchor (ClassName.memberName for members, name for top-level),
+    // so two different classes with identically-named members produce DIFFERENT
+    // fingerprints even though their messages share the same unqualified name.
+    final fingerprints = findings.map((f) => f.fingerprint).toList();
+    final unique = fingerprints.toSet();
     expect(
-      messages.length,
+      fingerprints.length,
       unique.length,
       reason:
-          'No duplicate findings — each symbol produces at most one '
-          'Finding regardless of fragments',
+          'No duplicate fingerprints — each symbol produces at most one '
+          'Finding regardless of fragments or member-name collisions',
     );
   });
 
@@ -492,4 +504,189 @@ void main() {
       reason: 'Symbols annotated with @pragma must not produce findings',
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Issue 04 — Slice B: Member-E2E tests
+  // ---------------------------------------------------------------------------
+
+  test('SliceB-AC1: unused public method is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedMethod`')),
+      isTrue,
+      reason: 'unusedMethod on MemberHost must be reported as unused',
+    );
+  });
+
+  test('SliceB-AC1: unused public field is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedField`')),
+      isTrue,
+      reason: 'unusedField on MemberHost must be reported as unused',
+    );
+  });
+
+  test('SliceB-AC1: unused public member getter is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedMemberGetter`')),
+      isTrue,
+      reason: 'unusedMemberGetter on MemberHost must be reported as unused',
+    );
+  });
+
+  test('SliceB-AC1: unused public member setter is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedMemberSetter`')),
+      isTrue,
+      reason: 'unusedMemberSetter on MemberHost must be reported as unused',
+    );
+  });
+
+  test('SliceB-AC1: unused public enum method is reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`unusedEnumMethod`')),
+      isTrue,
+      reason: 'unusedEnumMethod on MemberEnum must be reported as unused',
+    );
+  });
+
+  test('SliceB-AC2: used public method is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedMethod`')),
+      isFalse,
+      reason:
+          'usedMethod is referenced from members_consumer.dart — must not appear',
+    );
+  });
+
+  test('SliceB-AC2: used public field is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedField`')),
+      isFalse,
+      reason:
+          'usedField is referenced from members_consumer.dart — must not appear',
+    );
+  });
+
+  test('SliceB-AC2: used public member getter is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedMemberGetter`')),
+      isFalse,
+      reason:
+          'usedMemberGetter is referenced from members_consumer.dart — must not appear',
+    );
+  });
+
+  test('SliceB-AC2: used public member setter is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedMemberSetter`')),
+      isFalse,
+      reason:
+          'usedMemberSetter is referenced from members_consumer.dart — must not appear',
+    );
+  });
+
+  test('SliceB-AC2: used public enum method is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`usedEnumMethod`')),
+      isFalse,
+      reason:
+          'usedEnumMethod is referenced from members_consumer.dart — must not appear',
+    );
+  });
+
+  test('SliceB-AC3: @override method is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`interfaceMethod`')),
+      isFalse,
+      reason:
+          'interfaceMethod carries @override — must never produce a finding',
+    );
+  });
+
+  test('SliceB-AC3: @override getter is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`interfaceGetter`')),
+      isFalse,
+      reason:
+          'interfaceGetter carries @override — must never produce a finding',
+    );
+  });
+
+  test('SliceB-AC3: toString() override is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`toString`')),
+      isFalse,
+      reason: 'toString() with @override must never produce a finding',
+    );
+  });
+
+  test('SliceB-AC4: synthetic enum fields (values/index) are NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`values`')),
+      isFalse,
+      reason: 'Enum.values (synthetic) must never produce a finding',
+    );
+    expect(
+      findings.any((f) => f.message.contains('`index`')),
+      isFalse,
+      reason: 'Enum.index (synthetic) must never produce a finding',
+    );
+  });
+
+  test('SliceB-AC4: enum constants (alpha/beta) are NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`alpha`')),
+      isFalse,
+      reason: 'Enum constant alpha must never produce a finding',
+    );
+    expect(
+      findings.any((f) => f.message.contains('`beta`')),
+      isFalse,
+      reason: 'Enum constant beta must never produce a finding',
+    );
+  });
+
+  test(
+    'SliceB-AC5: member finding has qualified fingerprint (unique per class)',
+    () {
+      final findings = makeRule().run(loadResult);
+      final unusedMethod = findings.firstWhere(
+        (f) => f.message.contains('`unusedMethod`'),
+        orElse: () => throw StateError('unusedMethod finding not found'),
+      );
+      // Fingerprint is computed from qualified anchor (MemberHost.unusedMethod),
+      // so it must differ from a top-level symbol with the same unqualified name.
+      expect(unusedMethod.fingerprint, isNotEmpty);
+      expect(unusedMethod.fingerprint.length, 16);
+      // The fingerprint must NOT match a hypothetical top-level `unusedMethod`
+      // (different anchor → different hash).
+      final topLevelFingerprint = computeFingerprint(
+        ruleId: 'unused-public-exports',
+        relativePath: unusedMethod.filePath,
+        semanticAnchor: 'unusedMethod', // unqualified, for comparison
+      );
+      expect(
+        unusedMethod.fingerprint,
+        isNot(equals(topLevelFingerprint)),
+        reason:
+            'Member fingerprint uses qualified anchor → must differ from '
+            'unqualified top-level anchor',
+      );
+    },
+  );
 }

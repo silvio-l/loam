@@ -57,26 +57,65 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // AC5: The rule reports ZERO findings on the loam_cli codebase itself.
+  // AC5: The rule reports zero UNEXPECTED findings on the loam_cli codebase.
+  //
+  // KNOWN GENUINE FINDINGS (Slice B — member support, added in Issue 04):
+  //
+  //   • `Finding.severity` (lib/src/model/finding.dart) — The `severity` field
+  //     is declared and constructor-initialized but never explicitly read
+  //     anywhere in the current codebase (the gate/reporter layers are post-MVP
+  //     stubs). Named-argument constructor calls (`severity: Severity.warning`)
+  //     resolve to the `FieldFormalParameterElement`, not the `FieldElement`,
+  //     so the UsageIndex does not count them as reads.
+  //     This is a genuine finding. It is allowed here because fixing it would
+  //     require adding a reader outside this issue's scope.
+  //     TRACK: remove from allowlist when a reader is added (e.g. in reporter).
+  //
+  // Per Issue 04 instructions: "if they are genuine real findings the project
+  // should fix, that's out of scope for a fixture-driven rule test — instead
+  // adjust the dogfooding test's expectation deliberately and document why."
   // ---------------------------------------------------------------------------
+
+  // Known genuine unused-member findings for loam_cli itself.
+  // Each entry is a (filePath, message) pair — both must match for a finding
+  // to be considered a deliberate allowance (path-relative, POSIX).
+  //
+  // TRACK: remove entries when the underlying issue is fixed in the codebase.
+  const allowedFindings = {
+    // `Finding.severity` is declared and constructor-initialized but never
+    // explicitly READ anywhere in the current codebase (gate/reporter are
+    // post-MVP stubs). Named-argument constructor calls (`severity: …`) resolve
+    // to the `FieldFormalParameterElement`, not the `FieldElement`, so the
+    // UsageIndex does not count them as reads.
+    // Per Issue 04 instructions, genuine findings that require out-of-scope
+    // fixes are tracked here rather than suppressed in the rule.
+    ('lib/src/model/finding.dart', 'unused public field `severity`'),
+  };
+
   test(
-    'AC5-dogfooding: UnusedPublicExportsRule reports zero findings on loam_cli/',
+    'AC5-dogfooding: UnusedPublicExportsRule reports no unexpected findings on loam_cli/',
     () {
       final rule = UnusedPublicExportsRule(projectRoot: loamCliRoot);
-      final findings = rule.run(loadResult);
+      final allFindings = rule.run(loadResult);
 
-      if (findings.isNotEmpty) {
-        final details = findings
+      // Separate known genuine findings from unexpected ones.
+      final unexpected = allFindings.where((f) {
+        final key = (f.filePath, f.message);
+        return !allowedFindings.contains(key);
+      }).toList();
+
+      if (unexpected.isNotEmpty) {
+        final details = unexpected
             .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
             .join('\n');
         fail(
-          'Self-dogfooding failed: rule reported ${findings.length} finding(s) '
-          'on loam_cli/. Per PRD §12, make the rule more conservative rather '
-          'than adding suppression:\n$details',
+          'Self-dogfooding failed: rule reported ${unexpected.length} unexpected '
+          'finding(s) on loam_cli/. Per PRD §12, make the rule more conservative '
+          'rather than adding suppression:\n$details',
         );
       }
 
-      expect(findings, isEmpty);
+      expect(unexpected, isEmpty);
     },
   );
 }

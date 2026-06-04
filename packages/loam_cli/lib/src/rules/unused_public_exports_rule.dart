@@ -52,7 +52,7 @@ class UnusedPublicExportsRule implements Rule {
       final fingerprint = computeFingerprint(
         ruleId: ruleId,
         relativePath: candidate.relativePath,
-        semanticAnchor: candidate.name,
+        semanticAnchor: candidate.semanticAnchor,
       );
 
       findings.add(

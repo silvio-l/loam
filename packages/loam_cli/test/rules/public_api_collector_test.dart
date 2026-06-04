@@ -446,4 +446,237 @@ void main() {
       reason: 'Symbols annotated with @pragma must never be candidates',
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Issue 04 — Slice B: Member candidates are collected
+  // ---------------------------------------------------------------------------
+
+  test('SliceB-AC1: unused public method is a candidate', () {
+    final memberCandidates = candidates
+        .where((c) => c.name == 'unusedMethod')
+        .toList();
+    expect(
+      memberCandidates,
+      isNotEmpty,
+      reason: 'unusedMethod (public method on MemberHost) must be a candidate',
+    );
+    final c = memberCandidates.first;
+    expect(c.kind, 'method');
+    expect(c.semanticAnchor, 'MemberHost.unusedMethod');
+  });
+
+  test('SliceB-AC1: unused public field is a candidate', () {
+    final fieldCandidates = candidates
+        .where((c) => c.name == 'unusedField')
+        .toList();
+    expect(
+      fieldCandidates,
+      isNotEmpty,
+      reason: 'unusedField (public field on MemberHost) must be a candidate',
+    );
+    final c = fieldCandidates.first;
+    expect(c.kind, 'field');
+    expect(c.semanticAnchor, 'MemberHost.unusedField');
+  });
+
+  test('SliceB-AC1: unused public member getter is a candidate', () {
+    final getterCandidates = candidates
+        .where((c) => c.name == 'unusedMemberGetter')
+        .toList();
+    expect(
+      getterCandidates,
+      isNotEmpty,
+      reason:
+          'unusedMemberGetter (public getter on MemberHost) must be a candidate',
+    );
+    final c = getterCandidates.first;
+    expect(c.kind, 'getter');
+    expect(c.semanticAnchor, 'MemberHost.unusedMemberGetter');
+  });
+
+  test('SliceB-AC1: unused public member setter is a candidate', () {
+    final setterCandidates = candidates
+        .where((c) => c.name == 'unusedMemberSetter')
+        .toList();
+    expect(
+      setterCandidates,
+      isNotEmpty,
+      reason:
+          'unusedMemberSetter (public setter on MemberHost) must be a candidate',
+    );
+    final c = setterCandidates.first;
+    expect(c.kind, 'setter');
+    expect(c.semanticAnchor, 'MemberHost.unusedMemberSetter');
+  });
+
+  test('SliceB-AC1: unused public enum method is a candidate', () {
+    final enumMethodCandidates = candidates
+        .where((c) => c.name == 'unusedEnumMethod')
+        .toList();
+    expect(
+      enumMethodCandidates,
+      isNotEmpty,
+      reason:
+          'unusedEnumMethod (public method on MemberEnum) must be a candidate',
+    );
+    final c = enumMethodCandidates.first;
+    expect(c.kind, 'method');
+    expect(c.semanticAnchor, 'MemberEnum.unusedEnumMethod');
+  });
+
+  test(
+    'SliceB-AC2: used public method is a candidate (referenced elsewhere)',
+    () {
+      // usedMethod IS a candidate but should be referenced → not reported as unused.
+      final usedMethodCandidates = candidates
+          .where((c) => c.name == 'usedMethod')
+          .toList();
+      // Candidate must exist; referenced check happens in the rule, not here.
+      expect(
+        usedMethodCandidates,
+        isNotEmpty,
+        reason: 'usedMethod must be collected as a candidate',
+      );
+    },
+  );
+
+  test('SliceB-AC3: @override method is NOT a candidate', () {
+    // MemberHost.interfaceMethod is @override — must not appear in candidates.
+    final overrideCandidates = candidates
+        .where((c) => c.name == 'interfaceMethod')
+        .toList();
+    expect(
+      overrideCandidates,
+      isEmpty,
+      reason: 'interfaceMethod carries @override — must never be a candidate',
+    );
+  });
+
+  test('SliceB-AC3: @override getter is NOT a candidate', () {
+    // MemberHost.interfaceGetter is @override — must not appear in candidates.
+    final overrideCandidates = candidates
+        .where((c) => c.name == 'interfaceGetter')
+        .toList();
+    expect(
+      overrideCandidates,
+      isEmpty,
+      reason: 'interfaceGetter carries @override — must never be a candidate',
+    );
+  });
+
+  test('SliceB-AC3: Object.toString() override is NOT a candidate', () {
+    // HasOverrideMethod.toString is @override — must not appear in candidates.
+    final overrideCandidates = candidates
+        .where((c) => c.name == 'toString')
+        .toList();
+    expect(
+      overrideCandidates,
+      isEmpty,
+      reason: 'toString() with @override must never be a candidate',
+    );
+  });
+
+  test('SliceB-AC4: enum values field (synthetic) is NOT a candidate', () {
+    // Enum.values and Enum.index are synthetic — must never be candidates.
+    final syntheticCandidates = candidates
+        .where((c) => c.name == 'values' || c.name == 'index')
+        .toList();
+    expect(
+      syntheticCandidates,
+      isEmpty,
+      reason: 'Synthetic enum fields (values/index) must never be candidates',
+    );
+  });
+
+  test('SliceB-AC4: enum constants are NOT candidates', () {
+    // Enum constant fields (alpha, beta) must not be member candidates.
+    final enumConstCandidates = candidates
+        .where((c) => c.name == 'alpha' || c.name == 'beta')
+        .toList();
+    expect(
+      enumConstCandidates,
+      isEmpty,
+      reason: 'Enum constant fields must never be member candidates',
+    );
+  });
+
+  test('SliceB-AC5: member candidates have qualified semanticAnchor', () {
+    final methodCandidate = candidates.firstWhere(
+      (c) => c.name == 'unusedMethod',
+      orElse: () => throw StateError('unusedMethod not found'),
+    );
+    expect(
+      methodCandidate.semanticAnchor,
+      contains('.'),
+      reason: 'Member semanticAnchor must be qualified (ClassName.memberName)',
+    );
+    expect(methodCandidate.semanticAnchor, 'MemberHost.unusedMethod');
+  });
+
+  test('SliceB-AC5: top-level candidates have unqualified semanticAnchor', () {
+    // Top-level symbols must still use just their name as anchor.
+    final topLevelCandidate = candidates.firstWhere(
+      (c) => c.name == 'unusedFunction',
+      orElse: () => throw StateError('unusedFunction not found'),
+    );
+    expect(
+      topLevelCandidate.semanticAnchor,
+      'unusedFunction',
+      reason: 'Top-level semanticAnchor must remain unqualified',
+    );
+  });
+
+  test('SliceB: members of re-exported classes are NOT candidates', () {
+    // ReExportedClass is re-exported — its members must not be candidates.
+    // 'name' getter from ReExportedClass would appear in re_exported_origin.dart.
+    final reExportedMemberCandidates = candidates.where((c) {
+      return c.semanticAnchor.startsWith('ReExportedClass.');
+    }).toList();
+    expect(
+      reExportedMemberCandidates,
+      isEmpty,
+      reason: 'Members of re-exported classes must never be candidates',
+    );
+  });
+
+  test('SliceB: members of @visibleForTesting class are NOT candidates', () {
+    // VisibleForTestingClass members must be excluded transitively.
+    final annotatedMemberCandidates = candidates.where((c) {
+      return c.semanticAnchor.startsWith('VisibleForTestingClass.');
+    }).toList();
+    expect(
+      annotatedMemberCandidates,
+      isEmpty,
+      reason: 'Members of @visibleForTesting classes must never be candidates',
+    );
+  });
+
+  test('SliceB: abstract interface methods are NOT candidates', () {
+    // MemberInterface.interfaceMethod and MemberInterface.interfaceGetter
+    // are abstract — must never be candidates.
+    final abstractCandidates = candidates.where((c) {
+      return c.semanticAnchor.startsWith('MemberInterface.');
+    }).toList();
+    expect(
+      abstractCandidates,
+      isEmpty,
+      reason: 'Abstract interface methods/getters must never be candidates',
+    );
+  });
+
+  test('SliceB: all member candidates have line > 0', () {
+    final memberCandidates = candidates.where((c) {
+      return c.kind == 'method' ||
+          c.kind == 'field' ||
+          (c.kind == 'getter' && c.semanticAnchor.contains('.')) ||
+          (c.kind == 'setter' && c.semanticAnchor.contains('.'));
+    }).toList();
+    for (final c in memberCandidates) {
+      expect(
+        c.line,
+        greaterThan(0),
+        reason: '${c.semanticAnchor} must have line > 0',
+      );
+    }
+  });
 }
