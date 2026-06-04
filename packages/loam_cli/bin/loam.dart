@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:loam/src/command/loam_command.dart';
+import 'package:loam/src/runner/analysis_runner.dart';
 
 /// loam.dev CLI entrypoint (command: `loam`).
 ///
@@ -54,7 +55,22 @@ Future<int> run(List<String> args) async {
 
 /// Full audit: runs all active rules across the whole project
 /// (baseline-independent). Driven by [LoamCommand] base.
+///
+/// Output is provisional and minimal (Sprint 5 transition marker).
+/// Polished reporters (human/sarif/…) replace this in Sprint 6 —
+/// only the renderer changes, the pipeline stays identical (Invariant 4).
 class ScanCommand extends LoamCommand {
+  ScanCommand() {
+    argParser.addOption(
+      'project-root',
+      abbr: 'p',
+      help:
+          'Root directory of the Dart project to analyse. '
+          'Defaults to the current working directory.',
+      defaultsTo: null,
+    );
+  }
+
   @override
   final String name = 'scan';
   @override
@@ -63,7 +79,30 @@ class ScanCommand extends LoamCommand {
       '(baseline-independent).';
 
   @override
-  Future<int> run() => notImplemented('tracer: unused-public-exports');
+  Future<int> run() async {
+    final projectRoot =
+        argResults?['project-root'] as String? ?? Directory.current.path;
+
+    final runner = const AnalysisRunner();
+    final findings = await runner.run(projectRoot);
+
+    // Provisional minimal output — Sprint 6 replaces this renderer only.
+    for (final f in findings) {
+      stdout.writeln('[${f.ruleId}] ${f.filePath}:${f.line} ${f.message}');
+    }
+
+    final count = findings.length;
+    if (count == 0) {
+      stdout.writeln('loam scan: 0 findings — clean.');
+    } else {
+      stdout.writeln(
+        'loam scan: $count finding${count == 1 ? '' : 's'} '
+        '(provisional output — full reporters in Sprint 6)',
+      );
+    }
+
+    return count > 0 ? 1 : 0;
+  }
 }
 
 /// Project health score: aggregates active rules into a single health metric.

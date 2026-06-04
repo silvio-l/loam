@@ -3,11 +3,26 @@ library;
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 // Import the testable `run` function directly from the entrypoint.
 // Because `bin/` is not a library, we import it as a URI.
 import '../../bin/loam.dart' as cli;
+
+/// Creates a minimal Dart package with no public symbols (clean project).
+/// Caller is responsible for deleting the returned directory.
+Directory _makeCleanProject() {
+  final dir = Directory.systemTemp.createTempSync('loam_entrypoint_test_');
+  File(p.join(dir.path, 'pubspec.yaml')).writeAsStringSync('''
+name: clean_pkg
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+''');
+  Directory(p.join(dir.path, 'lib')).createSync();
+  File(p.join(dir.path, 'lib', 'clean.dart')).writeAsStringSync('// empty\n');
+  return dir;
+}
 
 void main() {
   group('run() exit-code convention', () {
@@ -27,9 +42,16 @@ void main() {
       expect(code, equals(64));
     });
 
-    test('scan subcommand → exit 0 (stub)', () async {
-      final code = await cli.run(['scan']);
-      expect(code, equals(0));
+    // scan is now implemented: exit 0 only when no findings are present.
+    // Use a clean temporary project so the test is deterministic.
+    test('scan subcommand → exit 0 on clean project', () async {
+      final dir = _makeCleanProject();
+      try {
+        final code = await cli.run(['scan', '--project-root', dir.path]);
+        expect(code, equals(0));
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
     });
 
     test('health subcommand → exit 0 (stub)', () async {
@@ -69,8 +91,10 @@ void main() {
   });
 
   group('CLI surface smoke test (AC1 + AC5)', () {
-    // AC1: --help lists all 7 commands; AC5: each stub exits 0 + emits
-    // "not yet implemented".
+    // AC1: --help lists all 7 commands.
+    // AC5 (stub commands only): all remaining stubs exit 0 + emit
+    // "not yet implemented". scan is now implemented and excluded from those
+    // expectations.
     const allCommands = [
       'scan',
       'health',
@@ -81,10 +105,23 @@ void main() {
       'fix',
     ];
 
-    test('all seven commands are registered and exit 0', () async {
+    // Stub commands (everything except scan which is now implemented).
+    const stubCommands = ['health', 'gate', 'baseline', 'slop', 'init', 'fix'];
+
+    test('all seven commands are registered (--help lists them)', () {
+      final entrypoint = '${Directory.current.path}/bin/loam.dart';
+      final result = Process.runSync(Platform.executable, [
+        'run',
+        entrypoint,
+        '--help',
+      ]);
+      final output = result.stdout as String;
       for (final cmd in allCommands) {
-        final code = await cli.run([cmd]);
-        expect(code, equals(0), reason: 'command "$cmd" should exit 0');
+        expect(
+          output,
+          contains(cmd),
+          reason: '--help output should list command "$cmd"',
+        );
       }
     });
 
@@ -106,9 +143,9 @@ void main() {
       }
     });
 
-    test('each stub emits "not yet implemented" (subprocess)', () {
+    test('each stub command exits 0 and emits "not yet implemented"', () {
       final entrypoint = '${Directory.current.path}/bin/loam.dart';
-      for (final cmd in allCommands) {
+      for (final cmd in stubCommands) {
         final result = Process.runSync(Platform.executable, [
           'run',
           entrypoint,
@@ -125,14 +162,29 @@ void main() {
   });
 
   group('--format flag', () {
-    test('default (no flag) → exit 0', () async {
-      final code = await cli.run(['scan']);
+    late Directory cleanDir;
+
+    setUpAll(() {
+      cleanDir = _makeCleanProject();
+    });
+
+    tearDownAll(() {
+      cleanDir.deleteSync(recursive: true);
+    });
+
+    test('default (no flag) → exit 0 on clean project', () async {
+      final code = await cli.run(['scan', '--project-root', cleanDir.path]);
       expect(code, equals(0));
     });
 
     for (final fmt in ['human', 'sarif', 'json', 'markdown', 'html']) {
-      test('--format=$fmt → exit 0', () async {
-        final code = await cli.run(['--format=$fmt', 'scan']);
+      test('--format=$fmt → exit 0 on clean project', () async {
+        final code = await cli.run([
+          '--format=$fmt',
+          'scan',
+          '--project-root',
+          cleanDir.path,
+        ]);
         expect(code, equals(0));
       });
     }
