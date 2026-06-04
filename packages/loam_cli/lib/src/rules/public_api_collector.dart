@@ -36,7 +36,7 @@ class PublicApiCandidate {
 /// - Private symbols (name starts with `_`).
 /// - Generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`).
 /// - `main` functions (entrypoints must never be reported as unused).
-/// - Symbols annotated with `@visibleForTesting`.
+/// - Symbols annotated with `@visibleForTesting` or `@pragma`.
 /// - Symbols in libraries that re-export them via `export` directives
 ///   (re-exported symbols are part of the public API).
 ///
@@ -303,10 +303,21 @@ class PublicApiCollector {
   }
 
   /// Returns true when [element] carries a conservative annotation that marks
-  /// intentional public exposure: `@visibleForTesting`.
+  /// intentional public exposure: `@visibleForTesting` or `@pragma`.
+  ///
+  /// `@pragma` is a built-in Dart core annotation used to communicate intent
+  /// to the compiler/runtime (e.g. `@pragma('vm:entry-point')`). Any `@pragma`
+  /// annotation signals deliberate exposure and is excluded conservatively.
   static bool _hasConservativeAnnotation(Element element) {
     for (final annotation in element.metadata.annotations) {
       if (annotation.isVisibleForTesting) return true;
+      // @pragma is a dart:core constructor — detect via element type/name.
+      final annotationElement = annotation.element;
+      if (annotationElement is ConstructorElement &&
+          annotationElement.enclosingElement.name == 'pragma' &&
+          annotationElement.library.name == 'dart.core') {
+        return true;
+      }
     }
     return false;
   }
@@ -340,11 +351,14 @@ class PublicApiCollector {
         for (final v in exported.topLevelVariables) {
           ids.add(v.id);
         }
+        // Use the canonical variable id (PropertyInducingElement) to match
+        // the id that _addIfEligible receives via `f.element.variable`.
+        // Using `g.id` (the PropertyAccessorElement id) would NOT match.
         for (final g in exported.getters) {
-          ids.add(g.id);
+          ids.add(g.variable.id);
         }
         for (final s in exported.setters) {
-          ids.add(s.id);
+          ids.add(s.variable.id);
         }
       }
     }

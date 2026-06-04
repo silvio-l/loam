@@ -423,4 +423,73 @@ void main() {
           'Finding regardless of fragments',
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Issue 03 — AC1: Generated-file exclusion
+  // Symbols declared in *.g.dart are NOT reported; references FROM generated
+  // files count as usage (UsedOnlyFromGenerated must not be reported).
+  // ---------------------------------------------------------------------------
+
+  test('AC1-gen: GeneratedClass (declared in *.g.dart) is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`GeneratedClass`')),
+      isFalse,
+      reason: 'Symbols declared in *.g.dart files must not produce findings',
+    );
+  });
+
+  test('AC1-gen: UsedOnlyFromGenerated is NOT reported '
+      '(references from *.g.dart count as usage)', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`UsedOnlyFromGenerated`')),
+      isFalse,
+      reason:
+          'A symbol only referenced from a generated file must not be '
+          'reported — generated files are reference sources',
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Issue 03 — AC2: Re-exported symbol exclusion
+  // Symbols re-exported via `export` directives are NOT reported.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'AC2-reexport: ReExportedClass (re-exported via barrel) is NOT reported',
+    () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`ReExportedClass`')),
+        isFalse,
+        reason:
+            'Symbols re-exported via `export` directives must not produce findings',
+      );
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Issue 03 — AC3: Annotation exclusion
+  // @visibleForTesting and @pragma annotated symbols are NOT reported.
+  // ---------------------------------------------------------------------------
+
+  test('AC3-annotation: @visibleForTesting class is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`VisibleForTestingClass`')),
+      isFalse,
+      reason:
+          'Symbols annotated with @visibleForTesting must not produce findings',
+    );
+  });
+
+  test('AC3-annotation: @pragma class is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`PragmaAnnotatedClass`')),
+      isFalse,
+      reason: 'Symbols annotated with @pragma must not produce findings',
+    );
+  });
 }

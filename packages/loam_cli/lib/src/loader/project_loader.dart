@@ -116,8 +116,19 @@ class ProjectLoader {
       final libDir = p.join(root, 'lib') + p.separator;
 
       for (final filePath in dartFiles) {
-        final session = collection.contextFor(filePath).currentSession;
-        final someResult = await session.getResolvedUnit(filePath);
+        // contextFor throws StateError when [filePath] belongs to a nested
+        // package that has its own pubspec.yaml and is therefore not part of
+        // the enclosing AnalysisContextCollection. Treat as a load error so
+        // the rule layer never receives a broken/incomplete element model, but
+        // the loader still processes all other files cleanly.
+        SomeResolvedUnitResult someResult;
+        try {
+          final session = collection.contextFor(filePath).currentSession;
+          someResult = await session.getResolvedUnit(filePath);
+        } on StateError catch (e) {
+          errors.add(LoadFileError(path: filePath, reason: e.message));
+          continue;
+        }
 
         if (someResult is ResolvedUnitResult) {
           // A `part of` file resolves as a ResolvedUnitResult with isPart=true.

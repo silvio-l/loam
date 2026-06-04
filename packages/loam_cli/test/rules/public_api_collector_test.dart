@@ -364,4 +364,86 @@ void main() {
           'duplicates across fragments',
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Issue 03 — AC1: Generated-file exclusion
+  // Symbols declared in *.g.dart files are NOT candidates.
+  // ---------------------------------------------------------------------------
+
+  test('AC1-gen: GeneratedClass (from *.g.dart) is NOT a candidate', () {
+    final names = candidates.map((c) => c.name).toSet();
+    expect(
+      names.contains('GeneratedClass'),
+      isFalse,
+      reason: 'Symbols declared in *.g.dart files must never be candidates',
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Issue 03 — AC2: Re-exported symbol exclusion
+  // Symbols re-exported via `export` directives are NOT candidates.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'AC2-reexport: ReExportedClass (re-exported via barrel) is NOT a candidate',
+    () {
+      final names = candidates.map((c) => c.name).toSet();
+      expect(
+        names.contains('ReExportedClass'),
+        isFalse,
+        reason:
+            'Symbols re-exported via `export` directives must never be candidates',
+      );
+    },
+  );
+
+  test(
+    'AC2-reexport: top-level getter re-exported via barrel is NOT a candidate',
+    () {
+      final names = candidates.map((c) => c.name).toSet();
+      expect(
+        names.contains('reExportedGetter'),
+        isFalse,
+        reason:
+            'Top-level getters re-exported via `export` directives must never be candidates',
+      );
+    },
+  );
+
+  test(
+    'AC2-reexport: top-level setter re-exported via barrel is NOT a candidate',
+    () {
+      final names = candidates.map((c) => c.name).toSet();
+      expect(
+        names.contains('reExportedSetter'),
+        isFalse,
+        reason:
+            'Top-level setters re-exported via `export` directives must never be candidates',
+      );
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Issue 03 — AC3: Annotation exclusion
+  // @visibleForTesting and @pragma annotated symbols are NOT candidates.
+  // ---------------------------------------------------------------------------
+
+  test('AC3-annotation: @visibleForTesting class is NOT a candidate', () {
+    final names = candidates.map((c) => c.name).toSet();
+    expect(
+      names.contains('VisibleForTestingClass'),
+      isFalse,
+      reason:
+          'Symbols annotated with @visibleForTesting must never be candidates',
+    );
+  });
+
+  test('AC3-annotation: @pragma class is NOT a candidate', () {
+    final names = candidates.map((c) => c.name).toSet();
+    expect(
+      names.contains('PragmaAnnotatedClass'),
+      isFalse,
+      reason: 'Symbols annotated with @pragma must never be candidates',
+    );
+  });
 }
