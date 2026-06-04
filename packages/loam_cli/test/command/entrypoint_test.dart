@@ -64,14 +64,34 @@ void main() {
       expect(code, equals(0));
     });
 
-    test('baseline subcommand → exit 0 (stub)', () async {
-      final code = await cli.run(['baseline']);
-      expect(code, equals(0));
-    });
+    // baseline is now implemented: no baseline.json → exit 1 (clear error)
+    // See baseline_command_test.dart for full coverage.
+    test(
+      'baseline subcommand with no baseline.json → exit 1 (missing error)',
+      () async {
+        final dir = _makeCleanProject();
+        try {
+          final code = await cli.run(['baseline', '--project-root', dir.path]);
+          expect(code, equals(1));
+        } finally {
+          dir.deleteSync(recursive: true);
+        }
+      },
+    );
 
-    test('baseline --write → exit 0 (stub)', () async {
-      final code = await cli.run(['baseline', '--write']);
-      expect(code, equals(0));
+    test('baseline --write → exit 0 (implemented)', () async {
+      final dir = _makeCleanProject();
+      try {
+        final code = await cli.run([
+          'baseline',
+          '--write',
+          '--project-root',
+          dir.path,
+        ]);
+        expect(code, equals(0));
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
     });
 
     test('slop subcommand → exit 0 (stub)', () async {
@@ -105,8 +125,8 @@ void main() {
       'fix',
     ];
 
-    // Stub commands (everything except scan which is now implemented).
-    const stubCommands = ['health', 'gate', 'baseline', 'slop', 'init', 'fix'];
+    // Stub commands (everything except scan and baseline which are now implemented).
+    const stubCommands = ['health', 'gate', 'slop', 'init', 'fix'];
 
     test('all seven commands are registered (--help lists them)', () {
       final entrypoint = '${Directory.current.path}/bin/loam.dart';

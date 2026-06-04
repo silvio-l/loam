@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:loam/src/baseline/baseline_engine.dart';
 import 'package:loam/src/command/loam_command.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 
@@ -171,29 +172,112 @@ class _FixCommand extends LoamCommand {
 
 /// Writes/updates the baseline — the bridge between the full audit and the
 /// ratchet gate (see PRD D10 / ADR-0003). With no flag it shows the current
-/// baseline; `--write` freezes the current findings as the accepted state.
+/// baseline; `--write` freezes the current findings as the accepted state;
+/// `--update` refreshes an existing baseline.
 class _BaselineCommand extends LoamCommand {
   _BaselineCommand() {
-    argParser.addFlag(
-      'write',
-      negatable: false,
-      help:
-          'Freeze the current findings as the new baseline '
-          '(overwrites baseline.json).',
-    );
+    argParser
+      ..addFlag(
+        'write',
+        negatable: false,
+        help:
+            'Freeze the current findings as the new baseline. '
+            'Warns if baseline.json already exists (use --update to refresh).',
+      )
+      ..addFlag(
+        'update',
+        negatable: false,
+        help:
+            'Refresh an existing baseline with the current findings. '
+            'Warns if no baseline.json exists yet (use --write to create one).',
+      )
+      ..addOption(
+        'project-root',
+        abbr: 'p',
+        help:
+            'Root directory of the Dart project to analyse. '
+            'Defaults to the current working directory.',
+        defaultsTo: null,
+      );
   }
 
   @override
   final String name = 'baseline';
   @override
   final String description =
-      'Show or freeze the baseline (--write) for the ratchet gate.';
+      'Show or freeze the baseline (--write / --update) for the ratchet gate.';
 
   @override
   Future<int> run() async {
     final write = argResults?.flag('write') ?? false;
-    return notImplemented(
-      write ? 'will freeze baseline.json' : 'will show the current baseline',
+    final update = argResults?.flag('update') ?? false;
+    final projectRoot =
+        argResults?['project-root'] as String? ?? Directory.current.path;
+
+    final engine = BaselineEngine(projectRoot: projectRoot);
+
+    if (write) {
+      return _runWrite(engine, projectRoot);
+    } else if (update) {
+      return _runUpdate(engine, projectRoot);
+    } else {
+      return _runShow(engine);
+    }
+  }
+
+  Future<int> _runWrite(BaselineEngine engine, String projectRoot) async {
+    if (engine.exists) {
+      stderr.writeln(
+        'Warning: baseline.json already exists in $projectRoot. '
+        'Use `loam baseline --update` to refresh it '
+        '(--write would overwrite your curated baseline).',
+      );
+    }
+    final findings = await const AnalysisRunner().run(projectRoot);
+    engine.write(findings, AnalysisRunner.rulesetVersion);
+    final count = findings.length;
+    stdout.writeln(
+      'loam baseline: wrote $count finding${count == 1 ? '' : 's'} '
+      'to baseline.json (${AnalysisRunner.rulesetVersion}).',
     );
+    return 0;
+  }
+
+  Future<int> _runUpdate(BaselineEngine engine, String projectRoot) async {
+    if (!engine.exists) {
+      stderr.writeln(
+        'Warning: no baseline.json found in $projectRoot. '
+        'Use `loam baseline --write` to create one.',
+      );
+    }
+    final findings = await const AnalysisRunner().run(projectRoot);
+    engine.write(findings, AnalysisRunner.rulesetVersion);
+    final count = findings.length;
+    stdout.writeln(
+      'loam baseline: updated to $count finding${count == 1 ? '' : 's'} '
+      'in baseline.json (${AnalysisRunner.rulesetVersion}).',
+    );
+    return 0;
+  }
+
+  int _runShow(BaselineEngine engine) {
+    try {
+      final baseline = engine.read();
+      final count = baseline.findings.length;
+      stdout.writeln(
+        'loam baseline: $count finding${count == 1 ? '' : 's'} '
+        '(${baseline.rulesetVersion}, schemaVersion=${baseline.schemaVersion})',
+      );
+      for (final f in baseline.findings) {
+        stdout.writeln(
+          '  [${f.ruleId}] ${f.filePath}:${f.line} ${f.message} '
+          '(${f.fingerprint})',
+        );
+      }
+    } on BaselineException catch (e) {
+      stderr.writeln('loam baseline: ${e.message}');
+      return 1;
+    }
+    return 0;
   }
 }

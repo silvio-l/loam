@@ -128,4 +128,22 @@ void main() {
       }
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // rulesetVersion: derived from active rule set, not hardcoded
+  // ---------------------------------------------------------------------------
+
+  test('rulesetVersion starts with "ruleset@"', () {
+    expect(AnalysisRunner.rulesetVersion, startsWith('ruleset@'));
+  });
+
+  test('rulesetVersion is deterministic across calls', () {
+    final v1 = AnalysisRunner.rulesetVersion;
+    final v2 = AnalysisRunner.rulesetVersion;
+    expect(v1, equals(v2));
+  });
+
+  test('activeRuleIds contains unused-public-exports', () {
+    expect(AnalysisRunner.activeRuleIds, contains('unused-public-exports'));
+  });
 }

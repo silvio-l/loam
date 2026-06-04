@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
@@ -19,6 +22,27 @@ import '../rules/unused_public_exports_rule.dart';
 /// There is no second code path (ADR-0003 / D10).
 class AnalysisRunner {
   const AnalysisRunner();
+
+  /// The canonical active rule IDs for the current MVP registry, sorted
+  /// lexicographically.
+  ///
+  /// This is the single source of truth for [rulesetVersion]: both the runner
+  /// and the baseline derive the version from this list. Adding or removing a
+  /// rule here automatically produces a new [rulesetVersion] without any
+  /// manual bookkeeping.
+  static const List<String> activeRuleIds = ['unused-public-exports'];
+
+  /// A deterministic, content-addressed version string for the active rule set.
+  ///
+  /// Computed as `ruleset@<8-char SHA-256 hex>` over the sorted [activeRuleIds]
+  /// joined by `\n`. Changing the active rule set changes this string, so a
+  /// stale baseline will show a rulesetVersion mismatch (Invariant 5 / D8).
+  static String get rulesetVersion {
+    final content = (List<String>.from(activeRuleIds)..sort()).join('\n');
+    final digest = sha256.convert(utf8.encode(content));
+    final short = digest.toString().substring(0, 8);
+    return 'ruleset@$short';
+  }
 
   /// Loads the Dart package at [projectRoot] and runs the active rule registry.
   ///
