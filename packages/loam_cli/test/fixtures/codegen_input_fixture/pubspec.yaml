@@ -1,0 +1,6 @@
+name: codegen_input_fixture
+description: "Test fixture for CodegenInputClassifier and codegen exclusion tests."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0

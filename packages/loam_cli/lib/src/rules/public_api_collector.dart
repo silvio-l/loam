@@ -3,6 +3,7 @@ import 'package:analyzer/source/line_info.dart';
 import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import 'codegen_input_classifier.dart';
 
 /// A candidate public top-level symbol for the `unused-public-exports` rule.
 class PublicApiCandidate {
@@ -49,6 +50,13 @@ class PublicApiCandidate {
 /// - Symbols annotated with `@visibleForTesting` or `@pragma`.
 /// - Symbols in libraries that re-export them via `export` directives
 ///   (re-exported symbols are part of the public API).
+/// - **Code-gen input members**: public members of classes that are identified
+///   as code-gen inputs (e.g. Drift `Table`/`DataClass`/`View` subclasses,
+///   classes annotated with `@freezed`/`@JsonSerializable`/`@riverpod`, or
+///   classes in libraries with `part '*.g.dart'`/`'*.freezed.dart'` directives)
+///   are excluded because they are consumed by the code generator at build time
+///   and will not appear as static element references. The code-gen input
+///   *class itself* is not excluded at the top-level candidate step (conservative).
 ///
 /// **Part-file handling:** The [ProjectLoader] skips `part` files as
 /// standalone resolved entries (they are not libraries). This collector
@@ -59,6 +67,8 @@ class PublicApiCandidate {
 /// exactly one candidate regardless of how many fragments the library has.
 class PublicApiCollector {
   const PublicApiCollector();
+
+  static const _codegenClassifier = CodegenInputClassifier();
 
   /// Collects all public top-level candidates from `lib/` files in [result].
   ///
@@ -470,12 +480,16 @@ class PublicApiCollector {
   }
 
   /// Returns `true` if the enclosing type [element] is eligible for member
-  /// collection — i.e., it is not re-exported, not private, and does not carry
-  /// a conservative annotation.
+  /// collection — i.e., it is not re-exported, not private, does not carry
+  /// a conservative annotation, and is not a code-gen input.
   ///
   /// Members of re-exported types (part of the public API by re-export), of
-  /// types with `@visibleForTesting`/`@pragma`, or of private types are
-  /// excluded transitively.
+  /// types with `@visibleForTesting`/`@pragma`, of private types, or of
+  /// code-gen input types (Drift Table/DataClass/View, @freezed, @riverpod,
+  /// etc.) are excluded transitively.
+  ///
+  /// The code-gen input class itself remains a top-level candidate (conservative
+  /// default: only its *members* are excluded here).
   static bool _isMemberEligibleEnclosingType(
     Element element,
     Set<int> reExported,
@@ -484,6 +498,8 @@ class PublicApiCollector {
     if (name.isEmpty || name.startsWith('_')) return false;
     if (reExported.contains(element.id)) return false;
     if (_hasConservativeAnnotation(element)) return false;
+    // Code-gen input: members consumed by the generator at build time — exclude.
+    if (_codegenClassifier.classify(element).isCodegenInput) return false;
     return true;
   }
 
