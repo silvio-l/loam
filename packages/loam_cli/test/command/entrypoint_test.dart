@@ -207,15 +207,27 @@ void main() {
       expect(code, equals(0));
     });
 
-    for (final fmt in ['human', 'sarif', 'json', 'markdown', 'html']) {
-      test('--format=$fmt → exit 0 on clean project', () async {
+    // `human` is fully implemented: exit 0 on clean project.
+    test('--format=human → exit 0 on clean project', () async {
+      final code = await cli.run([
+        '--format=human',
+        'scan',
+        '--project-root',
+        cleanDir.path,
+      ]);
+      expect(code, equals(0));
+    });
+
+    // Formats not yet implemented in Sprint 6 return 64 (EX_USAGE).
+    for (final fmt in ['sarif', 'json', 'markdown', 'html']) {
+      test('--format=$fmt → exit 64 (not yet implemented)', () async {
         final code = await cli.run([
           '--format=$fmt',
           'scan',
           '--project-root',
           cleanDir.path,
         ]);
-        expect(code, equals(0));
+        expect(code, equals(64));
       });
     }
 

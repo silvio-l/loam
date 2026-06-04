@@ -1,0 +1,37 @@
+import 'human_reporter.dart';
+import 'reporter.dart';
+
+/// Thrown when a format is recognised but not yet implemented.
+///
+/// The calling command should catch this and print a clear message to stderr
+/// (exit code 64 / EX_USAGE) rather than crashing with a stack trace.
+class FormatNotImplementedError extends Error {
+  FormatNotImplementedError(this.format);
+
+  /// The requested format string (e.g. `'json'`).
+  final String format;
+
+  @override
+  String toString() =>
+      'loam: output format "$format" is not yet implemented '
+      '(coming in a later sprint). Use --format human or --format sarif.';
+}
+
+/// Returns the [Reporter] for [format].
+///
+/// - `'human'` → [HumanReporter]
+/// - `'sarif'` → coming in Sprint 6 Slice 2
+/// - `'json'` / `'markdown'` / `'html'` → throws [FormatNotImplementedError]
+///
+/// The calling command is responsible for catching [FormatNotImplementedError]
+/// and converting it to a clean user-facing message (exit code 64).
+Reporter reporterFor(String format) {
+  return switch (format) {
+    'human' => const HumanReporter(),
+    'sarif' => throw FormatNotImplementedError(format),
+    'json' => throw FormatNotImplementedError(format),
+    'markdown' => throw FormatNotImplementedError(format),
+    'html' => throw FormatNotImplementedError(format),
+    _ => throw ArgumentError.value(format, 'format', 'Unknown output format.'),
+  };
+}
