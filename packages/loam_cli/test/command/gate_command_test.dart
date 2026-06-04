@@ -174,6 +174,91 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
+  // AC2 + AC3: loam gate --absolute without baseline.json
+  // ---------------------------------------------------------------------------
+
+  test(
+    'gate --absolute with findings → exit 1 (no baseline required)',
+    () async {
+      // No baseline.json is written — absolute mode must not need one.
+      _addUnusedExport(tempDir);
+
+      final exitCode = await cli.run([
+        'gate',
+        '--absolute',
+        '--project-root',
+        tempDir.path,
+      ]);
+
+      expect(
+        exitCode,
+        equals(1),
+        reason: 'gate --absolute must exit 1 when findings > threshold (0)',
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
+
+  test(
+    'gate --absolute on clean project → exit 0 (no baseline required)',
+    () async {
+      // No baseline.json is written — absolute mode must not need one.
+      final exitCode = await cli.run([
+        'gate',
+        '--absolute',
+        '--project-root',
+        tempDir.path,
+      ]);
+
+      expect(
+        exitCode,
+        equals(0),
+        reason: 'gate --absolute must exit 0 when no findings',
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
+
+  test(
+    'gate --absolute stdout contains finding count and grün/rot',
+    () async {
+      final entrypoint = '${Directory.current.path}/bin/loam.dart';
+
+      // Run on clean project → grün.
+      final cleanResult = Process.runSync(Platform.executable, [
+        'run',
+        entrypoint,
+        'gate',
+        '--absolute',
+        '--project-root',
+        tempDir.path,
+      ]);
+      expect(
+        (cleanResult.stdout as String).toLowerCase(),
+        contains('grün'),
+        reason: 'clean absolute gate must show grün',
+      );
+
+      // Add unused export → rot.
+      _addUnusedExport(tempDir);
+      final dirtyResult = Process.runSync(Platform.executable, [
+        'run',
+        entrypoint,
+        'gate',
+        '--absolute',
+        '--project-root',
+        tempDir.path,
+      ]);
+      expect(
+        (dirtyResult.stdout as String).toLowerCase(),
+        contains('rot'),
+        reason: 'dirty absolute gate must show rot',
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
+
+  // ---------------------------------------------------------------------------
   // AC4: rulesetVersion mismatch → stderr warning, diff continues (no fail)
   // ---------------------------------------------------------------------------
 

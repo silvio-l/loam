@@ -117,4 +117,69 @@ void main() {
       expect(result.fixedCount, equals(0));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // AC1: GateEngine.evaluate(mode: absolute, threshold)
+  // ---------------------------------------------------------------------------
+
+  group('GateEngine.evaluate(mode: absolute)', () {
+    test('no findings, threshold=0 → passed=true, exitCode=0', () {
+      final result = gate.evaluate(mode: GateMode.absolute, findings: []);
+
+      expect(result.passed, isTrue);
+      expect(result.exitCode, equals(0));
+    });
+
+    test('1 finding, default threshold=0 → passed=false, exitCode=1', () {
+      final result = gate.evaluate(
+        mode: GateMode.absolute,
+        findings: [_finding('fp-1')],
+      );
+
+      expect(result.passed, isFalse);
+      expect(result.exitCode, equals(1));
+    });
+
+    test('2 findings, threshold=2 → passed=true (≤ threshold)', () {
+      final result = gate.evaluate(
+        mode: GateMode.absolute,
+        findings: [_finding('fp-1'), _finding('fp-2')],
+        threshold: 2,
+      );
+
+      expect(result.passed, isTrue);
+      expect(result.exitCode, equals(0));
+    });
+
+    test('3 findings, threshold=2 → passed=false (> threshold)', () {
+      final result = gate.evaluate(
+        mode: GateMode.absolute,
+        findings: [_finding('fp-1'), _finding('fp-2'), _finding('fp-3')],
+        threshold: 2,
+      );
+
+      expect(result.passed, isFalse);
+      expect(result.exitCode, equals(1));
+    });
+
+    test('newCount reflects total findings count in absolute mode', () {
+      final result = gate.evaluate(
+        mode: GateMode.absolute,
+        findings: [_finding('fp-1'), _finding('fp-2')],
+        threshold: 5,
+      );
+
+      expect(result.newCount, equals(2));
+      expect(result.keptCount, equals(0));
+      expect(result.fixedCount, equals(0));
+    });
+
+    test('absolute mode does not require a diff (diff defaults to null)', () {
+      // Verifies signature: diff is optional when using absolute mode.
+      expect(
+        () => gate.evaluate(mode: GateMode.absolute, findings: []),
+        returnsNormally,
+      );
+    });
+  });
 }

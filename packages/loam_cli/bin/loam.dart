@@ -125,30 +125,69 @@ class _HealthCommand extends LoamCommand {
 /// **Default mode — Ratchet** (Invariant 3): only NEW findings fail the build.
 /// Kept (frozen legacy) and fixed findings are always transparent.
 ///
-/// The `--absolute` flag (Slice 04) is NOT implemented in this slice.
+/// **Absolute mode** (`--absolute`): all current findings are evaluated against
+/// a fixed threshold (default 0). The baseline is not read at all — suitable
+/// for greenfield projects or CI pipelines that require zero findings.
+///
+/// Note: `loam gate --absolute` with threshold 0 and `loam scan` share the
+/// same exit-code semantics by design (PRD). They remain separate commands:
+/// scan is the full-audit report; gate is the dedicated pass/fail decision.
 class _GateCommand extends LoamCommand {
   _GateCommand() {
-    argParser.addOption(
-      'project-root',
-      abbr: 'p',
-      help:
-          'Root directory of the Dart project to analyse. '
-          'Defaults to the current working directory.',
-      defaultsTo: null,
-    );
+    argParser
+      ..addFlag(
+        'absolute',
+        negatable: false,
+        help:
+            'Absolute mode: evaluate all current findings against a fixed '
+            'threshold (default 0) — the baseline is ignored. '
+            'Use for greenfield projects.',
+      )
+      ..addOption(
+        'project-root',
+        abbr: 'p',
+        help:
+            'Root directory of the Dart project to analyse. '
+            'Defaults to the current working directory.',
+        defaultsTo: null,
+      );
   }
 
   @override
   final String name = 'gate';
   @override
   final String description =
-      'CI gate: baseline/ratchet (default) or --absolute (Slice 04).';
+      'CI gate: baseline/ratchet (default) or --absolute threshold mode.';
 
   @override
   Future<int> run() async {
     final projectRoot =
         argResults?['project-root'] as String? ?? Directory.current.path;
+    final absoluteMode = argResults?.flag('absolute') ?? false;
 
+    if (absoluteMode) {
+      return _runAbsolute(projectRoot);
+    }
+    return _runRatchet(projectRoot);
+  }
+
+  Future<int> _runAbsolute(String projectRoot) async {
+    final findings = await const AnalysisRunner().run(projectRoot);
+    final result = const GateEngine().evaluate(
+      mode: GateMode.absolute,
+      findings: findings,
+    );
+
+    final count = result.newCount;
+    stdout.writeln(
+      'loam gate --absolute: $count finding${count == 1 ? '' : 's'} '
+      '— ${result.passed ? 'grün' : 'rot'}.',
+    );
+
+    return result.exitCode;
+  }
+
+  Future<int> _runRatchet(String projectRoot) async {
     final engine = BaselineEngine(projectRoot: projectRoot);
 
     // AC5: Missing baseline.json → clear error with hint.
@@ -177,8 +216,8 @@ class _GateCommand extends LoamCommand {
     final findings = await const AnalysisRunner().run(projectRoot);
     final diff = engine.diff(findings, baseline);
     final result = const GateEngine().evaluate(
-      diff: diff,
       mode: GateMode.ratchet,
+      diff: diff,
     );
 
     // AC3: Terse summary line to stdout (neu/eingefroren/gefixt).

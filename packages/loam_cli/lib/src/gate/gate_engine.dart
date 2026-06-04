@@ -1,15 +1,17 @@
 import '../baseline/baseline_diff.dart';
+import '../model/finding.dart';
 
 /// The gate evaluation mode.
 ///
 /// [ratchet] (default): only NEW findings fail the gate; kept and fixed legacy
 ///   findings are transparent.
-/// [absolute]: evaluated against fixed thresholds (Slice 04 — NOT YET built).
+/// [absolute]: all current findings are evaluated against a fixed [threshold]
+///   — the baseline is ignored entirely (Slice 04).
 enum GateMode {
   /// Default CI gate mode: only new findings (not in baseline) fail.
   ratchet,
 
-  /// Absolute threshold mode — not implemented in this slice.
+  /// Absolute threshold mode: total current findings ≤ threshold → passed.
   absolute,
 }
 
@@ -30,46 +32,67 @@ class GateResult {
   /// 0 when [passed], 1 when !passed.
   int get exitCode => passed ? 0 : 1;
 
-  /// Number of findings that are new (not in the baseline).
+  /// Number of findings that are new (not in the baseline), or total findings
+  /// in absolute mode.
   final int newCount;
 
   /// Number of findings that are kept (present in both current run and baseline).
+  /// Always 0 in absolute mode (baseline is not consulted).
   final int keptCount;
 
   /// Number of findings that were fixed (present in baseline but not in current run).
+  /// Always 0 in absolute mode (baseline is not consulted).
   final int fixedCount;
 }
 
-/// Evaluates a [BaselineDiff] and returns a [GateResult] for CI.
+/// Evaluates findings and returns a [GateResult] for CI.
 ///
 /// The engine is stateless and const-constructible — share one instance freely.
 ///
 /// **Ratchet mode** (default, Invariant 3):
+///   - Requires [diff].
 ///   - `passed = newFindings.isEmpty`
-///   - kept and fixed findings are always transparent (legacy)
+///   - kept and fixed findings are always transparent (legacy).
 ///
-/// **Absolute mode** is not implemented in this slice (Slice 04).
+/// **Absolute mode** (Slice 04):
+///   - Requires [findings]; [diff] is ignored / not needed.
+///   - `passed = findings.length <= threshold` (default threshold **0**).
+///   - The baseline is never read — pass the raw [List<Finding>] from
+///     [AnalysisRunner.run] directly.
 class GateEngine {
   const GateEngine();
 
-  /// Evaluates [diff] against the selected [mode].
+  /// Evaluates the gate for [mode].
+  ///
+  /// - [mode] == [GateMode.ratchet]: requires [diff]; [findings]/[threshold]
+  ///   are ignored.
+  /// - [mode] == [GateMode.absolute]: requires [findings]; [diff] is not
+  ///   consulted and may be omitted. [threshold] defaults to **0**.
   ///
   /// Returns a [GateResult] with [GateResult.passed] / [GateResult.exitCode]
   /// and the breakdown counts. Never throws.
-  GateResult evaluate({required BaselineDiff diff, required GateMode mode}) {
+  GateResult evaluate({
+    required GateMode mode,
+    BaselineDiff? diff,
+    List<Finding>? findings,
+    int threshold = 0,
+  }) {
     switch (mode) {
       case GateMode.ratchet:
+        final d = diff!;
         return GateResult(
-          passed: diff.newFindings.isEmpty,
-          newCount: diff.newFindings.length,
-          keptCount: diff.keptFindings.length,
-          fixedCount: diff.fixedFindings.length,
+          passed: d.newFindings.isEmpty,
+          newCount: d.newFindings.length,
+          keptCount: d.keptFindings.length,
+          fixedCount: d.fixedFindings.length,
         );
       case GateMode.absolute:
-        // Absolute mode is Slice 04 — not implemented yet.
-        throw UnimplementedError(
-          'GateMode.absolute is not implemented in this slice. '
-          'Use GateMode.ratchet or wait for Slice 04.',
+        final total = (findings ?? []).length;
+        return GateResult(
+          passed: total <= threshold,
+          newCount: total,
+          keptCount: 0,
+          fixedCount: 0,
         );
     }
   }
