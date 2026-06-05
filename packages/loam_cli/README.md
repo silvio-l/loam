@@ -40,9 +40,16 @@ accurate, project-wide, offline by default.
 
 ## Install
 
+> **Pre-release (before v1.0):** install directly from the `dev` branch on Git:
+
 ```bash
-dart pub global activate loam
+dart pub global activate --source git https://github.com/silvio-l/loam.git \
+    --git-path packages/loam_cli --git-ref dev
 ```
+
+Make sure `$HOME/.pub-cache/bin` is on your `PATH`. To update, re-run the command.
+
+> **From v1.0 (pub.dev release):** `dart pub global activate loam`
 
 ## Quick start
 

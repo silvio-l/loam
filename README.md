@@ -64,18 +64,33 @@ a feature never changes the pipeline.
 - **📄 Self-contained HTML report.** A single offline `.html` artifact: toggle
   findings, then copy a curated **fix-prompt** straight into your AI agent. No
   server, no hosting, no dashboard.
-- **📦 Dart-native.** `dart pub global activate loam`. SemVer; `ruleset@ver` +
-  `prompt@ver` are part of the baseline identity.
+- **📦 Dart-native.** Installed via `dart pub global activate` (pub.dev from v1.0;
+  Git source pre-release). SemVer; `ruleset@ver` + `prompt@ver` are part of the
+  baseline identity.
 
 ## Quick start
 
-> 🚧 **Early development.** The walking skeleton proves the architecture with one
-> end-to-end rule (`unused-public-exports`); the remaining capabilities land as
-> individual rules. Commands below are the target surface.
+> 🚧 **Early development (pre-release).** The walking skeleton proves the architecture
+> with one end-to-end rule (`unused-public-exports`); the remaining capabilities land
+> as individual rules. Commands below are the target surface.
+
+### Install (pre-release — Git source)
+
+Install directly from the `dev` branch until v1.0 is published to pub.dev:
 
 ```bash
-dart pub global activate loam      # install the CLI
+dart pub global activate --source git https://github.com/silvio-l/loam.git \
+    --git-path packages/loam_cli --git-ref dev
+```
 
+Make sure `$HOME/.pub-cache/bin` is on your `PATH` (Dart prints a reminder if it
+isn't). To update, simply re-run the command above.
+
+> **From v1.0 (pub.dev release):** `dart pub global activate loam`
+
+### Use
+
+```bash
 loam init                          # scaffold loam.yaml config in the project
 loam scan                          # full audit: every active rule, whole repo
 loam health                        # project health score: complexity, drift, slop
