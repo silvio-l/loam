@@ -12,6 +12,9 @@ baseline.json
 # Lokales Issue-Tracking & Doku (PROTECTED — niemals nach GitHub)
 .scratch/
 
+# Lokales Dev-Tooling (PROTECTED — niemals nach GitHub)
+dev-tools/
+
 # OS / Editor
 .DS_Store
 *.iml
