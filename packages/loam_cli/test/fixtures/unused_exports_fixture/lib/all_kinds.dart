@@ -65,6 +65,19 @@ extension UnusedExtension on int {
   int get doubled => this * 2;
 }
 
+/// An extension used ONLY via member access (`3.0.tripled`), never by naming
+/// the extension and never via a doc-comment reference — NOT reported.
+///
+/// Mirrors the real HellerIO case (`ShadowThemeContext` via `context.shadows`,
+/// `HellerIOColors` via `colorScheme.income`): Dart applies an extension
+/// implicitly through member resolution, so the extension name never appears at
+/// the call site. A name-based usage index would falsely report it as unused.
+/// The regression guard deliberately avoids any doc reference so the ONLY thing
+/// keeping it alive is member usage.
+extension MemberOnlyUsedExtension on double {
+  double get tripled => this * 3;
+}
+
 // ---------------------------------------------------------------------------
 // Mixins
 // ---------------------------------------------------------------------------

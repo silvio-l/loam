@@ -320,6 +320,27 @@ void main() {
     );
   });
 
+  test(
+    'extension used only via member access is NOT reported (HellerIO FP)',
+    () {
+      // Regression guard for the HellerIO false positives ShadowThemeContext
+      // (`context.shadows`), HellerIOColors (`colorScheme.income`) and
+      // CoicopClassWire (`.wireKey`): the extension is applied implicitly
+      // through member resolution and is never named at the call site. The
+      // usage index must mark the enclosing extension as referenced when one of
+      // its members is used. MemberOnlyUsedExtension is reachable ONLY via
+      // `3.0.tripled` (no name reference, no doc reference), so a name-based
+      // index would wrongly report it.
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`MemberOnlyUsedExtension`')),
+        isFalse,
+        reason: 'extension kept alive solely by member usage must not be '
+            'reported as unused',
+      );
+    },
+  );
+
   test('unused mixin is reported', () {
     final findings = makeRule().run(loadResult);
     expect(

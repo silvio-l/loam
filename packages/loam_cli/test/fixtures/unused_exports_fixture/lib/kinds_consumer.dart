@@ -19,6 +19,11 @@ class KindsConsumer with UsedMixin {
   /// References [UsedExtension] (via call on a String literal).
   String callExtension() => 'hello'.exclaimed;
 
+  /// Uses the member-only extension via `.tripled` ONLY — no name reference and
+  /// no square-bracket doc reference to the extension, so member usage is the
+  /// sole signal keeping it alive (HellerIO extension FP regression guard).
+  double callMemberOnlyExtension() => 3.0.tripled;
+
   /// References [UsedTypedef].
   UsedTypedef buildTypedef() =>
       (n) => n.toString();

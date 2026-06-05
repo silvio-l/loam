@@ -160,9 +160,28 @@ class _ReferenceCollector extends RecursiveAstVisitor<void> {
       final isDeclaredHere = _declaredInThisUnit.contains(canonical.id);
       if (!isDeclaredHere || !_isDeclarationNameNode(node)) {
         _referenced.add(canonical.id);
+        _markEnclosingExtension(element);
       }
     }
     super.visitSimpleIdentifier(node);
+  }
+
+  /// Marks the enclosing extension as referenced when one of its members is
+  /// used.
+  ///
+  /// Dart applies an extension implicitly through member resolution
+  /// (`context.shadows`, `colorScheme.income`), almost never by naming the
+  /// extension itself. Without this, an extension whose members are heavily
+  /// used would still appear unreferenced and be falsely reported as an unused
+  /// public export (HellerIO FPs: `ShadowThemeContext`, `HellerIOColors`,
+  /// `CoicopClassWire`). The extension is "alive" iff any of its members is
+  /// referenced from a usage site (this runs only in the usage branch, so a
+  /// member's own declaration does not keep its extension alive).
+  void _markEnclosingExtension(Element element) {
+    final enclosing = element.enclosingElement;
+    if (enclosing is ExtensionElement) {
+      _referenced.add(enclosing.id);
+    }
   }
 
   /// Handles type annotations: `UsedClass _field = UsedClass()` — the type
