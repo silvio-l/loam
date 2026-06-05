@@ -1,5 +1,6 @@
 import 'human_reporter.dart';
 import 'reporter.dart';
+import 'sarif_reporter.dart';
 
 /// Thrown when a format is recognised but not yet implemented.
 ///
@@ -20,7 +21,7 @@ class FormatNotImplementedError extends Error {
 /// Returns the [Reporter] for [format].
 ///
 /// - `'human'` → [HumanReporter]
-/// - `'sarif'` → coming in Sprint 6 Slice 2
+/// - `'sarif'` → [SarifReporter]
 /// - `'json'` / `'markdown'` / `'html'` → throws [FormatNotImplementedError]
 ///
 /// The calling command is responsible for catching [FormatNotImplementedError]
@@ -28,7 +29,7 @@ class FormatNotImplementedError extends Error {
 Reporter reporterFor(String format) {
   return switch (format) {
     'human' => const HumanReporter(),
-    'sarif' => throw FormatNotImplementedError(format),
+    'sarif' => const SarifReporter(),
     'json' => throw FormatNotImplementedError(format),
     'markdown' => throw FormatNotImplementedError(format),
     'html' => throw FormatNotImplementedError(format),

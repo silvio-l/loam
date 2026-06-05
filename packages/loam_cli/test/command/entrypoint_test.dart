@@ -218,8 +218,19 @@ void main() {
       expect(code, equals(0));
     });
 
-    // Formats not yet implemented in Sprint 6 return 64 (EX_USAGE).
-    for (final fmt in ['sarif', 'json', 'markdown', 'html']) {
+    // `sarif` is implemented in Sprint 6 Slice 2: exit 0 on clean project.
+    test('--format=sarif → exit 0 on clean project', () async {
+      final code = await cli.run([
+        '--format=sarif',
+        'scan',
+        '--project-root',
+        cleanDir.path,
+      ]);
+      expect(code, equals(0));
+    });
+
+    // Formats not yet implemented return 64 (EX_USAGE).
+    for (final fmt in ['json', 'markdown', 'html']) {
       test('--format=$fmt → exit 64 (not yet implemented)', () async {
         final code = await cli.run([
           '--format=$fmt',
