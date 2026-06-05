@@ -1,4 +1,5 @@
 import 'package:unused_exports_fixture/all_kinds.dart';
+import 'package:unused_exports_fixture/pattern_consumer.dart';
 
 /// Consumer that references one symbol of each declaration kind from
 /// all_kinds.dart and all_kinds_part.dart, so those symbols are not reported
@@ -6,6 +7,9 @@ import 'package:unused_exports_fixture/all_kinds.dart';
 class KindsConsumer with UsedMixin {
   /// References [usedFunction].
   String callFunction() => usedFunction();
+
+  /// References [describe] so the pattern-destructuring consumer is itself used.
+  String callDescribe(Object o) => describe(o);
 
   /// References [usedGetter].
   int readGetter() => usedGetter;

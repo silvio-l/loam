@@ -650,6 +650,34 @@ void main() {
     },
   );
 
+  test(
+    'field read only via object-pattern destructuring is NOT reported',
+    () {
+      // HellerIO Dart-3 gap: `case PatternHost(:final patternRead)` reads the
+      // getter on PatternField.element, not via a SimpleIdentifier. The index
+      // must record it, otherwise a field destructured exclusively through
+      // pattern matching is falsely reported.
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`patternRead`')),
+        isFalse,
+        reason: 'object-pattern destructuring is a real read of the field',
+      );
+    },
+  );
+
+  test(
+    'field never destructured IS reported (pattern guard does not over-suppress)',
+    () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`neverDestructured`')),
+        isTrue,
+        reason: 'a field never read in any form must still be reported',
+      );
+    },
+  );
+
   test('SliceB-AC2: used public enum method is NOT reported', () {
     final findings = makeRule().run(loadResult);
     expect(

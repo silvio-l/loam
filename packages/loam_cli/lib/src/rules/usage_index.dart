@@ -209,6 +209,23 @@ class _ReferenceCollector extends RecursiveAstVisitor<void> {
     super.visitAssignmentExpression(node);
   }
 
+  /// Records the getter/field accessed by an object-pattern field.
+  ///
+  /// In `case Foo(:final x)` / `case Foo(x: var y)` the member `x` is read on
+  /// the matched value, but that read lives on [PatternField.element] — there is
+  /// no [SimpleIdentifier] for it (the `:final x` shorthand only declares the
+  /// bound variable). Without this, a field/getter destructured exclusively
+  /// through pattern matching would be falsely reported as unused.
+  @override
+  void visitPatternField(PatternField node) {
+    final element = node.element;
+    if (element != null) {
+      _referenced.add(_UsageIndexHelper.canonical(element).id);
+      _markEnclosingExtension(element);
+    }
+    super.visitPatternField(node);
+  }
+
   /// Handles type annotations: `UsedClass _field = UsedClass()` — the type
   /// annotation `UsedClass` appears as a [NamedType] node, not a
   /// [SimpleIdentifier]. We record its element as a reference.
