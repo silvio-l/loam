@@ -90,14 +90,19 @@ isn't). To update, simply re-run the command above.
 
 ### Use
 
+# Available now (walking skeleton — tracer rule `unused-public-exports`):
+```bash
+loam scan                          # full audit: every active rule, whole repo
+loam baseline --write              # freeze the remaining, accepted state
+loam gate                          # CI from now on — ratchet: only new findings fail
+```
+
+# Coming soon (wired in `loam --help`, not yet implemented):
 ```bash
 loam init                          # scaffold loam.yaml config in the project
-loam scan                          # full audit: every active rule, whole repo
 loam health                        # project health score: complexity, drift, slop
 loam slop                          # AI-slop audit: slop-focused rules only
 loam fix --safe                    # apply mechanical fixes
-loam baseline --write              # freeze the remaining, accepted state
-loam gate                          # CI from now on — ratchet: only new findings fail
 ```
 
 **Onboarding an existing repo** (turn an established codebase green, then keep it
@@ -113,11 +118,11 @@ round just repeats it. Greenfield? `loam gate --absolute` needs no baseline.
 Machine-readable output for CI and agents, a human-readable report for you:
 
 ```
---format human       # default, readable terminal output
---format sarif        # CI / code-scanning
---format json         # agent / tooling integration
---format markdown     # PR / docs embedding
---format html         # interactive, self-contained loam-report.html
+--format human        # default, readable terminal output      (available)
+--format sarif        # CI / code-scanning                      (available)
+--format json         # agent / tooling integration             (coming soon)
+--format markdown     # PR / docs embedding                     (coming soon)
+--format html         # interactive, self-contained report      (coming soon)
 ```
 
 ## Status & roadmap

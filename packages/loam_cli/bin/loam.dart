@@ -43,9 +43,9 @@ Future<int> run(List<String> args) async {
     allowedHelp: {
       'human': 'Human-readable text (default).',
       'sarif': 'SARIF 2.1 JSON (CI/tooling).',
-      'json': 'Machine-readable JSON.',
-      'markdown': 'Markdown (agent/LLM pipelines).',
-      'html': 'Self-contained HTML report.',
+      'json': 'Machine-readable JSON. (coming soon)',
+      'markdown': 'Markdown (agent/LLM pipelines). (coming soon)',
+      'html': 'Self-contained HTML report. (coming soon)',
     },
   );
 
@@ -123,7 +123,8 @@ class _HealthCommand extends LoamCommand {
   final String name = 'health';
   @override
   final String description =
-      'Show project health score: aggregates complexity, drift, and slop metrics.';
+      'Show project health score: aggregates complexity, drift, and slop metrics. '
+      '(coming soon)';
 
   @override
   Future<int> run() =>
@@ -291,7 +292,8 @@ class _SlopCommand extends LoamCommand {
   final String name = 'slop';
   @override
   final String description =
-      'AI-slop audit: run slop-focused rules across the whole project.';
+      'AI-slop audit: run slop-focused rules across the whole project. '
+      '(coming soon)';
 
   @override
   Future<int> run() => notImplemented(
@@ -305,7 +307,8 @@ class _InitCommand extends LoamCommand {
   final String name = 'init';
   @override
   final String description =
-      'Initialise loam.dev configuration (loam.yaml) in the current project.';
+      'Initialise loam.dev configuration (loam.yaml) in the current project. '
+      '(coming soon)';
 
   @override
   Future<int> run() =>
@@ -318,7 +321,8 @@ class _FixCommand extends LoamCommand {
   final String name = 'fix';
   @override
   final String description =
-      'Apply mechanical fixes for findings that have a safe auto-fix.';
+      'Apply mechanical fixes for findings that have a safe auto-fix. '
+      '(coming soon)';
 
   @override
   Future<int> run() =>
