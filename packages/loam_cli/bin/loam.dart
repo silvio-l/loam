@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:loam/src/baseline/baseline_engine.dart';
 import 'package:loam/src/command/loam_command.dart';
 import 'package:loam/src/gate/gate_engine.dart';
+import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
@@ -141,6 +142,10 @@ class _HealthCommand extends LoamCommand {
 /// Note: `loam gate --absolute` with threshold 0 and `loam scan` share the
 /// same exit-code semantics by design (PRD). They remain separate commands:
 /// scan is the full-audit report; gate is the dedicated pass/fail decision.
+///
+/// Findings are rendered via the [Reporter] selected by `--format`.
+/// The Gate-summary line and exit code are determined exclusively by
+/// [GateEngine] — the reporter is a pure renderer (Invariant 4).
 class _GateCommand extends LoamCommand {
   _GateCommand() {
     argParser
@@ -174,19 +179,42 @@ class _GateCommand extends LoamCommand {
         argResults?['project-root'] as String? ?? Directory.current.path;
     final absoluteMode = argResults?.flag('absolute') ?? false;
 
-    if (absoluteMode) {
-      return _runAbsolute(projectRoot);
+    // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
+    // Mirrors the pattern in ScanCommand (DRY — same catch path, same exit 64).
+    final Reporter reporter;
+    try {
+      reporter = reporterFor(format);
+    } on FormatNotImplementedError catch (e) {
+      stderr.writeln(e.toString());
+      return 64; // EX_USAGE
     }
-    return _runRatchet(projectRoot);
+
+    if (absoluteMode) {
+      return _runAbsolute(projectRoot, reporter);
+    }
+    return _runRatchet(projectRoot, reporter);
   }
 
-  Future<int> _runAbsolute(String projectRoot) async {
+  Future<int> _runAbsolute(String projectRoot, Reporter reporter) async {
     final findings = await const AnalysisRunner().run(projectRoot);
     final result = const GateEngine().evaluate(
       mode: GateMode.absolute,
       findings: findings,
     );
 
+    // Render findings via reporter (pure display — does not influence exit code).
+    if (findings.isNotEmpty) {
+      final payload = ReportPayload(
+        findings: findings,
+        projectRoot: projectRoot,
+        rulesetVersion: AnalysisRunner.rulesetVersion,
+        toolVersion: '0.0.2',
+        isTty: stdout.hasTerminal,
+      );
+      stdout.write(reporter.render(payload));
+    }
+
+    // Gate-summary line comes exclusively from GateEngine (Invariant 4).
     final count = result.newCount;
     stdout.writeln(
       'loam gate --absolute: $count finding${count == 1 ? '' : 's'} '
@@ -196,7 +224,7 @@ class _GateCommand extends LoamCommand {
     return result.exitCode;
   }
 
-  Future<int> _runRatchet(String projectRoot) async {
+  Future<int> _runRatchet(String projectRoot, Reporter reporter) async {
     final engine = BaselineEngine(projectRoot: projectRoot);
 
     // AC5: Missing baseline.json → clear error with hint.
@@ -229,7 +257,23 @@ class _GateCommand extends LoamCommand {
       diff: diff,
     );
 
+    // Render current findings (all of them: new + kept) via reporter.
+    // The reporter shows what is there now — gate-decision stays in GateEngine.
+    // Only render when there are findings to show (avoids empty output noise).
+    if (findings.isNotEmpty) {
+      final payload = ReportPayload(
+        findings: findings,
+        projectRoot: projectRoot,
+        rulesetVersion: AnalysisRunner.rulesetVersion,
+        toolVersion: '0.0.2',
+        isTty: stdout.hasTerminal,
+      );
+      stdout.write(reporter.render(payload));
+    }
+
     // AC3: Terse summary line to stdout (neu/eingefroren/gefixt).
+    // This line comes exclusively from GateEngine — reporter has no influence
+    // on the gate decision or exit code (Invariant 4).
     stdout.writeln(
       'loam gate: ${result.newCount} neu, '
       '${result.keptCount} eingefroren, '
@@ -332,7 +376,17 @@ class _BaselineCommand extends LoamCommand {
     } else if (update) {
       return _runUpdate(engine, projectRoot);
     } else {
-      return _runShow(engine);
+      // Resolve reporter for the show path — FormatNotImplementedError → exit 64.
+      // --write/--update always produce a plain confirmation line (no findings
+      // to render), so reporter resolution only applies to the show path.
+      final Reporter reporter;
+      try {
+        reporter = reporterFor(format);
+      } on FormatNotImplementedError catch (e) {
+        stderr.writeln(e.toString());
+        return 64; // EX_USAGE
+      }
+      return _runShow(engine, projectRoot, reporter);
     }
   }
 
@@ -371,20 +425,55 @@ class _BaselineCommand extends LoamCommand {
     return 0;
   }
 
-  int _runShow(BaselineEngine engine) {
+  int _runShow(BaselineEngine engine, String projectRoot, Reporter reporter) {
     try {
       final baseline = engine.read();
+
+      // BaselineFinding → Finding mapping decision (documented per issue AC):
+      //
+      // BaselineFinding deliberately does NOT carry severity or column — it is
+      // a minimal, position-robust diff key (fingerprint) plus human-readable
+      // context (ruleId, filePath, line, message). The baseline schema never
+      // stored severity so we cannot recover it from disk without re-running
+      // the analysis.
+      //
+      // Decision: map with Severity.warning as the default.
+      // Rationale: "warning" is the neutral, non-alarming severity that avoids
+      // over-stating (error) or under-stating (info) severity for frozen baseline
+      // findings whose real severity is unknown. This is only cosmetic — the
+      // baseline show path has no gate/exit-code semantics anyway.
+      // column is set to null (BaselineFinding has no column field).
+      final mappedFindings = baseline.findings
+          .map(
+            (bf) => Finding(
+              ruleId: bf.ruleId,
+              severity: Severity.warning, // documented default (see above)
+              filePath: bf.filePath,
+              line: bf.line,
+              column: null, // BaselineFinding has no column
+              message: bf.message,
+              fingerprint: bf.fingerprint,
+            ),
+          )
+          .toList();
+
+      final payload = ReportPayload(
+        findings: mappedFindings,
+        projectRoot: projectRoot,
+        rulesetVersion: baseline.rulesetVersion,
+        toolVersion: '0.0.2',
+        isTty: stdout.hasTerminal,
+      );
+
+      // Emit baseline header so the user knows this is the frozen state.
       final count = baseline.findings.length;
       stdout.writeln(
         'loam baseline: $count finding${count == 1 ? '' : 's'} '
         '(${baseline.rulesetVersion}, schemaVersion=${baseline.schemaVersion})',
       );
-      for (final f in baseline.findings) {
-        stdout.writeln(
-          '  [${f.ruleId}] ${f.filePath}:${f.line} ${f.message} '
-          '(${f.fingerprint})',
-        );
-      }
+
+      // Render the frozen findings via the reporter (same rendering path as scan).
+      stdout.write(reporter.render(payload));
     } on BaselineException catch (e) {
       stderr.writeln('loam baseline: ${e.message}');
       return 1;
