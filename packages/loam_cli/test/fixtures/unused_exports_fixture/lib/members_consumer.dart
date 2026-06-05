@@ -46,4 +46,15 @@ class MembersConsumer {
 
   /// References [StaticFieldHolder.usedStaticGetter] via ClassName.getter read.
   int readStaticGetter() => StaticFieldHolder.usedStaticGetter;
+
+  /// Assigns the setter of the StaticConsent get/set pair ONLY — never reads the
+  /// getter. The shared symbol must still count as used (HellerIO
+  /// crashReportingConsent case). No square-bracket doc reference on purpose.
+  void grantConsent() => StaticConsent.granted = true;
+
+  final _writeOnly = WriteOnlyHolder();
+
+  /// Writes a plain field but never reads it — the field MUST remain reported as
+  /// unused (FN regression guard: synthetic field-setter writes are not usage).
+  void writeOnly() => _writeOnly.writeOnlyField = 'x';
 }

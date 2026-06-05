@@ -184,6 +184,31 @@ class _ReferenceCollector extends RecursiveAstVisitor<void> {
     }
   }
 
+  /// Records a write to an explicit setter as a reference.
+  ///
+  /// For an assignment `obj.prop = value`, the write-target [SimpleIdentifier]
+  /// (`prop`) carries a `null` `element` in analyzer v13 — the resolved target
+  /// lives on [AssignmentExpression.writeElement]. Without this, invoking a
+  /// setter is invisible to the usage index and a getter/setter pair whose
+  /// setter is the only thing used would be falsely reported as unused (HellerIO
+  /// `AppMonitoring.crashReportingConsent`: setter assigned, getter never read).
+  ///
+  /// Scope is deliberately narrow: only **explicit** (non-synthetic) setters
+  /// count. A write to a plain field resolves to a *synthetic* field-induced
+  /// setter; counting those would mask genuinely dead write-only fields (the
+  /// real "AI slop" the rule exists to surface), so they are left untouched.
+  @override
+  void visitAssignmentExpression(AssignmentExpression node) {
+    final write = node.writeElement;
+    if (write is SetterElement && write.isOriginDeclaration) {
+      // Key on the shared backing variable so a getter candidate keyed on the
+      // same variable is correctly marked referenced.
+      _referenced.add(write.variable.id);
+      _markEnclosingExtension(write);
+    }
+    super.visitAssignmentExpression(node);
+  }
+
   /// Handles type annotations: `UsedClass _field = UsedClass()` — the type
   /// annotation `UsedClass` appears as a [NamedType] node, not a
   /// [SimpleIdentifier]. We record its element as a reference.

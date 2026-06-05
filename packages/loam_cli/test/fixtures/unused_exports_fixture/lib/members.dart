@@ -169,3 +169,45 @@ abstract final class StaticFieldHolder {
   /// A static getter that is NOT referenced anywhere — REPORTED.
   static int get unusedStaticGetter => 1;
 }
+
+// ---------------------------------------------------------------------------
+// Setter-only-used static getter/setter PAIR (derived from HellerIO
+// AppMonitoring.crashReportingConsent).
+//
+// An explicit static getter+setter pair shares one logical symbol. The setter
+// IS assigned from members_consumer.dart (`StaticConsent.granted = true`); the
+// getter is NEVER read. Because the usage index canonicalises getter and setter
+// to the same backing variable, touching the symbol via the setter must count
+// as a reference — the pair must NOT be reported as unused. A gap in
+// setter-assignment resolution would falsely report `granted` (HellerIO
+// `crashReportingConsent` case).
+// ---------------------------------------------------------------------------
+
+/// Static get/set pair whose setter IS used but whose getter is never read.
+abstract final class StaticConsent {
+  static bool _granted = false;
+
+  /// Getter is never read anywhere — but the paired setter IS assigned, so the
+  /// shared symbol must NOT be reported.
+  static bool get granted => _granted;
+
+  /// Setter assigned from members_consumer.dart via `StaticConsent.granted = …`.
+  static set granted(bool value) => _granted = value;
+}
+
+// ---------------------------------------------------------------------------
+// Write-only PLAIN field (FN regression guard for the setter-write fix).
+//
+// `writeOnlyField` is assigned from members_consumer.dart but never read.
+// A write to a plain field resolves to a *synthetic* field-induced setter; the
+// setter-write fix must NOT count that as usage, otherwise genuinely dead
+// write-only fields (the exact "AI slop" the rule exists to surface — HellerIO
+// stripped SyncStateSuccess.at/.pushed etc. for being write-only) would be
+// masked. This field MUST stay reported as unused.
+// ---------------------------------------------------------------------------
+
+/// A class with a public field that is only ever assigned, never read.
+class WriteOnlyHolder {
+  /// Assigned via `holder.writeOnlyField = …`, never read — MUST be reported.
+  String writeOnlyField = '';
+}

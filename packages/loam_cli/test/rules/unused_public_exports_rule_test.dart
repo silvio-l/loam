@@ -615,6 +615,41 @@ void main() {
     );
   });
 
+  test(
+    'setter-only-used get/set pair is NOT reported (HellerIO '
+    'crashReportingConsent)',
+    () {
+      // Regression guard for AppMonitoring.crashReportingConsent: an explicit
+      // getter/setter pair whose setter is the only thing assigned (getter
+      // never read). The write target of an assignment carries a null element
+      // on the SimpleIdentifier in analyzer v13; the index must resolve the
+      // setter via AssignmentExpression.writeElement, otherwise `granted` is
+      // falsely reported.
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`granted`')),
+        isFalse,
+        reason: 'setter assignment must count as usage of the shared symbol',
+      );
+    },
+  );
+
+  test(
+    'write-only plain field IS still reported (FN regression guard)',
+    () {
+      // Counterpart to the setter-write fix: a plain field assigned but never
+      // read resolves to a SYNTHETIC field setter, which must NOT count as
+      // usage — genuinely dead write-only fields (HellerIO stripped several)
+      // must keep surfacing.
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`writeOnlyField`')),
+        isTrue,
+        reason: 'write-only plain field is dead code and must be reported',
+      );
+    },
+  );
+
   test('SliceB-AC2: used public enum method is NOT reported', () {
     final findings = makeRule().run(loadResult);
     expect(
