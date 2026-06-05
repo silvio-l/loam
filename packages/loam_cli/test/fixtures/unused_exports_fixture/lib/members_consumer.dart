@@ -40,4 +40,10 @@ class MembersConsumer {
 
   /// References [StaticFieldHolder.usedStaticMap] via ClassName.field index access.
   String? readStaticMap(String k) => StaticFieldHolder.usedStaticMap[k];
+
+  /// References [StaticFieldHolder.usedStaticMethod] via ClassName.method() call.
+  String callStaticMethod() => StaticFieldHolder.usedStaticMethod();
+
+  /// References [StaticFieldHolder.usedStaticGetter] via ClassName.getter read.
+  int readStaticGetter() => StaticFieldHolder.usedStaticGetter;
 }

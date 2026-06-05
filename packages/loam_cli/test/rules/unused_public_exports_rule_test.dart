@@ -800,6 +800,58 @@ void main() {
         reason: 'unusedStaticMap is never referenced — must appear in findings',
       );
     });
+
+    // Residual-risk guard (MVP sign-off item 3): static *method* and *getter*
+    // access via `ClassName.member` from a standalone (non-part) file. Static
+    // fields were already covered above; methods and getters take distinct
+    // resolution paths and were previously untested.
+    test(
+      'usedStaticMethod called via ClassName.usedStaticMethod() is NOT reported',
+      () {
+        final findings = makeRule().run(loadResult);
+        expect(
+          findings.any((f) => f.message.contains('`usedStaticMethod`')),
+          isFalse,
+          reason:
+              'usedStaticMethod is called as StaticFieldHolder.usedStaticMethod() '
+              'in members_consumer.dart — must not appear in findings',
+        );
+      },
+    );
+
+    test('unusedStaticMethod (never called) IS reported', () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`unusedStaticMethod`')),
+        isTrue,
+        reason:
+            'unusedStaticMethod is never referenced — must appear in findings',
+      );
+    });
+
+    test(
+      'usedStaticGetter read via ClassName.usedStaticGetter is NOT reported',
+      () {
+        final findings = makeRule().run(loadResult);
+        expect(
+          findings.any((f) => f.message.contains('`usedStaticGetter`')),
+          isFalse,
+          reason:
+              'usedStaticGetter is read as StaticFieldHolder.usedStaticGetter '
+              'in members_consumer.dart — must not appear in findings',
+        );
+      },
+    );
+
+    test('unusedStaticGetter (never read) IS reported', () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`unusedStaticGetter`')),
+        isTrue,
+        reason:
+            'unusedStaticGetter is never referenced — must appear in findings',
+      );
+    });
   });
 
   group('member-name collision (semantic resolution)', () {

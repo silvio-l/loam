@@ -156,4 +156,16 @@ abstract final class StaticFieldHolder {
 
   /// A static Map field that is NOT referenced anywhere — REPORTED.
   static const Map<String, String> unusedStaticMap = {'k': 'v'};
+
+  /// A static method that IS called via ClassName.method() — NOT reported.
+  static String usedStaticMethod() => 'used';
+
+  /// A static method that is NOT referenced anywhere — REPORTED.
+  static String unusedStaticMethod() => 'unused';
+
+  /// A static getter that IS read via ClassName.getter — NOT reported.
+  static int get usedStaticGetter => 0;
+
+  /// A static getter that is NOT referenced anywhere — REPORTED.
+  static int get unusedStaticGetter => 1;
 }
