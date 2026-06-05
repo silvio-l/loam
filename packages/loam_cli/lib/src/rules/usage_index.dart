@@ -23,9 +23,15 @@ class UsageIndex {
 
   /// Builds the index from [loadResult].
   ///
-  /// Processes all files in [ProjectLoadResult.resolved]; files in
+  /// Processes all files in [ProjectLoadResult.resolved] AND all part-file
+  /// compilation units in [ProjectLoadResult.partUnits]. Files in
   /// [ProjectLoadResult.errors] are silently skipped (the rule must not crash
   /// on partial load results).
+  ///
+  /// Part files must also be scanned for references: a symbol referenced only
+  /// from a part file would otherwise appear unreferenced and be incorrectly
+  /// reported as unused (HellerIO FP #2 pattern — symbol accessed via
+  /// `ClassName.field` inside a `part of` file).
   factory UsageIndex.build(ProjectLoadResult loadResult) {
     final referenced = <int>{}; // canonical element ids
 
@@ -37,6 +43,16 @@ class UsageIndex {
 
       final visitor = _ReferenceCollector(referenced, declaredIds);
       file.result.unit.accept(visitor);
+    }
+
+    // Also scan part-file compilation units for references. Part files are not
+    // standalone library entries (ProjectLoader skips them for resolved[]) but
+    // their AST may reference symbols declared in other libraries. Without this
+    // pass, those references are invisible and their targets appear unused.
+    for (final partUnit in loadResult.partUnits) {
+      final declaredIds = _collectDeclaredIds(partUnit.unit);
+      final visitor = _ReferenceCollector(referenced, declaredIds);
+      partUnit.unit.accept(visitor);
     }
 
     return UsageIndex._(referenced);

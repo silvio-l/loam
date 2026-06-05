@@ -127,3 +127,33 @@ class SdkStyleLogger {
     Map<String, Object?>? attributes,
   }) async {}
 }
+
+// ---------------------------------------------------------------------------
+// Static field access regression (derived from HellerIO FP #2).
+//
+// A static field accessed via ClassName.fieldName must NOT be reported as
+// unused. This exercises the HellerIO pattern where a static Map accessed as
+// `SystemIds.systemCategoryIdByL10nKey` in another file was incorrectly
+// reported as unused because _collectMemberIds did not handle FieldDeclaration
+// (only VariableDeclaration) — leaving the field id absent from declaredIds and
+// causing the declaration-site visit to self-register as a reference.
+// ---------------------------------------------------------------------------
+
+/// Class with static fields accessed via ClassName.field.
+///
+/// Reproduces HellerIO FP #2: a static field accessed only as
+/// `StaticFieldHolder.usedStaticField` or via index access
+/// `StaticFieldHolder.usedStaticMap['key']` must NOT be reported.
+abstract final class StaticFieldHolder {
+  /// A static field that IS referenced externally — NOT reported.
+  static const String usedStaticField = 'used';
+
+  /// A static Map field accessed via index — NOT reported.
+  static const Map<String, String> usedStaticMap = {'key': 'value'};
+
+  /// A static field that is NOT referenced anywhere — REPORTED.
+  static const String unusedStaticField = 'unused';
+
+  /// A static Map field that is NOT referenced anywhere — REPORTED.
+  static const Map<String, String> unusedStaticMap = {'k': 'v'};
+}

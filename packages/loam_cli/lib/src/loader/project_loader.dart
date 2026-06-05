@@ -49,8 +49,21 @@ class LoadFileError {
 /// Resolved files are in [resolved]; files that could not be resolved (e.g.
 /// files with parse/semantic errors, orphaned part files, SDK errors) are in
 /// [errors]. In healthy projects [errors] is empty.
+///
+/// Part-file compilation units are in [partUnits]. Part files (`part of …`)
+/// are NOT standalone library entries — their declarations are reachable
+/// through [LoadedFile.result.libraryElement.fragments] of the owning library
+/// and must not be re-collected as candidates. However, *references* inside
+/// part files (e.g. a static field accessed as `ClassName.field` inside a
+/// `part of` file) must be visible to the reference index so that they are not
+/// incorrectly reported as unused. [partUnits] provides those compilation units
+/// for reference-scanning only.
 class ProjectLoadResult {
-  const ProjectLoadResult({required this.resolved, required this.errors});
+  const ProjectLoadResult({
+    required this.resolved,
+    required this.errors,
+    this.partUnits = const [],
+  });
 
   /// Successfully resolved files (non-empty element model guaranteed).
   final List<LoadedFile> resolved;
@@ -59,6 +72,15 @@ class ProjectLoadResult {
   /// could not be obtained. Each entry carries the file path and a
   /// human-readable reason.
   final List<LoadFileError> errors;
+
+  /// Resolved compilation units for `part of` files.
+  ///
+  /// Part files are not standalone library entries (they are not libraries),
+  /// so their declarations are NOT re-collected as candidates. They are stored
+  /// here exclusively so the [UsageIndex] can scan their AST for *references*
+  /// to symbols declared elsewhere — preventing False Positives when a symbol
+  /// is referenced only from a part file.
+  final List<ResolvedUnitResult> partUnits;
 }
 
 /// Loads a Dart package from [projectRoot] and resolves all Dart source files
@@ -112,6 +134,7 @@ class ProjectLoader {
     try {
       final resolved = <LoadedFile>[];
       final errors = <LoadFileError>[];
+      final partUnits = <ResolvedUnitResult>[];
 
       final libDir = p.join(root, 'lib') + p.separator;
 
@@ -132,10 +155,19 @@ class ProjectLoader {
 
         if (someResult is ResolvedUnitResult) {
           // A `part of` file resolves as a ResolvedUnitResult with isPart=true.
-          // It must not appear as a standalone library entry — its declarations
-          // are already reachable through the library file's libraryElement
-          // fragments. Skip it silently (neither resolved nor error).
-          if (someResult.isPart) continue;
+          // Its declarations are reachable through the owning library's
+          // libraryElement.fragments and must NOT be re-collected as candidates.
+          // However, its compilation unit IS stored in [partUnits] so the
+          // UsageIndex can scan it for *references* — preventing False Positives
+          // when a symbol is only referenced from a part file (HellerIO FP #2).
+          if (someResult.isPart) {
+            // Only store clean part units for reference scanning; broken part
+            // files cannot contribute reliable reference data.
+            if (_firstErrorDiagnostic(someResult.diagnostics) == null) {
+              partUnits.add(someResult);
+            }
+            continue;
+          }
 
           // Check for parse/semantic errors: files with error-severity
           // diagnostics are mapped to the error branch so downstream rules
@@ -175,8 +207,13 @@ class ProjectLoader {
       // unspecified iteration order.
       resolved.sort((a, b) => a.path.compareTo(b.path));
       errors.sort((a, b) => a.path.compareTo(b.path));
+      partUnits.sort((a, b) => a.path.compareTo(b.path));
 
-      return ProjectLoadResult(resolved: resolved, errors: errors);
+      return ProjectLoadResult(
+        resolved: resolved,
+        errors: errors,
+        partUnits: partUnits,
+      );
     } finally {
       await collection.dispose();
     }

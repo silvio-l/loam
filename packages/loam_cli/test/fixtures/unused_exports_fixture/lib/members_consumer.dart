@@ -34,4 +34,10 @@ class MembersConsumer {
 
   /// References [MemberEnum.usedEnumMethod].
   String callEnumMethod() => MemberEnum.alpha.usedEnumMethod();
+
+  /// References [StaticFieldHolder.usedStaticField] via ClassName.field access.
+  String readStaticField() => StaticFieldHolder.usedStaticField;
+
+  /// References [StaticFieldHolder.usedStaticMap] via ClassName.field index access.
+  String? readStaticMap(String k) => StaticFieldHolder.usedStaticMap[k];
 }

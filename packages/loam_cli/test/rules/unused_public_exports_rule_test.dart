@@ -701,6 +701,107 @@ void main() {
   // (a different type), which a grep-based reviewer mistook for a use of the
   // hand-written `AppLogger.fatal`. loam correctly kept reporting it.
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Regression (HellerIO FP #2): static field accessed via ClassName.field must
+  // NOT be reported. Previously, _collectMemberIds did not handle FieldDeclaration
+  // so field ids were absent from declaredIds — causing the declaration-site visit
+  // to self-register the field as referenced (every field appeared used).
+  //
+  // This regression test pins both directions:
+  //   - usedStaticField (accessed in members_consumer.dart) → NOT reported
+  //   - unusedStaticField (never accessed)                  → REPORTED
+  // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Regression (HellerIO FP #2 root cause): a symbol referenced ONLY from a
+  // PART FILE must NOT be reported as unused.
+  //
+  // Part files (part of 'host.dart') are not standalone library entries —
+  // ProjectLoader skips them as resolved entries because their declarations are
+  // accessible via the host library's fragments. However, REFERENCES inside part
+  // files (to symbols in other libraries) must still be recorded by UsageIndex.
+  // Without this, a symbol referenced only from a part file appears unreferenced
+  // and is incorrectly reported as unused (the HellerIO FP #2 pattern).
+  // ---------------------------------------------------------------------------
+  group(
+    'part-file reference visibility (FP regression guard — HellerIO FP #2)',
+    () {
+      test(
+        'symbol referenced ONLY from a part file is NOT reported as unused',
+        () {
+          final findings = makeRule().run(loadResult);
+          expect(
+            findings.any((f) => f.message.contains('`usedViaPartFile`')),
+            isFalse,
+            reason:
+                'usedViaPartFile is referenced from part_ref_impl.dart (a part '
+                'file) — part-file references must be visible to UsageIndex; '
+                'if not, this is a False Positive (HellerIO FP #2 pattern)',
+          );
+        },
+      );
+
+      test('symbol NOT referenced from any part file IS reported', () {
+        final findings = makeRule().run(loadResult);
+        expect(
+          findings.any((f) => f.message.contains('`unusedViaPartFile`')),
+          isTrue,
+          reason:
+              'unusedViaPartFile is not referenced anywhere — must appear in '
+              'findings',
+        );
+      });
+    },
+  );
+
+  group('static field access via ClassName.field (FP regression guard)', () {
+    test(
+      'usedStaticField accessed via ClassName.usedStaticField is NOT reported',
+      () {
+        final findings = makeRule().run(loadResult);
+        expect(
+          findings.any((f) => f.message.contains('`usedStaticField`')),
+          isFalse,
+          reason:
+              'usedStaticField is accessed as StaticFieldHolder.usedStaticField '
+              'in members_consumer.dart — must not appear in findings',
+        );
+      },
+    );
+
+    test(
+      'usedStaticMap accessed via ClassName.usedStaticMap[key] is NOT reported',
+      () {
+        final findings = makeRule().run(loadResult);
+        expect(
+          findings.any((f) => f.message.contains('`usedStaticMap`')),
+          isFalse,
+          reason:
+              'usedStaticMap is accessed as StaticFieldHolder.usedStaticMap[k] '
+              'in members_consumer.dart — must not appear in findings',
+        );
+      },
+    );
+
+    test('unusedStaticField (never accessed) IS reported', () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`unusedStaticField`')),
+        isTrue,
+        reason:
+            'unusedStaticField is never referenced — must appear in findings',
+      );
+    });
+
+    test('unusedStaticMap (never accessed) IS reported', () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('`unusedStaticMap`')),
+        isTrue,
+        reason: 'unusedStaticMap is never referenced — must appear in findings',
+      );
+    });
+  });
+
   group('member-name collision (semantic resolution)', () {
     test(
       'calling fatal() on one type does not suppress the unused fatal() on another',
