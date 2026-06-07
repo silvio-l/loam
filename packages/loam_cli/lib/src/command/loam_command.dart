@@ -10,6 +10,9 @@ import 'package:args/command_runner.dart';
 ///   - exit-code convention (0 = success, 64 = usage error — enforced at
 ///     runner level; individual commands return 0/non-zero ints)
 abstract class LoamCommand extends Command<int> {
+  /// Base constructor for all loam.dev sub-commands.
+  LoamCommand();
+
   /// The output format requested by the caller.
   ///
   /// Reads the global `--format` option from [globalResults].
