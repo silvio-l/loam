@@ -24,6 +24,7 @@ PUBSPEC="$ROOT/packages/loam_cli/pubspec.yaml"
 PKGREADME="$ROOT/packages/loam_cli/README.md"
 PKGCHANGELOG="$ROOT/packages/loam_cli/CHANGELOG.md"
 VERSIONDART="$ROOT/packages/loam_cli/lib/src/version.dart"  # in-code Versionsspiegel
+DEVGUIDE="$ROOT/docs/developer-guide.md"
 
 # Anti-Vokabular (PCRE via perl -> portabel macOS/Linux). Generische Wörter
 # bewusst ausgelassen, um False Positives in Prosa zu vermeiden.
@@ -35,7 +36,9 @@ note() { echo "  ✗ $1"; fail=1; }
 
 check_readme() {
   # Pflicht-Marker aus der Spec (Single Source of Truth für den Aufbau)
-  local markers; markers="$(awk '/required:start/{f=1;next} /required:end/{f=0} f' "$SPEC" \
+  # Verwende den exakten Kommentar-Marker (<!-- required:start -->) damit andere
+  # Marker-Blöcke (z. B. devguide-required:start) nicht irrtümlich mitgelesen werden.
+  local markers; markers="$(awk '/<!-- required:start -->/{f=1;next} /<!-- required:end -->/{f=0} f' "$SPEC" \
                             | sed '/^[[:space:]]*$/d')"
   while IFS= read -r m; do
     [ -z "$m" ] && continue
@@ -165,18 +168,67 @@ check_brand() {
   return 0
 }
 
+check_devguide() {
+  # Developer & Tool Guide: docs/developer-guide.md
+  # Pflicht-Marker aus der Spec (§6, devguide-required:start … devguide-required:end).
+  [ -f "$DEVGUIDE" ] || { note "Developer-Guide fehlt: ${DEVGUIDE#$ROOT/}"; return; }
+
+  local markers; markers="$(awk '/devguide-required:start/{f=1;next} /devguide-required:end/{f=0} f' "$SPEC" \
+                            | sed '/^[[:space:]]*$/d')"
+  while IFS= read -r m; do
+    [ -z "$m" ] && continue
+    grep -qF -- "$m" "$DEVGUIDE" || note "Developer-Guide fehlt Pflicht-Marker: $m"
+  done <<< "$markers"
+
+  # Alle registrierten CLI-Commands müssen im Guide vorkommen (CLI ⊆ Guide).
+  [ -f "$CLI" ] || return 0
+  local cmds; cmds="$(grep -oE "name = '[a-z][a-z-]*'" "$CLI" \
+                      | sed -E "s/name = '([a-z-]+)'/\1/" | sort -u || true)"
+  while IFS= read -r c; do
+    [ -z "$c" ] && continue
+    grep -qF -- "loam $c" "$DEVGUIDE" || note "Developer-Guide: CLI-Command '$c' nicht dokumentiert"
+  done <<< "$cmds"
+
+  # Relative Links/Pfade im Guide existieren.
+  local refs; refs="$( { grep -oE '\]\([^)]+\)' "$DEVGUIDE" | sed -E 's/\]\(([^)]+)\)/\1/'; } \
+                       | sort -u || true )"
+  while IFS= read -r r; do
+    [ -z "$r" ] && continue
+    case "$r" in http://*|https://*|mailto:*|\#*) continue ;; esac
+    r="${r%%#*}"; r="${r%%\?*}"; [ -z "$r" ] && continue
+    # Links in docs/ sind relativ zu docs/; auflösen gegen docs/-Verzeichnis.
+    local target; target="$(cd "$ROOT/docs" && realpath -m "$r" 2>/dev/null || echo "")"
+    [ -z "$target" ] && target="$ROOT/docs/$r"
+    [ -e "$target" ] || note "Developer-Guide verweist auf fehlenden Pfad: $r"
+  done <<< "$refs"
+
+  # Anti-Vokabular
+  local hits; hits="$(antivocab "$DEVGUIDE")"
+  if [ -n "$hits" ]; then note "Anti-Vokabular in ${DEVGUIDE#$ROOT/}:"; echo "$hits"; fi
+
+  # README muss den Guide verlinken (GitHub-erreichbar).
+  grep -qF -- "docs/developer-guide.md" "$README" \
+    || note "README verweist nicht auf Developer-Guide (docs/developer-guide.md)"
+
+  # Website muss den Guide verlinken.
+  grep -qF -- "developer-guide.md" "$WEBPAGE" \
+    || note "Website-Quelle verweist nicht auf Developer-Guide (developer-guide.md)"
+
+  return 0
+}
+
 cmd_check() {
   fail=0
-  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide)"
 }
 
 cmd_attest() {
   cmd_check
   git -C "$ROOT" rev-parse HEAD > "$ATTEST"
   echo "Öffentliche Docs als aktuell & aufbaukonform bestätigt für $(cat "$ATTEST")."
-  echo "Hinweis: attest = README, CLI-Hilfe, web/ und pub.dev-Beschreibung GELESEN und gegen den Repo-Stand geprüft."
+  echo "Hinweis: attest = README, CLI-Hilfe, web/, pub.dev-Beschreibung und Developer-Guide GELESEN und gegen den Repo-Stand geprüft."
 }
 
 cmd_attested() { [ -f "$ATTEST" ] && cat "$ATTEST" || true; }

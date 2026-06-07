@@ -173,6 +173,9 @@ of the capabilities land as individual rules. The founding spec lives in
 [`docs/PRD.md`](./docs/PRD.md); the canonical domain vocabulary in
 [`CONTEXT.md`](./CONTEXT.md); architecture decisions in [`docs/adr/`](./docs/adr/).
 
+For a detailed walkthrough of concepts, CLI commands, output formats, and codegen
+handling, see the **[Developer & Tool Guide](./docs/developer-guide.md)**.
+
 ## Repo layout
 
 This is a monorepo — everything that makes up loam.dev:
