@@ -217,15 +217,47 @@ check_devguide() {
   return 0
 }
 
+check_pubdev_docs() {
+  # pub.dev "Provide documentation" (20/20 Punkte) absichern:
+  #  (a) Das Paket hat ein Example (10 Punkte).
+  #  (b) Die public API ist dokumentiert (10 Punkte; ≥20% reicht für die Punkte,
+  #      loam.dev hält 100% via Lint).
+  local pkgdir="$ROOT/packages/loam_cli"
+  local exdir="$pkgdir/example"
+
+  # (a) Example — pana akzeptiert eines dieser Artefakte (Reihenfolge ~ pana).
+  local has_example=0 cand
+  for cand in \
+    "$exdir/lib/main.dart" "$exdir/main.dart" "$exdir/example.dart" \
+    "$exdir/loam.dart" "$exdir/lib/loam.dart" \
+    "$exdir/README.md" "$exdir/readme.md" "$exdir/example.md"; do
+    [ -f "$cand" ] && { has_example=1; break; }
+  done
+  [ "$has_example" -eq 1 ] \
+    || note "pub.dev: kein Example gefunden — lege packages/loam_cli/example/README.md (oder example/main.dart) an"
+
+  # (b) public-API-Doku: erzwungen durch den public_member_api_docs-Lint im
+  # analyze-Gate. Hier nur der Guard, dass die Enforcement nicht still entfernt
+  # wurde (sonst könnte die Doku-Coverage unbemerkt unter die pub.dev-Schwelle fallen).
+  local aopts="$pkgdir/analysis_options.yaml"
+  if [ -f "$aopts" ]; then
+    grep -qE '^[[:space:]]*-[[:space:]]*public_member_api_docs[[:space:]]*$' "$aopts" \
+      || note "analysis_options.yaml: Lint 'public_member_api_docs' fehlt — erzwingt die public-API-Doku für die pub.dev-Punktzahl"
+  else
+    note "packages/loam_cli/analysis_options.yaml fehlt (public-API-Doku-Enforcement)"
+  fi
+  return 0
+}
+
 cmd_check() {
   fail=0
   # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
   # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
   # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
-  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points)"
 }
 
 cmd_attest() {
