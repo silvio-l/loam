@@ -86,13 +86,19 @@ jobs:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: artifacts/*.tar.gz
 
-      - name: Render formula + push to tap
+      - name: Render formula + commit to tap (Contents API)
         env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Fine-grained PATs werden von Git-über-HTTPS-Basic-Auth abgelehnt
+          # („password authentication is not supported"), funktionieren aber
+          # als Bearer-Token gegen die REST-API. Darum Datei via Contents-API
+          # schreiben statt git clone + push.
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
+          REPO="silvio-l/homebrew-loam"
+          FORMULA_PATH="Formula/loam.rb"
           sha() { tr -d '[:space:]' < "artifacts/$1.sha256"; }
 
           sed \
@@ -101,19 +107,16 @@ jobs:
             -e "s|__SHA_LINUX_X86_64__|$(sha loam-linux-x86_64.tar.gz)|g" \
             tool/homebrew/loam.rb.tmpl > loam.rb
 
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/silvio-l/homebrew-loam.git" tap
-          mkdir -p tap/Formula
-          cp loam.rb tap/Formula/loam.rb
+          content_b64="$(base64 -w0 loam.rb)"
+          # Bei Update den Blob-SHA der bestehenden Datei mitgeben; bei Erst-Anlage leer.
+          existing_sha="$(gh api "repos/${REPO}/contents/${FORMULA_PATH}" --jq .sha 2>/dev/null || true)"
 
-          cd tap
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/loam.rb
-          # Gegen den Index prüfen: --cached sieht NEU hinzugefügte Dateien,
-          # `git diff` ohne --cached nicht (sonst wird ein Erst-Push übersprungen).
-          if git diff --cached --quiet; then
-            echo "Formula unchanged — nothing to push."
-            exit 0
-          fi
-          git commit -m "chore(formula): loam ${VERSION}"
-          git push
+          args=(--method PUT "repos/${REPO}/contents/${FORMULA_PATH}"
+                -f "message=chore(formula): loam ${VERSION}"
+                -f "content=${content_b64}"
+                -f "committer[name]=github-actions[bot]"
+                -f "committer[email]=41898282+github-actions[bot]@users.noreply.github.com")
+          [ -n "${existing_sha}" ] && args+=(-f "sha=${existing_sha}")
+
+          gh api "${args[@]}" --jq '.commit.sha' \
+            | sed 's/^/Formula committed to tap: /'
