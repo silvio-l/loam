@@ -5,6 +5,16 @@
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 
+# ── Riegel -1: ai-attribution-guard (mirror ~/.git-hooks/pre-commit) ─────────
+# Kein KI-Agent darf als Autor/Committer/Contributor erscheinen. loam überschreibt
+# core.hooksPath (-> .githooks) und shadowed damit den globalen Guard — daher hier.
+_ident="$(git var GIT_AUTHOR_IDENT 2>/dev/null) $(git var GIT_COMMITTER_IDENT 2>/dev/null)"
+if printf '%s' "$_ident" | grep -qiE 'anthropic|claude|copilot|cursor\.so|codeium|\[bot\]@'; then
+  echo "╳ Commit blockiert — KI-Agent als Autor/Committer: $_ident" >&2
+  echo "  → git config user.name/user.email auf deine Identität setzen." >&2
+  exit 1
+fi
+
 # ── Riegel 0: interne, nicht-öffentliche Artefakte dürfen NIE getrackt werden ─
 # Harte Denylist — greift auch bei `git add -f` (das nur .gitignore umgeht, nicht
 # diesen Hook). Nur Additions/Modifications blocken, Deletions (Untracking) erlaubt.

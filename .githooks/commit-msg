@@ -1,16 +1,14 @@
 #!/bin/sh
-# Project-local mirror of ~/.git-hooks/commit-msg.
+# ai-attribution-guard — Project-local mirror of ~/.git-hooks/commit-msg.
 #
 # WHY THIS FILE EXISTS: this repo overrides core.hooksPath (-> .githooks) for the
 # docs-attest gate, which SHADOWS the global hooks dir. Without this mirror the
-# global trailer-stripper would NOT run here, and an AI Co-Authored-By trailer
-# could slip into history.
+# global scrubber would NOT run here, and AI attribution could slip into history.
 #
-# HARD RULE (CLAUDE.md): never an AI Co-Authored-By trailer (Claude, Copilot, …).
-# Strip AI-agent Co-Authored-By trailers; keep human co-authors intact.
-sed -i '' \
-  -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*noreply@anthropic\.com/d' \
-  -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*[Aa]nthropic/d' \
-  -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*copilot\[bot\]@users\.noreply\.github\.com/d' \
-  -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*github-copilot\[bot\]@/d' \
-  "$1"
+# HARD RULE (CLAUDE.md): never any AI-agent attribution. Removes AI Co-Authored-By
+# trailers (Claude/Anthropic, Copilot, Cursor, Codeium) AND "Generated with
+# Claude Code" lines. Keeps human co-authors intact. POSIX sh, macOS/Linux portabel.
+tmp="$1.aiclean.$$"
+grep -viE '^co-authored-by:.*(anthropic|claude|copilot|cursor|codeium)|generated with \[claude|claude\.com/claude-code|🤖 generated with' "$1" > "$tmp" 2>/dev/null || true
+if [ -s "$tmp" ]; then mv "$tmp" "$1"; else rm -f "$tmp"; fi
+exit 0
