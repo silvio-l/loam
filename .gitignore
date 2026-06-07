@@ -15,6 +15,9 @@ baseline.json
 # Lokales Dev-Tooling (PROTECTED — niemals nach GitHub)
 dev-tools/
 
+# Lokaler, projektbezogener Dev-Skill (PROTECTED — niemals nach GitHub)
+.claude/skills/dogfood-loop/
+
 # OS / Editor
 .DS_Store
 *.iml
