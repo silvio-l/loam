@@ -7,6 +7,7 @@ import '../config/loam_config.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../rules/unused_public_exports_rule.dart';
+import '../suppression/inline_suppression_scanner.dart';
 import '../suppression/suppression_engine.dart';
 
 /// The single shared production path from a loaded project to sorted [Finding]s.
@@ -115,9 +116,21 @@ class AnalysisRunner {
       rawFindings.addAll(rule.run(loadResult));
     }
 
+    // Scan for inline `// loam-ignore:` directives using the analyzer's
+    // token/comment model (Invariant 1 — no whole-file regex).
+    // Passes [root] so that directives carry the same project-relative POSIX
+    // paths as Finding.filePath — enabling a plain string equality comparison.
+    final inlineDirectives = InlineSuppressionScanner.scan(loadResult, root);
+
     // Apply suppression BEFORE the deterministic sort (ADR-0003 / D10).
     // scan, gate, and baseline all see the same filtered stream.
-    final findings = SuppressionEngine.filter(rawFindings, config, root);
+    // Source 1 (glob) and Source 2 (inline directives) are combined here.
+    final findings = SuppressionEngine.filter(
+      rawFindings,
+      config,
+      root,
+      inlineDirectives: inlineDirectives,
+    );
 
     // Deterministic sort: filePath → line → fingerprint (Invariant 5).
     findings.sort((a, b) {
