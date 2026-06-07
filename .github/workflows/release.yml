@@ -120,3 +120,33 @@ jobs:
 
           gh api "${args[@]}" --jq '.commit.sha' \
             | sed 's/^/Formula committed to tap: /'
+
+  pub-dev:
+    name: Publish to pub.dev (OIDC)
+    needs: build
+    runs-on: ubuntu-latest
+    # Job-Level-permissions ERSETZEN die Top-Level-Defaults: id-token fürs
+    # OIDC-Publishing, contents:read fürs checkout. Kein pub.dev-Secret nötig —
+    # pub.dev vertraut dem OIDC-Token des getaggten Runs (Automated Publishing
+    # muss am Paket aktiviert sein: Repo silvio-l/loam, Tag-Pattern v{{version}}).
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: dart pub get
+        working-directory: packages/loam_cli
+        run: dart pub get
+
+      # dart pub publish nutzt in GitHub Actions mit id-token:write automatisch
+      # den OIDC-Token. --force überspringt die interaktive Bestätigung. Läuft der
+      # Job gegen eine bereits publizierte Version (Re-Tag/Re-Run), schlägt pub.dev
+      # bewusst mit "version already exists" fehl.
+      - name: Publish to pub.dev
+        working-directory: packages/loam_cli
+        run: dart pub publish --force
