@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4
+
+- **Documentation release** (no functional changes). Adds an `example/` so the
+  pub.dev package page renders a usage example, and documents the full public API
+  surface (`Finding`, `Severity`, `Rule`, `ProjectLoader`, …). The
+  `public_member_api_docs` lint now keeps public-API documentation complete.
+
+
 ## 0.1.3
 
 - **`--format markdown`** is now available: a portable Markdown report alongside
