@@ -7,6 +7,7 @@ import '../config/loam_config.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../rules/unused_public_exports_rule.dart';
+import '../suppression/suppression_engine.dart';
 
 /// The single shared production path from a loaded project to sorted [Finding]s.
 ///
@@ -109,10 +110,14 @@ class AnalysisRunner {
         UnusedPublicExportsRule(projectRoot: root),
     ];
 
-    final findings = <Finding>[];
+    final rawFindings = <Finding>[];
     for (final rule in rules) {
-      findings.addAll(rule.run(loadResult));
+      rawFindings.addAll(rule.run(loadResult));
     }
+
+    // Apply suppression BEFORE the deterministic sort (ADR-0003 / D10).
+    // scan, gate, and baseline all see the same filtered stream.
+    final findings = SuppressionEngine.filter(rawFindings, config, root);
 
     // Deterministic sort: filePath → line → fingerprint (Invariant 5).
     findings.sort((a, b) {
