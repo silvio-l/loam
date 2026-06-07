@@ -30,7 +30,7 @@ red on day one.
 
 **Available now (0.1.0):** project-wide **unused public API** — exports, classes,
 methods, getters/setters and fields that nothing in the project references —
-emitted as findings behind the baseline/ratchet gate, in `human`, `sarif`, `json` or `markdown`.
+emitted as findings behind the baseline/ratchet gate, in `human`, `sarif`, `json`, `markdown` or `html`.
 
 Everything else is the **target surface** (🚧 = planned, not in 0.1.0):
 
@@ -47,7 +47,8 @@ Everything else is the **target surface** (🚧 = planned, not in 0.1.0):
 - **🌱 Semantic, not regex** — resolved Dart element model + project-wide graphs. *(in 0.1.0)*
 - **🔒 Baseline / ratchet gate (default)** — freeze today's findings; only **new** ones fail CI. *(in 0.1.0)*
 - **♻️ Reproducible even with an LLM** — verdicts cached by `sha(code)+prompt@ver`, fixed thresholds decide. Same code = cache hit = stable verdict, zero token cost. *(🚧 planned)*
-- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a fix-prompt for your AI agent. *(🚧 planned)*
+- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a deterministic `prompt@ver` fix-prompt for your AI agent. *(in 0.1.3)*
+- **🔧 Configurable suppression** — `loam.yaml` rule toggles and project-relative `ignore:` globs, plus inline `// loam-ignore: <ruleId> – reason`; `loam init` scaffolds the file. *(in 0.1.3)*
 
 ## Install
 

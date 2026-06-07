@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.1.3
+
+- **`--format markdown`** is now available: a portable Markdown report alongside
+  `human`, `sarif` and `json`.
+- **`--format html`** is now available: a single self-contained, offline
+  `loam-report.html` (inline CSS/JS, no server, no CDN). Browse findings by rule,
+  severity and file; select findings and copy a deterministic, versioned
+  (`prompt@ver`) fix-prompt for an AI coding agent. The report is a pure renderer —
+  no thresholds, no LLM calls. Redirect stdout:
+  `loam scan --format html > loam-report.html`.
+- **User-driven suppression via `loam.yaml`.** A project-root `loam.yaml` now
+  drives per-rule toggles (`rules:`) and path-based `ignore:` globs (project-
+  relative). A disabled rule is not run at all and changes the `rulesetVersion`;
+  glob-ignored files drop out of the audit entirely. Suppression acts before the
+  baseline/gate and never fills the baseline or trips the gate.
+- **Inline suppression `// loam-ignore: <ruleId> – reason`.** Suppress a single
+  finding at its source on the same or immediately preceding line, via the
+  analyzer comment model (not text regex). The reason is mandatory; only the named
+  rule is suppressed. Distinct from the existing automatic codegen-input handling.
+- **`loam init`** scaffolds a commented `loam.yaml` (the `rules:` + `ignore:`
+  schema) and refuses to overwrite an existing file (exit 1).
+
+
 ## 0.1.2
 
 - **`--format json`** is now available: a stable, machine-readable JSON report
