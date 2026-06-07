@@ -58,6 +58,9 @@ dart pub global activate loam
 Make sure `$HOME/.pub-cache/bin` is on your `PATH` (Dart prints a reminder if it
 isn't). **To update**, re-run the exact same command.
 
+On macOS/Linux you can skip the `PATH` step entirely with Homebrew:
+`brew install silvio-l/loam/loam`.
+
 <details>
 <summary>Install the unreleased <code>dev</code> branch instead</summary>
 

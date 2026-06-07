@@ -84,12 +84,39 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ### Install
 
+**Homebrew (macOS & Linux — recommended).** No `PATH` setup, lands on a directory
+that is already on your `PATH`:
+
+```bash
+brew install silvio-l/loam/loam
+```
+
+`brew upgrade loam` updates it.
+
+**Dart pub (all platforms).** The pub.dev package:
+
 ```bash
 dart pub global activate loam
 ```
 
-Make sure `$HOME/.pub-cache/bin` is on your `PATH` (Dart prints a reminder if it
-isn't). **To update**, re-run the exact same command.
+This installs into `$HOME/.pub-cache/bin`, which is **not** on your `PATH` by
+default — Dart prints a reminder if it isn't. The `export` line it shows only
+lasts for the current shell; make it permanent by adding it to your shell config
+**once**:
+
+<details>
+<summary>Put <code>~/.pub-cache/bin</code> on your <code>PATH</code> permanently</summary>
+
+```bash
+# zsh (macOS default)
+echo 'export PATH="$PATH:$HOME/.pub-cache/bin"' >> ~/.zshrc && source ~/.zshrc
+
+# bash
+echo 'export PATH="$PATH:$HOME/.pub-cache/bin"' >> ~/.bashrc && source ~/.bashrc
+```
+</details>
+
+**To update**, re-run `dart pub global activate loam`.
 
 <details>
 <summary>Install the unreleased <code>dev</code> branch instead</summary>

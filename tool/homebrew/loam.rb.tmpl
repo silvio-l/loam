@@ -1,0 +1,46 @@
+# typed: false
+# frozen_string_literal: true
+
+# Homebrew formula for loam.dev.
+#
+# RENDERED AUTOMATICALLY by the release workflow in silvio-l/loam
+# (.github/workflows/release.yml) and pushed into silvio-l/homebrew-loam.
+# Do not edit the copy in the tap by hand — edit this template instead.
+# Placeholders (__VERSION__, __SHA_*__) are filled in at release time.
+class Loam < Formula
+  desc "Codebase intelligence & anti-AI-slop for Dart & Flutter"
+  homepage "https://getloam.dev"
+  version "__VERSION__"
+  license "MIT"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/silvio-l/loam/releases/download/v__VERSION__/loam-macos-arm64.tar.gz"
+      sha256 "__SHA_MACOS_ARM64__"
+    end
+    on_intel do
+      url "https://github.com/silvio-l/loam/releases/download/v__VERSION__/loam-macos-x86_64.tar.gz"
+      sha256 "__SHA_MACOS_X86_64__"
+    end
+  end
+
+  on_linux do
+    on_intel do
+      url "https://github.com/silvio-l/loam/releases/download/v__VERSION__/loam-linux-x86_64.tar.gz"
+      sha256 "__SHA_LINUX_X86_64__"
+    end
+  end
+
+  def install
+    bin.install "loam"
+  end
+
+  test do
+    assert_match "loam", shell_output("#{bin}/loam --help")
+  end
+
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
+end
