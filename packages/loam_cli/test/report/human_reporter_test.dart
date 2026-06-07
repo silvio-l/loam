@@ -231,11 +231,8 @@ void main() {
       expect(reporterFor('json'), isA<Reporter>());
     });
 
-    test('reporterFor("markdown") throws FormatNotImplementedError', () {
-      expect(
-        () => reporterFor('markdown'),
-        throwsA(isA<FormatNotImplementedError>()),
-      );
+    test('reporterFor("markdown") returns a Reporter (now implemented)', () {
+      expect(reporterFor('markdown'), isA<Reporter>());
     });
 
     test('reporterFor("html") throws FormatNotImplementedError', () {

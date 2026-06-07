@@ -312,7 +312,28 @@ void main() {
       );
     });
 
-    for (final fmt in ['markdown', 'html']) {
+    // markdown is now implemented: gate --format markdown exits 0 on clean project.
+    test(
+      'gate --format markdown → exit 0 on clean project (now implemented)',
+      () {
+        final result = Process.runSync(Platform.executable, [
+          'run',
+          entrypoint,
+          '--format',
+          'markdown',
+          'gate',
+          '--project-root',
+          tempDir.path,
+        ]);
+        expect(
+          result.exitCode,
+          equals(0),
+          reason: 'markdown is implemented — clean project exits 0',
+        );
+      },
+    );
+
+    for (final fmt in ['html']) {
       test('gate --format $fmt → exit 64 with clear stderr message', () {
         final result = Process.runSync(Platform.executable, [
           'run',
@@ -382,7 +403,29 @@ void main() {
       },
     );
 
-    for (final fmt in ['markdown', 'html']) {
+    // markdown is now implemented: baseline --format markdown exits 0 on clean project.
+    test(
+      'baseline --format markdown → exit 0 on clean project (now implemented)',
+      () {
+        final result = Process.runSync(Platform.executable, [
+          'run',
+          entrypoint,
+          '--format',
+          'markdown',
+          'baseline',
+          '--project-root',
+          tempDir.path,
+        ]);
+        expect(
+          result.exitCode,
+          equals(0),
+          reason:
+              'markdown is implemented — baseline show exits 0 for clean project',
+        );
+      },
+    );
+
+    for (final fmt in ['html']) {
       test('baseline --format $fmt → exit 64 with clear stderr message', () {
         final result = Process.runSync(Platform.executable, [
           'run',
@@ -475,7 +518,25 @@ void main() {
       },
     );
 
-    for (final fmt in ['markdown', 'html']) {
+    // markdown is now implemented: scan --format markdown exits 0 on clean project.
+    test(
+      '--format markdown resolves → exit 0 on clean project (now implemented)',
+      () {
+        final result = Process.runSync(Platform.executable, [
+          'run',
+          entrypoint,
+          '--format',
+          'markdown',
+          'scan',
+          '--project-root',
+          tempDir.path,
+        ]);
+        expect(result.exitCode, equals(0));
+        expect(result.stderr as String, isEmpty);
+      },
+    );
+
+    for (final fmt in ['html']) {
       test('--format $fmt → exit 64, stderr names format, no crash', () {
         final result = Process.runSync(Platform.executable, [
           'run',

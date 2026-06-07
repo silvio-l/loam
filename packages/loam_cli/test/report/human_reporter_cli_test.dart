@@ -125,10 +125,10 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
-  // AC6: unsupported format → exit 64, clear message to stderr
+  // AC6: markdown is now implemented → exit 1 with findings, not exit 64
   // ---------------------------------------------------------------------------
 
-  test('loam scan --format markdown: exit 64 with clear error message', () {
+  test('loam scan --format markdown: exit 1 (implemented — not exit 64)', () {
     final result = Process.runSync(Platform.executable, [
       'run',
       entrypoint,
@@ -138,16 +138,11 @@ void main() {
       '--project-root',
       fixturePath,
     ]);
+    // markdown is now implemented; fixture has findings → exit 1
     expect(
       result.exitCode,
-      equals(64),
-      reason: 'unsupported format should exit 64 (EX_USAGE)',
-    );
-    final err = result.stderr as String;
-    expect(
-      err,
-      contains('markdown'),
-      reason: 'stderr must name the unsupported format',
+      equals(1),
+      reason: 'markdown is implemented — fixture has findings → exit 1, not 64',
     );
   });
 }
