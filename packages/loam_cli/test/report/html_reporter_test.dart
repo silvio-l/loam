@@ -2,6 +2,7 @@
 library;
 
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/report/fix_prompt_template.dart';
 import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
@@ -343,5 +344,160 @@ void main() {
       // should contain the relative path
       expect(output, contains('"lib/src/foo.dart"'));
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue 07 — AC1: Findings are individually selectable (checkboxes)
+  // -------------------------------------------------------------------------
+  group('Issue 07 — AC1: per-finding selection checkboxes', () {
+    test('output contains checkbox inputs for findings', () {
+      final output = const HtmlReporter().render(
+        _payload(findings: [_finding()]),
+      );
+      expect(
+        output,
+        contains('type="checkbox"'),
+        reason: 'each finding must have a checkbox',
+      );
+    });
+
+    test('checkbox has class "finding-check"', () {
+      final output = const HtmlReporter().render(
+        _payload(findings: [_finding()]),
+      );
+      expect(output, contains('class="finding-check"'));
+    });
+
+    test('select-all button is present', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('selectAllBtn'));
+    });
+
+    test('clear-selection button is present', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('clearSelBtn'));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue 07 — AC2: FixPromptTemplate embedded with prompt@ver marker
+  // -------------------------------------------------------------------------
+  group('Issue 07 — AC2: FixPromptTemplate embedded', () {
+    test('output contains the fix-prompt template script block', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        contains('text/x-loam-template'),
+        reason: 'Fix-Prompt template must be embedded as a script block',
+      );
+    });
+
+    test('output contains the prompt@ver marker from kPromptVersion', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        contains(kPromptVersion),
+        reason: 'prompt@ver marker must appear in the embedded HTML',
+      );
+    });
+
+    test('output contains the {{FINDINGS}} placeholder in the template', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        contains('{{FINDINGS}}'),
+        reason:
+            'template placeholder {{FINDINGS}} must be embedded for JS to fill',
+      );
+    });
+
+    test('output contains the loam-fix-hints JSON block', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        contains('loam-fix-hints'),
+        reason: 'fix-hints map must be embedded so JS can look up hints',
+      );
+    });
+
+    test('fix-hints JSON block contains __generic__ key', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('__generic__'));
+    });
+
+    test('fix-hints JSON block contains unused-public-exports key', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('unused-public-exports'));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue 07 — AC5: Copy-to-Clipboard button present
+  // -------------------------------------------------------------------------
+  group('Issue 07 — AC5: Copy-to-Clipboard button', () {
+    test('output contains copyPromptBtn element', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        contains('copyPromptBtn'),
+        reason: 'copy-to-clipboard button must be present',
+      );
+    });
+
+    test('output contains fix-prompt-output textarea', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        contains('fix-prompt-output'),
+        reason: 'prompt output textarea must be present',
+      );
+    });
+
+    test('output contains fix-prompt-section', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('fix-prompt-section'));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue 07 — AC6: Pure renderer — no logic/thresholds/LLM in report
+  // -------------------------------------------------------------------------
+  group('Issue 07 — AC6: Pure renderer (Invariante 4)', () {
+    test('JS does not reference LLM or fetch', () {
+      final output = const HtmlReporter().render(_payload());
+      // No fetch() calls, no XMLHttpRequest, no WebSocket
+      expect(output, isNot(contains('fetch(')));
+      expect(output, isNot(contains('XMLHttpRequest')));
+      expect(output, isNot(contains('WebSocket')));
+    });
+
+    test('output has no server-side template markers', () {
+      final output = const HtmlReporter().render(_payload());
+      // No PHP-style, Jinja, or other server-side markers
+      expect(output, isNot(contains('<?php')));
+      expect(output, isNot(contains('{%')));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue 07 — Reproducibility of extended output (Invariante 5)
+  // -------------------------------------------------------------------------
+  group('Issue 07 — Reproducibility with selection UI (Invariante 5)', () {
+    test(
+      'render with findings is byte-identical on two runs (with new UI)',
+      () {
+        final reporter = const HtmlReporter();
+        final findings = [
+          _finding(ruleId: 'unused-public-exports', fingerprint: 'fp1'),
+          _finding(
+            ruleId: 'unused-public-exports',
+            fingerprint: 'fp2',
+            filePath: '/project/lib/src/bar.dart',
+          ),
+        ];
+        final payload = _payload(findings: findings);
+        expect(reporter.render(payload), equals(reporter.render(payload)));
+      },
+    );
   });
 }

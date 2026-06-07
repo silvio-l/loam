@@ -168,4 +168,86 @@ void main() {
     final err = result.stderr as String;
     expect(err.trim(), isEmpty, reason: 'no error output expected');
   });
+
+  // -------------------------------------------------------------------------
+  // Issue 07 CLI smoke: selection markup + template + clipboard button
+  // -------------------------------------------------------------------------
+
+  test(
+    'loam scan --format html: output contains per-finding checkboxes (AC1)',
+    () {
+      final result = Process.runSync(Platform.executable, [
+        'run',
+        entrypoint,
+        '--format',
+        'html',
+        'scan',
+        '--project-root',
+        fixturePath,
+      ]);
+      final out = result.stdout as String;
+      expect(
+        out,
+        contains('type="checkbox"'),
+        reason: 'HTML must contain per-finding selection checkboxes',
+      );
+      expect(
+        out,
+        contains('finding-check'),
+        reason: 'checkboxes must use the finding-check class',
+      );
+    },
+  );
+
+  test(
+    'loam scan --format html: output contains embedded Fix-Prompt template (AC2)',
+    () {
+      final result = Process.runSync(Platform.executable, [
+        'run',
+        entrypoint,
+        '--format',
+        'html',
+        'scan',
+        '--project-root',
+        fixturePath,
+      ]);
+      final out = result.stdout as String;
+      expect(
+        out,
+        contains('text/x-loam-template'),
+        reason: 'HTML must contain the Fix-Prompt template script block',
+      );
+      expect(
+        out,
+        contains('prompt@v'),
+        reason: 'embedded template must carry the prompt@ver marker',
+      );
+      expect(
+        out,
+        contains('{{FINDINGS}}'),
+        reason: 'template placeholder must be present for JS assembly',
+      );
+    },
+  );
+
+  test(
+    'loam scan --format html: output contains Copy-to-Clipboard button (AC5)',
+    () {
+      final result = Process.runSync(Platform.executable, [
+        'run',
+        entrypoint,
+        '--format',
+        'html',
+        'scan',
+        '--project-root',
+        fixturePath,
+      ]);
+      final out = result.stdout as String;
+      expect(
+        out,
+        contains('copyPromptBtn'),
+        reason: 'HTML must contain the copy-to-clipboard button',
+      );
+    },
+  );
 }
