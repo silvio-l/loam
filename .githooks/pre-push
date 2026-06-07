@@ -31,15 +31,52 @@ EOF
 # Struktur muss ohnehin stimmen.
 "$QA" check >/dev/null || block "Struktur-Check (docs-attest.sh check) fehlgeschlagen."
 
-# Für jeden zu pushenden Ref: ist genau dieser Commit attestiert?
+# git liefert die Ref-Liste auf stdin — EINMAL puffern, beide Schleifen nutzen sie.
+REFS="$(cat || true)"
+
+# ── Riegel 1: kein KI-Co-Authored-By-Trailer darf je gepusht werden ──────────
+# HARD RULE (CLAUDE.md). Zweiter Riegel zusätzlich zum commit-msg-Hook — fängt
+# Commits, die den commit-msg-Hook umgangen haben (Merges, Cherry-Picks,
+# --no-verify, Imports).
+AI_TRAILER='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude)'
+block_ai() {
+  cat >&2 <<EOF
+
+╳ Push blockiert — KI-Co-Authored-By-Trailer gefunden.
+  $1
+  → Trailer entfernen ('git rebase -i' + reword bzw. 'git commit --amend'),
+    dann erneut pushen. (kein --no-verify)
+EOF
+  exit 1
+}
+while read -r _lref local_sha _rref remote_sha; do
+  [ -z "${local_sha:-}" ] && continue
+  [ "$local_sha" = "$ZERO" ] && continue
+  if [ "${remote_sha:-$ZERO}" = "$ZERO" ]; then
+    range="$(git rev-list "$local_sha" --not --remotes)"
+  else
+    range="$(git rev-list "${remote_sha}..${local_sha}")"
+  fi
+  [ -z "$range" ] && continue
+  hit="$(git log --no-walk --format='%B' $range 2>/dev/null | grep -iE "$AI_TRAILER" || true)"
+  [ -n "$hit" ] && block_ai "Treffer:
+$hit"
+done <<EOF
+$REFS
+EOF
+
+# ── Riegel 2: Public-Docs für genau diesen Commit attestiert? ────────────────
 pushed_any=0
-while read -r local_ref local_sha remote_ref remote_sha; do
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  [ -z "${local_sha:-}" ] && continue
   [ "$local_sha" = "$ZERO" ] && continue          # Branch-Löschung -> egal
   pushed_any=1
   if [ "$local_sha" != "$attested" ]; then
     block "Zu pushen: ${local_sha:0:12} · zuletzt attestiert: ${attested:0:12}"
   fi
-done
+done <<EOF
+$REFS
+EOF
 
 # Falls git keine Refs auf stdin lieferte, gegen HEAD prüfen.
 if [ "$pushed_any" -eq 0 ]; then
@@ -47,4 +84,4 @@ if [ "$pushed_any" -eq 0 ]; then
   [ "$head" = "$attested" ] || block "HEAD ${head:0:12} ist nicht attestiert."
 fi
 
-echo "Public-Docs-QS: README für $(echo "${attested:0:12}") attestiert — Push frei."
+echo "Public-Docs-QS: README für ${attested:0:12} attestiert · kein KI-Trailer — Push frei."

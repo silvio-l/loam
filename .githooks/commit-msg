@@ -1,0 +1,16 @@
+#!/bin/sh
+# Project-local mirror of ~/.git-hooks/commit-msg.
+#
+# WHY THIS FILE EXISTS: this repo overrides core.hooksPath (-> .githooks) for the
+# docs-attest gate, which SHADOWS the global hooks dir. Without this mirror the
+# global trailer-stripper would NOT run here, and an AI Co-Authored-By trailer
+# could slip into history.
+#
+# HARD RULE (CLAUDE.md): never an AI Co-Authored-By trailer (Claude, Copilot, …).
+# Strip AI-agent Co-Authored-By trailers; keep human co-authors intact.
+sed -i '' \
+  -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*noreply@anthropic\.com/d' \
+  -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*[Aa]nthropic/d' \
+  -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*copilot\[bot\]@users\.noreply\.github\.com/d' \
+  -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*github-copilot\[bot\]@/d' \
+  "$1"
