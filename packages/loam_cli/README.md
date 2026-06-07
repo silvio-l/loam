@@ -30,7 +30,7 @@ red on day one.
 
 **Available now (0.1.0):** project-wide **unused public API** — exports, classes,
 methods, getters/setters and fields that nothing in the project references —
-emitted as findings behind the baseline/ratchet gate, in `human`, `sarif` or `json`.
+emitted as findings behind the baseline/ratchet gate, in `human`, `sarif`, `json` or `markdown`.
 
 Everything else is the **target surface** (🚧 = planned, not in 0.1.0):
 

@@ -16,8 +16,9 @@ class FormatNotImplementedError extends Error {
 
   @override
   String toString() =>
-      'loam: output format "$format" is not yet implemented '
-      '(coming in a later sprint). Use --format human or --format sarif.';
+      'loam: output format "$format" is not yet implemented. '
+      'Available formats: human, sarif, json, markdown. '
+      'html is planned for a later sprint.';
 }
 
 /// Returns the [Reporter] for [format].

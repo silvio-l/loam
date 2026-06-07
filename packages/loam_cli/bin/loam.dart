@@ -45,8 +45,8 @@ Future<int> run(List<String> args) async {
       'human': 'Human-readable text (default).',
       'sarif': 'SARIF 2.1 JSON (CI/tooling).',
       'json': 'Machine-readable JSON (agent/tooling integration).',
-      'markdown': 'Markdown (agent/LLM pipelines). (coming soon)',
-      'html': 'Self-contained HTML report. (coming soon)',
+      'markdown': 'Markdown report (PR/docs embedding, agent/LLM pipelines).',
+      'html': 'Self-contained HTML report. (not yet implemented)',
     },
   );
 
