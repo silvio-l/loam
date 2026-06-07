@@ -21,7 +21,7 @@ block() {
 
 ╳ Push blockiert — README nicht für diesen Stand attestiert.
   $1
-  → README.md gegen den aktuellen Repo-Stand & docs/readme-spec.md PRÜFEN,
+  → README.md gegen den aktuellen Repo-Stand & docs/public-docs-spec.md PRÜFEN,
     dann BEWUSST bestätigen:   tool/docs-attest.sh attest
   Das ist die EINZIGE Art, die Schranke zu passieren (kein --no-verify).
 EOF

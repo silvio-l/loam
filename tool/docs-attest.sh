@@ -219,6 +219,10 @@ check_devguide() {
 
 cmd_check() {
   fail=0
+  # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
+  # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
+  # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
+  [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
   check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
   echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide)"

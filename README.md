@@ -174,9 +174,7 @@ Machine-readable output for CI and agents, a human-readable report for you:
 ## Status & roadmap
 
 **0.1.0 preview** — one rule (`unused-public-exports`) live end to end; the rest
-of the capabilities land as individual rules. The founding spec lives in
-[`docs/PRD.md`](./docs/PRD.md); the canonical domain vocabulary in
-[`CONTEXT.md`](./CONTEXT.md); architecture decisions in [`docs/adr/`](./docs/adr/).
+of the capabilities land as individual rules.
 
 For a detailed walkthrough of concepts, CLI commands, output formats, and codegen
 handling, see the **[Developer & Tool Guide](./docs/developer-guide.md)**.
@@ -191,7 +189,7 @@ This is a monorepo — everything that makes up loam.dev:
 | [`web/`](./web/) | Promo / docs website (static, free-tier). Scaffold. |
 | [`skill/`](./skill/) | Claude skill/plugin that drives `loam` for agents. Scaffold. |
 | [`assets/brand/`](./assets/brand/) | Logo, colors, terminal banner. See its [README](./assets/brand/README.md). |
-| [`docs/`](./docs/) | Founding spec + architecture decisions. |
+| [`docs/`](./docs/) | Developer & tool guide. |
 
 ## Develop
 

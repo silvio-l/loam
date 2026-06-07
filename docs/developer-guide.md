@@ -55,7 +55,7 @@ Currently active rules:
 |---|---|
 | `unused-public-exports` | Public API members (classes, methods, getters/setters, fields, enums, typedefs) with no references anywhere in the project — on the resolved element model, not regex. |
 
-All other rules in the `CONTEXT.md` target surface are planned (🚧).
+All other rules in the planned target surface are still to come (🚧).
 
 ### Baseline
 
@@ -388,7 +388,4 @@ mechanisms. If `loam.yaml` already exists, the command refuses to overwrite it
 ## Links
 
 - [Root README](../README.md) — install, quick start, roadmap
-- [PRD](./PRD.md) — founding specification
-- [Architecture decisions](./adr/) — locked design choices
-- [CONTEXT.md](../CONTEXT.md) — canonical vocabulary
 - [getloam.dev](https://getloam.dev) — website

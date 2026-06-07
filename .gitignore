@@ -25,6 +25,17 @@ dev-tools/
 
 # README/Docs-Attestierung (lokaler Push-Stempel)
 .docs-attest
+.readme-stamp
 
 # Wrangler (Cloudflare) lokaler Cache
 .wrangler/
+
+# Interne, nicht-öffentliche Doku & Agenten-/Repo-Guides (PROTECTED — niemals
+# nach GitHub). Bleiben lokal lesbar für dich/Agenten, sind aber untracked.
+# Mechanisch zusätzlich durch die Denylist in .githooks/pre-commit abgesichert.
+/CLAUDE.md
+/CONTEXT.md
+/docs/PRD.md
+/docs/public-docs-spec.md
+/docs/readme-spec.md
+/docs/adr/
