@@ -131,7 +131,7 @@ dart pub global activate loam
 --format <format>    Output format (default: human).
 ```
 
-Available formats: `human` · `sarif` · `json` · `markdown` · `html` *(planned)*.
+Available formats: `human` · `sarif` · `json` · `markdown` · `html`.
 
 ### `loam scan`
 
@@ -229,7 +229,7 @@ that produces Finding output.
 | `sarif` | **Available** | SARIF 2.1 JSON for CI code-scanning tools (GitHub, GitLab, …). |
 | `json` | **Available** | Machine-readable JSON for agent/tooling integration. |
 | `markdown` | **Available** | Markdown report for PR comments, docs embedding, LLM pipelines. |
-| `html` | **Planned** | Self-contained `loam-report.html` with toggleable Findings and a copy-to-clipboard fix-prompt. |
+| `html` | **Available** | Self-contained HTML-Report: browse Findings by rule, severity, or file. Redirect stdout to `loam-report.html`. |
 
 The **Reporter is a pure renderer** — format choice never affects exit codes or
 gate decisions.

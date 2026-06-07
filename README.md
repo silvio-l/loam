@@ -71,9 +71,9 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 - **♻️ Reproducible, even with an LLM.** The LLM proposes `{score, label}` →
   cached by `sha(code)+prompt@ver` → fixed thresholds decide. Same code = cache
   hit = stable verdict = zero token cost. No flaky gate. *(🚧 planned)*
-- **📄 Self-contained HTML report.** A single offline `.html` artifact: toggle
-  findings, then copy a curated **fix-prompt** straight into your AI agent. No
-  server, no hosting, no dashboard. *(🚧 planned)*
+- **📄 Self-contained HTML report.** A single offline `.html` artifact: browse
+  findings by rule, severity, or file — no server, no hosting. Redirect stdout
+  with `loam scan --format html > loam-report.html`. *(live in 0.1.3)*
 
 ## Quick start
 
@@ -168,7 +168,7 @@ Machine-readable output for CI and agents, a human-readable report for you:
 --format sarif        # CI / code-scanning                      (available)
 --format json         # agent / tooling integration             (available)
 --format markdown     # PR / docs embedding                     (available)
---format html         # interactive, self-contained report      (coming soon)
+--format html         # interactive, self-contained report      (available)
 ```
 
 ## Status & roadmap

@@ -50,7 +50,8 @@ Future<int> run(List<String> args) async {
       'sarif': 'SARIF 2.1 JSON (CI/tooling).',
       'json': 'Machine-readable JSON (agent/tooling integration).',
       'markdown': 'Markdown report (PR/docs embedding, agent/LLM pipelines).',
-      'html': 'Self-contained HTML report. (not yet implemented)',
+      'html':
+          'Self-contained HTML report (stdout; redirect to loam-report.html).',
     },
   );
 

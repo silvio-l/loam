@@ -15,10 +15,10 @@ import 'package:test/test.dart';
 /// Covers:
 ///  - `loam gate --format sarif` → valid SARIF on stdout + gate summary kept
 ///  - `loam baseline --format sarif` → valid SARIF on stdout + header kept
-///  - `loam gate --format json|markdown|html` → exit 64 + clear stderr message
-///  - `loam baseline --format json|markdown|html` → exit 64 + clear stderr message
+///  - `loam gate --format html` → exit 0 on clean project (now implemented)
+///  - `loam baseline --format html` → exit 0 on clean project (now implemented)
 ///  - GateEngine summary/exit-code semantics are unchanged (regression guard)
-///  - dispatch: human/sarif resolve; json/markdown/html error cleanly (exit 64)
+///  - dispatch: human/sarif/json/markdown/html all resolve cleanly
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -278,10 +278,10 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // AC: gate --format json|markdown|html → exit 64 + clear stderr message
+  // AC: gate --format json|markdown|html → exit 0 on clean project
   // ---------------------------------------------------------------------------
 
-  group('gate: not-implemented formats → exit 64', () {
+  group('gate: all formats now implemented → exit 0 on clean project', () {
     late Directory tempDir;
 
     setUp(() {
@@ -333,42 +333,31 @@ void main() {
       },
     );
 
-    for (final fmt in ['html']) {
-      test('gate --format $fmt → exit 64 with clear stderr message', () {
-        final result = Process.runSync(Platform.executable, [
-          'run',
-          entrypoint,
-          '--format',
-          fmt,
-          'gate',
-          '--project-root',
-          tempDir.path,
-        ]);
-        expect(
-          result.exitCode,
-          equals(64),
-          reason: 'not-implemented format must exit 64 (EX_USAGE)',
-        );
-        final err = result.stderr as String;
-        expect(
-          err,
-          contains(fmt),
-          reason: 'stderr must name the unsupported format "$fmt"',
-        );
-        expect(
-          err,
-          isNot(contains('Unhandled exception')),
-          reason: 'must not crash',
-        );
-      });
-    }
+    // html is now implemented: gate --format html exits 0 on clean project.
+    test('gate --format html → exit 0 on clean project (now implemented)', () {
+      final result = Process.runSync(Platform.executable, [
+        'run',
+        entrypoint,
+        '--format',
+        'html',
+        'gate',
+        '--project-root',
+        tempDir.path,
+      ]);
+      expect(
+        result.exitCode,
+        equals(0),
+        reason: 'html is implemented — clean project exits 0',
+      );
+      expect(result.stderr as String, isEmpty);
+    });
   });
 
   // ---------------------------------------------------------------------------
-  // AC: baseline --format json|markdown|html → exit 64 + clear stderr message
+  // AC: baseline --format json|markdown|html → exit 0 (all now implemented)
   // ---------------------------------------------------------------------------
 
-  group('baseline (show): not-implemented formats → exit 64', () {
+  group('baseline (show): all formats now implemented → exit 0', () {
     late Directory tempDir;
 
     setUp(() {
@@ -425,39 +414,32 @@ void main() {
       },
     );
 
-    for (final fmt in ['html']) {
-      test('baseline --format $fmt → exit 64 with clear stderr message', () {
+    // html is now implemented: baseline --format html exits 0 on clean project.
+    test(
+      'baseline --format html → exit 0 on clean project (now implemented)',
+      () {
         final result = Process.runSync(Platform.executable, [
           'run',
           entrypoint,
           '--format',
-          fmt,
+          'html',
           'baseline',
           '--project-root',
           tempDir.path,
         ]);
         expect(
           result.exitCode,
-          equals(64),
-          reason: 'not-implemented format must exit 64 (EX_USAGE)',
+          equals(0),
+          reason:
+              'html is implemented — baseline show exits 0 for clean project',
         );
-        final err = result.stderr as String;
-        expect(
-          err,
-          contains(fmt),
-          reason: 'stderr must name the unsupported format "$fmt"',
-        );
-        expect(
-          err,
-          isNot(contains('Unhandled exception')),
-          reason: 'must not crash',
-        );
-      });
-    }
+        expect(result.stderr as String, isEmpty);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
-  // AC: dispatch test — human/sarif resolve; json/markdown/html error cleanly
+  // AC: dispatch test — all formats (human/sarif/json/markdown/html) resolve
   // Tested via scan as a representative command (reporterFor() is shared).
   // ---------------------------------------------------------------------------
 
@@ -536,22 +518,22 @@ void main() {
       },
     );
 
-    for (final fmt in ['html']) {
-      test('--format $fmt → exit 64, stderr names format, no crash', () {
+    // html is now implemented: scan --format html exits 0 on clean project.
+    test(
+      '--format html resolves → exit 0 on clean project (now implemented)',
+      () {
         final result = Process.runSync(Platform.executable, [
           'run',
           entrypoint,
           '--format',
-          fmt,
+          'html',
           'scan',
           '--project-root',
           tempDir.path,
         ]);
-        expect(result.exitCode, equals(64));
-        final err = result.stderr as String;
-        expect(err, contains(fmt));
-        expect(err, isNot(contains('Unhandled exception')));
-      });
-    }
+        expect(result.exitCode, equals(0));
+        expect(result.stderr as String, isEmpty);
+      },
+    );
   });
 }

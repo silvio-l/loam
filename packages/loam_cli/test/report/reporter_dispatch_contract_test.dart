@@ -1,6 +1,7 @@
 @TestOn('vm')
 library;
 
+import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/human_reporter.dart';
 import 'package:loam/src/report/json_reporter.dart';
 import 'package:loam/src/report/markdown_reporter.dart';
@@ -16,7 +17,7 @@ import 'package:test/test.dart';
 ///   'sarif'    → SarifReporter
 ///   'json'     → JsonReporter
 ///   'markdown' → MarkdownReporter
-///   'html'     → throws FormatNotImplementedError
+///   'html'     → HtmlReporter
 ///   unknown    → throws ArgumentError
 void main() {
   group('reporterFor dispatch contract', () {
@@ -36,37 +37,13 @@ void main() {
       expect(reporterFor('markdown'), isA<MarkdownReporter>());
     });
 
-    test('"html" throws FormatNotImplementedError', () {
-      expect(
-        () => reporterFor('html'),
-        throwsA(isA<FormatNotImplementedError>()),
-      );
+    test('"html" returns HtmlReporter', () {
+      expect(reporterFor('html'), isA<HtmlReporter>());
     });
 
-    test('"html" FormatNotImplementedError message mentions html', () {
-      try {
-        reporterFor('html');
-        fail('expected FormatNotImplementedError');
-      } on FormatNotImplementedError catch (e) {
-        expect(e.toString(), contains('html'));
-      }
+    test('"html" does not throw (now implemented)', () {
+      expect(() => reporterFor('html'), returnsNormally);
     });
-
-    test(
-      '"html" FormatNotImplementedError message lists available formats',
-      () {
-        try {
-          reporterFor('html');
-          fail('expected FormatNotImplementedError');
-        } on FormatNotImplementedError catch (e) {
-          final msg = e.toString();
-          expect(msg, contains('human'));
-          expect(msg, contains('sarif'));
-          expect(msg, contains('json'));
-          expect(msg, contains('markdown'));
-        }
-      },
-    );
 
     test('unknown format throws ArgumentError', () {
       expect(() => reporterFor('xml'), throwsA(isA<ArgumentError>()));
@@ -91,26 +68,22 @@ void main() {
   });
 
   group('FormatNotImplementedError', () {
-    test('format field reflects the requested format', () {
-      try {
-        reporterFor('html');
-        fail('expected FormatNotImplementedError');
-      } on FormatNotImplementedError catch (e) {
-        expect(e.format, equals('html'));
-      }
+    test('toString for a constructed instance lists available formats', () {
+      // FormatNotImplementedError is no longer triggered by html — but we can
+      // construct one directly to verify its toString contract.
+      final e = FormatNotImplementedError('xlsx');
+      final msg = e.toString();
+      expect(msg, contains('xlsx'));
+      expect(msg, contains('human'));
+      expect(msg, contains('sarif'));
+      expect(msg, contains('json'));
+      expect(msg, contains('markdown'));
+      expect(msg, contains('html'));
     });
 
-    test('toString does not mention json as pending', () {
-      try {
-        reporterFor('html');
-        fail('expected FormatNotImplementedError');
-      } on FormatNotImplementedError catch (e) {
-        // json and markdown are now available — the error must not suggest they are pending
-        expect(
-          e.toString(),
-          isNot(contains('Use --format human or --format sarif')),
-        );
-      }
+    test('format field reflects the constructed format string', () {
+      final e = FormatNotImplementedError('xlsx');
+      expect(e.format, equals('xlsx'));
     });
   });
 }

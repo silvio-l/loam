@@ -269,18 +269,16 @@ void main() {
       },
     );
 
-    // Formats not yet implemented return 64 (EX_USAGE).
-    for (final fmt in ['html']) {
-      test('--format=$fmt → exit 64 (not yet implemented)', () async {
-        final code = await cli.run([
-          '--format=$fmt',
-          'scan',
-          '--project-root',
-          cleanDir.path,
-        ]);
-        expect(code, equals(64));
-      });
-    }
+    // html is now implemented: scan --format html exits 0 on clean project.
+    test('--format=html → exit 0 on clean project (now implemented)', () async {
+      final code = await cli.run([
+        '--format=html',
+        'scan',
+        '--project-root',
+        cleanDir.path,
+      ]);
+      expect(code, equals(0));
+    });
 
     test('invalid --format value → exit 64 (UsageException)', () async {
       final code = await cli.run(['--format=xml', 'scan']);
