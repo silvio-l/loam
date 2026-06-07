@@ -229,8 +229,19 @@ void main() {
       expect(code, equals(0));
     });
 
+    // json is now implemented — exits 0 on a clean project.
+    test('--format=json → exit 0 on clean project (now implemented)', () async {
+      final code = await cli.run([
+        '--format=json',
+        'scan',
+        '--project-root',
+        cleanDir.path,
+      ]);
+      expect(code, equals(0));
+    });
+
     // Formats not yet implemented return 64 (EX_USAGE).
-    for (final fmt in ['json', 'markdown', 'html']) {
+    for (final fmt in ['markdown', 'html']) {
       test('--format=$fmt → exit 64 (not yet implemented)', () async {
         final code = await cli.run([
           '--format=$fmt',

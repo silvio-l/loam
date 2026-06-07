@@ -128,12 +128,12 @@ void main() {
   // AC6: unsupported format → exit 64, clear message to stderr
   // ---------------------------------------------------------------------------
 
-  test('loam scan --format json: exit 64 with clear error message', () {
+  test('loam scan --format markdown: exit 64 with clear error message', () {
     final result = Process.runSync(Platform.executable, [
       'run',
       entrypoint,
       '--format',
-      'json',
+      'markdown',
       'scan',
       '--project-root',
       fixturePath,
@@ -146,7 +146,7 @@ void main() {
     final err = result.stderr as String;
     expect(
       err,
-      contains('json'),
+      contains('markdown'),
       reason: 'stderr must name the unsupported format',
     );
   });

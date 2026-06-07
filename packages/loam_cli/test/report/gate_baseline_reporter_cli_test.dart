@@ -294,7 +294,25 @@ void main() {
       tempDir.deleteSync(recursive: true);
     });
 
-    for (final fmt in ['json', 'markdown', 'html']) {
+    // json is now implemented: gate --format json exits 0 on clean project.
+    test('gate --format json → exit 0 on clean project (now implemented)', () {
+      final result = Process.runSync(Platform.executable, [
+        'run',
+        entrypoint,
+        '--format',
+        'json',
+        'gate',
+        '--project-root',
+        tempDir.path,
+      ]);
+      expect(
+        result.exitCode,
+        equals(0),
+        reason: 'json is implemented — clean project exits 0',
+      );
+    });
+
+    for (final fmt in ['markdown', 'html']) {
       test('gate --format $fmt → exit 64 with clear stderr message', () {
         final result = Process.runSync(Platform.executable, [
           'run',
@@ -342,7 +360,29 @@ void main() {
       tempDir.deleteSync(recursive: true);
     });
 
-    for (final fmt in ['json', 'markdown', 'html']) {
+    // json is now implemented: baseline --format json exits 0.
+    test(
+      'baseline --format json → exit 0 on clean project (now implemented)',
+      () {
+        final result = Process.runSync(Platform.executable, [
+          'run',
+          entrypoint,
+          '--format',
+          'json',
+          'baseline',
+          '--project-root',
+          tempDir.path,
+        ]);
+        expect(
+          result.exitCode,
+          equals(0),
+          reason:
+              'json is implemented — baseline show exits 0 for clean project',
+        );
+      },
+    );
+
+    for (final fmt in ['markdown', 'html']) {
       test('baseline --format $fmt → exit 64 with clear stderr message', () {
         final result = Process.runSync(Platform.executable, [
           'run',
@@ -417,7 +457,25 @@ void main() {
       expect(result.stderr as String, isEmpty);
     });
 
-    for (final fmt in ['json', 'markdown', 'html']) {
+    // json is now implemented: scan --format json exits 0 on clean project.
+    test(
+      '--format json resolves → exit 0 on clean project (now implemented)',
+      () {
+        final result = Process.runSync(Platform.executable, [
+          'run',
+          entrypoint,
+          '--format',
+          'json',
+          'scan',
+          '--project-root',
+          tempDir.path,
+        ]);
+        expect(result.exitCode, equals(0));
+        expect(result.stderr as String, isEmpty);
+      },
+    );
+
+    for (final fmt in ['markdown', 'html']) {
       test('--format $fmt → exit 64, stderr names format, no crash', () {
         final result = Process.runSync(Platform.executable, [
           'run',

@@ -1,4 +1,5 @@
 import 'human_reporter.dart';
+import 'json_reporter.dart';
 import 'reporter.dart';
 import 'sarif_reporter.dart';
 
@@ -20,9 +21,10 @@ class FormatNotImplementedError extends Error {
 
 /// Returns the [Reporter] for [format].
 ///
-/// - `'human'` → [HumanReporter]
-/// - `'sarif'` → [SarifReporter]
-/// - `'json'` / `'markdown'` / `'html'` → throws [FormatNotImplementedError]
+/// - `'human'`    → [HumanReporter]
+/// - `'sarif'`    → [SarifReporter]
+/// - `'json'`     → [JsonReporter]
+/// - `'markdown'` / `'html'` → throws [FormatNotImplementedError]
 ///
 /// The calling command is responsible for catching [FormatNotImplementedError]
 /// and converting it to a clean user-facing message (exit code 64).
@@ -30,7 +32,7 @@ Reporter reporterFor(String format) {
   return switch (format) {
     'human' => const HumanReporter(),
     'sarif' => const SarifReporter(),
-    'json' => throw FormatNotImplementedError(format),
+    'json' => const JsonReporter(),
     'markdown' => throw FormatNotImplementedError(format),
     'html' => throw FormatNotImplementedError(format),
     _ => throw ArgumentError.value(format, 'format', 'Unknown output format.'),
