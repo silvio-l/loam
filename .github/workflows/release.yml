@@ -108,10 +108,12 @@ jobs:
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- Formula/loam.rb; then
+          git add Formula/loam.rb
+          # Gegen den Index prüfen: --cached sieht NEU hinzugefügte Dateien,
+          # `git diff` ohne --cached nicht (sonst wird ein Erst-Push übersprungen).
+          if git diff --cached --quiet; then
             echo "Formula unchanged — nothing to push."
             exit 0
           fi
-          git add Formula/loam.rb
           git commit -m "chore(formula): loam ${VERSION}"
           git push
