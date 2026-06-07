@@ -52,6 +52,8 @@ EOF
 while read -r _lref local_sha _rref remote_sha; do
   [ -z "${local_sha:-}" ] && continue
   [ "$local_sha" = "$ZERO" ] && continue
+  # Annotierte Tags: git liefert die Tag-Objekt-SHA -> auf den Commit deref.
+  local_sha="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
   if [ "${remote_sha:-$ZERO}" = "$ZERO" ]; then
     range="$(git rev-list "$local_sha" --not --remotes)"
   else
@@ -71,8 +73,10 @@ while read -r _local_ref local_sha _remote_ref _remote_sha; do
   [ -z "${local_sha:-}" ] && continue
   [ "$local_sha" = "$ZERO" ] && continue          # Branch-Löschung -> egal
   pushed_any=1
-  if [ "$local_sha" != "$attested" ]; then
-    block "Zu pushen: ${local_sha:0:12} · zuletzt attestiert: ${attested:0:12}"
+  # Annotierte Tags zeigen auf einen Commit -> diesen prüfen, nicht die Tag-SHA.
+  commit_sha="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
+  if [ "$commit_sha" != "$attested" ]; then
+    block "Zu pushen: ${commit_sha:0:12} · zuletzt attestiert: ${attested:0:12}"
   fi
 done <<EOF
 $REFS
