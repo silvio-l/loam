@@ -24,6 +24,7 @@ import 'usage_index.dart';
 /// - The rule does NOT crash when [ProjectLoadResult.errors] is non-empty;
 ///   it analyses the resolvable files only.
 class UnusedPublicExportsRule implements Rule {
+  /// Creates an [UnusedPublicExportsRule] rooted at [projectRoot].
   const UnusedPublicExportsRule({required this.projectRoot});
 
   /// Absolute path of the project being analysed.

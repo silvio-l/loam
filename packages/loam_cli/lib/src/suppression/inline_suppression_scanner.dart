@@ -16,6 +16,7 @@ import '../loader/project_loader.dart';
 /// it contains both a non-empty [ruleId] AND a non-empty reason text after the
 /// rule ID (Grund-Pflicht). Directives that lack either are silently ignored.
 class LoamIgnoreDirective {
+  /// Creates a [LoamIgnoreDirective].
   const LoamIgnoreDirective({
     required this.filePath,
     required this.line,

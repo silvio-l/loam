@@ -10,6 +10,7 @@ import 'sarif_reporter.dart';
 /// The calling command should catch this and print a clear message to stderr
 /// (exit code 64 / EX_USAGE) rather than crashing with a stack trace.
 class FormatNotImplementedError extends Error {
+  /// Creates a [FormatNotImplementedError] for the unsupported [format].
   FormatNotImplementedError(this.format);
 
   /// The requested format string (e.g. `'json'`).

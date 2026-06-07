@@ -7,6 +7,7 @@ import 'codegen_input_classifier.dart';
 
 /// A candidate public top-level symbol for the `unused-public-exports` rule.
 class PublicApiCandidate {
+  /// Creates a [PublicApiCandidate].
   const PublicApiCandidate({
     required this.element,
     required this.relativePath,
@@ -66,6 +67,7 @@ class PublicApiCandidate {
 /// is based on element identity (`element.id`), so each symbol yields
 /// exactly one candidate regardless of how many fragments the library has.
 class PublicApiCollector {
+  /// Creates a [PublicApiCollector].
   const PublicApiCollector();
 
   static const _codegenClassifier = CodegenInputClassifier();

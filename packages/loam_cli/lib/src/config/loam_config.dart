@@ -8,6 +8,7 @@
 /// Zero-Config is the Normalfall: [LoamConfig.defaults] returns an empty
 /// config so that `loam` works out-of-the-box without a `loam.yaml`.
 class LoamConfig {
+  /// Creates a [LoamConfig] with explicit [ruleToggles] and [ignoreGlobs].
   const LoamConfig({required this.ruleToggles, required this.ignoreGlobs});
 
   /// Returns the zero-config default: all rules enabled, no ignore globs.

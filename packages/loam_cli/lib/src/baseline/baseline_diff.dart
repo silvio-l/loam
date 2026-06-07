@@ -13,6 +13,7 @@ import 'baseline.dart';
 /// finding in [keptFindings], not [newFindings], because the fingerprint is
 /// position-robust.
 class BaselineDiff {
+  /// Creates a [BaselineDiff] from the three classified finding sets.
   const BaselineDiff({
     required this.newFindings,
     required this.keptFindings,

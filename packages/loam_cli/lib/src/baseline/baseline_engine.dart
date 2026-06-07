@@ -19,8 +19,10 @@ const _kSchemaVersion = 1;
 ///
 /// Always carries a human-readable [message] — no raw stack traces bubble up.
 class BaselineException implements Exception {
+  /// Creates a [BaselineException] with a human-readable [message].
   const BaselineException(this.message);
 
+  /// Human-readable description of what went wrong.
   final String message;
 
   @override
@@ -55,6 +57,7 @@ class BaselineException implements Exception {
 /// Findings are stably sorted (filePath → line → fingerprint) so that
 /// `baseline.json` is deterministic and produces clean git diffs.
 class BaselineEngine {
+  /// Creates a [BaselineEngine] rooted at [projectRoot].
   const BaselineEngine({required this.projectRoot});
 
   /// Root directory of the analysed project; `baseline.json` is written here.

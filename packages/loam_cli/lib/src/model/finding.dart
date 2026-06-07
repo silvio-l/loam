@@ -13,6 +13,7 @@ export 'severity.dart';
 /// have no meaningful column. When present, both are 1-based to match SARIF
 /// region semantics.
 class Finding {
+  /// Creates a [Finding]; all fields except [column] are required.
   const Finding({
     required this.ruleId,
     required this.severity,
@@ -23,8 +24,13 @@ class Finding {
     this.column,
   });
 
+  /// Identifier of the rule that produced this finding.
   final String ruleId;
+
+  /// Severity of the finding.
   final Severity severity;
+
+  /// Project-relative path of the file the finding refers to.
   final String filePath;
 
   /// 1-based line of the finding.
@@ -32,7 +38,11 @@ class Finding {
 
   /// 1-based column, or `null` for file-/line-level findings.
   final int? column;
+
+  /// Human-readable description of the finding.
   final String message;
+
+  /// Position-robust stable hash used by the baseline to diff findings across runs.
   final String fingerprint;
 
   @override

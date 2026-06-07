@@ -15,6 +15,7 @@ import 'reporter.dart';
 /// Invariant 5 (reproducible): no timestamps, no absolute paths in content;
 /// same input always produces a byte-identical string.
 class SarifReporter implements Reporter {
+  /// Creates a [SarifReporter].
   const SarifReporter();
 
   static const _schemaUri =

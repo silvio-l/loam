@@ -19,3 +19,4 @@ linter:
     - prefer_single_quotes
     - directives_ordering
     - unawaited_futures
+    - public_member_api_docs

@@ -37,6 +37,7 @@ const _grey = '\x1B[90m';
 /// plain text (no escape codes) is emitted otherwise — safe for pipes,
 /// logs, and unit tests.
 class HumanReporter implements Reporter {
+  /// Creates a [HumanReporter].
   const HumanReporter();
 
   @override

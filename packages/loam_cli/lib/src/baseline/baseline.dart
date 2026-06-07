@@ -3,6 +3,7 @@
 ///
 /// Only [fingerprint] is used for diffing; the other fields are informational.
 class BaselineFinding {
+  /// Creates a [BaselineFinding] from its persisted fields.
   const BaselineFinding({
     required this.fingerprint,
     required this.ruleId,
@@ -16,13 +17,20 @@ class BaselineFinding {
 
   /// Non-authoritative context — for human inspection and git-diff readability.
   final String ruleId;
+
+  /// Non-authoritative source path the finding was recorded at.
   final String filePath;
+
+  /// Non-authoritative 1-based line the finding was recorded at.
   final int line;
+
+  /// Non-authoritative human-readable description of the finding.
   final String message;
 }
 
 /// The persisted baseline state read from `baseline.json`.
 class Baseline {
+  /// Creates a [Baseline] from its schema version, ruleset version and findings.
   const Baseline({
     required this.schemaVersion,
     required this.rulesetVersion,

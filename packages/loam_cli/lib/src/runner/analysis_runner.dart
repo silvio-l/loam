@@ -27,6 +27,7 @@ import '../suppression/suppression_engine.dart';
 /// [config] controls which rules are active (Rule-Toggles from `loam.yaml`).
 /// When omitted, [LoamConfig.defaults] is used (all rules enabled).
 class AnalysisRunner {
+  /// Creates an [AnalysisRunner]; [config] defaults to all rules enabled.
   const AnalysisRunner({this.config = const LoamConfig.defaults()});
 
   /// The [LoamConfig] that controls Rule-Toggles and ignore globs.

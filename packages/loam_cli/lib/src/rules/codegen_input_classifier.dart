@@ -10,6 +10,7 @@ import 'package:analyzer/dart/element/element.dart';
 /// [reason] identifies *which* rule matched, intended for diagnostics /
 /// dogfooding — it is never surfaced in a [Finding] directly.
 class CodegenInputClassification {
+  /// Creates a [CodegenInputClassification].
   const CodegenInputClassification({
     required this.isCodegenInput,
     required this.reason,
@@ -63,6 +64,7 @@ class CodegenInputClassification {
 /// The `reason` field of [CodegenInputClassification] identifies which path
 /// matched, enabling diagnostics in dogfooding without altering [Finding] output.
 class CodegenInputClassifier {
+  /// Creates a [CodegenInputClassifier].
   const CodegenInputClassifier();
 
   // ---------------------------------------------------------------------------

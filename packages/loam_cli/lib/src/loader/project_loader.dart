@@ -14,6 +14,7 @@ import 'sdk_locator.dart';
 /// the [isUnderLib] flag that distinguishes `lib/` surface from
 /// `bin/`/`test/`/`tool/` files.
 class LoadedFile {
+  /// Creates a [LoadedFile].
   const LoadedFile({
     required this.result,
     required this.path,
@@ -37,6 +38,7 @@ class LoadedFile {
 /// [reason] explaining why it was not resolved (e.g. parse errors, invalid
 /// path, or other analysis failures).
 class LoadFileError {
+  /// Creates a [LoadFileError] for [path] with the given [reason].
   const LoadFileError({required this.path, required this.reason});
 
   /// Normalised absolute path of the Dart source file that failed to load.
@@ -61,6 +63,7 @@ class LoadFileError {
 /// incorrectly reported as unused. [partUnits] provides those compilation units
 /// for reference-scanning only.
 class ProjectLoadResult {
+  /// Creates a [ProjectLoadResult].
   const ProjectLoadResult({
     required this.resolved,
     required this.errors,
@@ -103,6 +106,7 @@ class ProjectLoadResult {
 /// - If a file resolves but has diagnostics of severity [Severity.error], it
 ///   is recorded as an error with the first error diagnostic message as reason.
 class ProjectLoader {
+  /// Creates a [ProjectLoader].
   const ProjectLoader();
 
   /// Loads the Dart package at [projectRoot] and resolves all Dart files.

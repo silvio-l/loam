@@ -12,8 +12,10 @@ import 'loam_config.dart';
 /// Always carries a human-readable [message] — no raw Dart stacktraces
 /// are surfaced to the caller (stacktrace-free contract).
 class ConfigLoadException implements Exception {
+  /// Creates a [ConfigLoadException] with a human-readable [message].
   const ConfigLoadException(this.message);
 
+  /// Human-readable description of the configuration problem.
   final String message;
 
   @override

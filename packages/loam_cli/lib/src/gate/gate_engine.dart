@@ -19,6 +19,7 @@ enum GateMode {
 ///
 /// [passed] drives the CI exit code: true → [exitCode] 0, false → [exitCode] 1.
 class GateResult {
+  /// Creates a [GateResult].
   const GateResult({
     required this.passed,
     required this.newCount,
@@ -60,6 +61,7 @@ class GateResult {
 ///   - The baseline is never read — pass the raw [List<Finding>] from
 ///     [AnalysisRunner.run] directly.
 class GateEngine {
+  /// Creates a [GateEngine].
   const GateEngine();
 
   /// Evaluates the gate for [mode].

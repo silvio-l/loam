@@ -13,6 +13,7 @@ import '../model/finding.dart';
 /// rather than read directly in the reporter, keeping the reporter unit-testable
 /// and side-effect-free (Invariant 4).
 class ReportPayload {
+  /// Creates a [ReportPayload].
   const ReportPayload({
     required this.findings,
     required this.projectRoot,
