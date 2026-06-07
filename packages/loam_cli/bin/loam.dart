@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:loam/src/baseline/baseline_engine.dart';
 import 'package:loam/src/command/loam_command.dart';
+import 'package:loam/src/config/config_loader.dart';
+import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/gate/gate_engine.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/report/reporter.dart';
@@ -56,6 +58,12 @@ Future<int> run(List<String> args) async {
   } on UsageException catch (e) {
     stderr.writeln(e);
     return 64;
+  } on ConfigLoadException catch (e) {
+    // A malformed/invalid loam.yaml surfaces here (thrown from _loadConfig in
+    // scan/gate/baseline). Emit a clean one-line message — no raw stacktrace
+    // (AC3: stacktrace-free) — and a non-zero exit code (78 = EX_CONFIG).
+    stderr.writeln(e.toString());
+    return 78;
   }
 }
 
@@ -102,12 +110,15 @@ class ScanCommand extends LoamCommand {
       return 64; // EX_USAGE
     }
 
-    final findings = await const AnalysisRunner().run(projectRoot);
+    // Load project config (loam.yaml) — missing file returns defaults.
+    final config = await _loadConfig(projectRoot);
+
+    final findings = await AnalysisRunner(config: config).run(projectRoot);
 
     final payload = ReportPayload(
       findings: findings,
       projectRoot: projectRoot,
-      rulesetVersion: AnalysisRunner.rulesetVersion,
+      rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
       toolVersion: loamVersion,
       isTty: stdout.hasTerminal,
     );
@@ -191,14 +202,21 @@ class _GateCommand extends LoamCommand {
       return 64; // EX_USAGE
     }
 
+    // Load project config (loam.yaml) — missing file returns defaults.
+    final config = await _loadConfig(projectRoot);
+
     if (absoluteMode) {
-      return _runAbsolute(projectRoot, reporter);
+      return _runAbsolute(projectRoot, reporter, config);
     }
-    return _runRatchet(projectRoot, reporter);
+    return _runRatchet(projectRoot, reporter, config);
   }
 
-  Future<int> _runAbsolute(String projectRoot, Reporter reporter) async {
-    final findings = await const AnalysisRunner().run(projectRoot);
+  Future<int> _runAbsolute(
+    String projectRoot,
+    Reporter reporter,
+    LoamConfig config,
+  ) async {
+    final findings = await AnalysisRunner(config: config).run(projectRoot);
     final result = const GateEngine().evaluate(
       mode: GateMode.absolute,
       findings: findings,
@@ -209,7 +227,7 @@ class _GateCommand extends LoamCommand {
       final payload = ReportPayload(
         findings: findings,
         projectRoot: projectRoot,
-        rulesetVersion: AnalysisRunner.rulesetVersion,
+        rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
       );
@@ -226,7 +244,11 @@ class _GateCommand extends LoamCommand {
     return result.exitCode;
   }
 
-  Future<int> _runRatchet(String projectRoot, Reporter reporter) async {
+  Future<int> _runRatchet(
+    String projectRoot,
+    Reporter reporter,
+    LoamConfig config,
+  ) async {
     final engine = BaselineEngine(projectRoot: projectRoot);
 
     // AC5: Missing baseline.json → clear error with hint.
@@ -243,16 +265,17 @@ class _GateCommand extends LoamCommand {
     }
 
     // AC4: rulesetVersion mismatch → warning on stderr, diff continues normally.
-    if (baseline.rulesetVersion != AnalysisRunner.rulesetVersion) {
+    final currentVersion = AnalysisRunner.rulesetVersionForConfig(config);
+    if (baseline.rulesetVersion != currentVersion) {
       stderr.writeln(
         'loam gate: warning — baseline rulesetVersion '
         '(${baseline.rulesetVersion}) differs from current '
-        '(${AnalysisRunner.rulesetVersion}). '
+        '($currentVersion). '
         'Consider refreshing with `loam baseline --update`.',
       );
     }
 
-    final findings = await const AnalysisRunner().run(projectRoot);
+    final findings = await AnalysisRunner(config: config).run(projectRoot);
     final diff = engine.diff(findings, baseline);
     final result = const GateEngine().evaluate(
       mode: GateMode.ratchet,
@@ -266,7 +289,7 @@ class _GateCommand extends LoamCommand {
       final payload = ReportPayload(
         findings: findings,
         projectRoot: projectRoot,
-        rulesetVersion: AnalysisRunner.rulesetVersion,
+        rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
       );
@@ -376,10 +399,13 @@ class _BaselineCommand extends LoamCommand {
 
     final engine = BaselineEngine(projectRoot: projectRoot);
 
+    // Load project config (loam.yaml) — missing file returns defaults.
+    final config = await _loadConfig(projectRoot);
+
     if (write) {
-      return _runWrite(engine, projectRoot);
+      return _runWrite(engine, projectRoot, config);
     } else if (update) {
-      return _runUpdate(engine, projectRoot);
+      return _runUpdate(engine, projectRoot, config);
     } else {
       // Resolve reporter for the show path — FormatNotImplementedError → exit 64.
       // --write/--update always produce a plain confirmation line (no findings
@@ -395,7 +421,11 @@ class _BaselineCommand extends LoamCommand {
     }
   }
 
-  Future<int> _runWrite(BaselineEngine engine, String projectRoot) async {
+  Future<int> _runWrite(
+    BaselineEngine engine,
+    String projectRoot,
+    LoamConfig config,
+  ) async {
     if (engine.exists) {
       stderr.writeln(
         'Warning: baseline.json already exists in $projectRoot. '
@@ -403,29 +433,35 @@ class _BaselineCommand extends LoamCommand {
         '(--write would overwrite your curated baseline).',
       );
     }
-    final findings = await const AnalysisRunner().run(projectRoot);
-    engine.write(findings, AnalysisRunner.rulesetVersion);
+    final findings = await AnalysisRunner(config: config).run(projectRoot);
+    final version = AnalysisRunner.rulesetVersionForConfig(config);
+    engine.write(findings, version);
     final count = findings.length;
     stdout.writeln(
       'loam baseline: wrote $count finding${count == 1 ? '' : 's'} '
-      'to baseline.json (${AnalysisRunner.rulesetVersion}).',
+      'to baseline.json ($version).',
     );
     return 0;
   }
 
-  Future<int> _runUpdate(BaselineEngine engine, String projectRoot) async {
+  Future<int> _runUpdate(
+    BaselineEngine engine,
+    String projectRoot,
+    LoamConfig config,
+  ) async {
     if (!engine.exists) {
       stderr.writeln(
         'Warning: no baseline.json found in $projectRoot. '
         'Use `loam baseline --write` to create one.',
       );
     }
-    final findings = await const AnalysisRunner().run(projectRoot);
-    engine.write(findings, AnalysisRunner.rulesetVersion);
+    final findings = await AnalysisRunner(config: config).run(projectRoot);
+    final version = AnalysisRunner.rulesetVersionForConfig(config);
+    engine.write(findings, version);
     final count = findings.length;
     stdout.writeln(
       'loam baseline: updated to $count finding${count == 1 ? '' : 's'} '
-      'in baseline.json (${AnalysisRunner.rulesetVersion}).',
+      'in baseline.json ($version).',
     );
     return 0;
   }
@@ -485,4 +521,19 @@ class _BaselineCommand extends LoamCommand {
     }
     return 0;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared helper: load loam.yaml config for the given project root.
+//
+// Missing file → LoamConfig.defaults() (Zero-Config is the Normalfall).
+// Syntax error or unknown ruleId → propagates ConfigLoadException so
+// commands can surface a clear message without a raw stacktrace.
+// ---------------------------------------------------------------------------
+
+Future<LoamConfig> _loadConfig(String projectRoot) async {
+  return ConfigLoader.load(
+    projectRoot,
+    knownRuleIds: AnalysisRunner.fullRegistryIds.toSet(),
+  );
 }

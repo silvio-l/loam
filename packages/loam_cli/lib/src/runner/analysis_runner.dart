@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../config/loam_config.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../rules/unused_public_exports_rule.dart';
@@ -20,31 +21,78 @@ import '../rules/unused_public_exports_rule.dart';
 ///
 /// All consumers — `scan`, `gate`, `baseline` — call exactly this runner.
 /// There is no second code path (ADR-0003 / D10).
+///
+/// [config] controls which rules are active (Rule-Toggles from `loam.yaml`).
+/// When omitted, [LoamConfig.defaults] is used (all rules enabled).
 class AnalysisRunner {
-  const AnalysisRunner();
+  const AnalysisRunner({this.config = const LoamConfig.defaults()});
 
-  /// The canonical active rule IDs for the current MVP registry, sorted
-  /// lexicographically.
+  /// The [LoamConfig] that controls Rule-Toggles and ignore globs.
   ///
-  /// This is the single source of truth for [rulesetVersion]: both the runner
-  /// and the baseline derive the version from this list. Adding or removing a
-  /// rule here automatically produces a new [rulesetVersion] without any
-  /// manual bookkeeping.
-  static const List<String> activeRuleIds = ['unused-public-exports'];
+  /// Defaults to [LoamConfig.defaults] so that existing call sites that
+  /// construct `AnalysisRunner()` without a config remain unchanged.
+  final LoamConfig config;
 
-  /// A deterministic, content-addressed version string for the active rule set.
+  /// The canonical full registry of all known rule IDs, sorted lexicographically.
+  ///
+  /// This is the complete set before any config-driven toggles are applied.
+  /// [activeRuleIds] is derived from this by removing disabled rules.
+  static const List<String> fullRegistryIds = ['unused-public-exports'];
+
+  /// The config-independent active rule IDs (full registry, no config applied).
+  ///
+  /// Kept for backwards compatibility with existing callers and tests that
+  /// access `AnalysisRunner.activeRuleIds` directly.
+  ///
+  /// When no [LoamConfig] is in scope, this is the correct set to use.
+  static const List<String> activeRuleIds = fullRegistryIds;
+
+  /// Returns the active rule IDs after applying [config]'s Rule-Toggles.
+  ///
+  /// Rules explicitly disabled (`ruleId → false`) in [config.ruleToggles]
+  /// are removed from the full registry. The result is sorted lexicographically
+  /// for determinism (Invariant 5).
+  static List<String> activeRuleIdsForConfig(LoamConfig config) {
+    final ids =
+        fullRegistryIds.where((id) => !config.isRuleDisabled(id)).toList()
+          ..sort();
+    return List.unmodifiable(ids);
+  }
+
+  /// A deterministic, content-addressed version string for the active rule set,
+  /// ignoring any config (uses the full registry).
   ///
   /// Computed as `ruleset@<8-char SHA-256 hex>` over the sorted [activeRuleIds]
   /// joined by `\n`. Changing the active rule set changes this string, so a
   /// stale baseline will show a rulesetVersion mismatch (Invariant 5 / D8).
   static String get rulesetVersion {
-    final content = (List<String>.from(activeRuleIds)..sort()).join('\n');
+    return _computeVersion(activeRuleIds);
+  }
+
+  /// Returns the content-addressed version string for the rule set active
+  /// under [config].
+  ///
+  /// A Rule-Toggle that disables a rule changes [activeRuleIdsForConfig] →
+  /// produces a different hash → baseline shows the mismatch (Invariant 5).
+  ///
+  /// Suppression sources (ignore globs, inline directives) do NOT affect this
+  /// version — they filter findings, not the active rule set.
+  static String rulesetVersionForConfig(LoamConfig config) {
+    return _computeVersion(activeRuleIdsForConfig(config));
+  }
+
+  static String _computeVersion(List<String> ids) {
+    final content = (List<String>.from(ids)..sort()).join('\n');
     final digest = sha256.convert(utf8.encode(content));
     final short = digest.toString().substring(0, 8);
     return 'ruleset@$short';
   }
 
   /// Loads the Dart package at [projectRoot] and runs the active rule registry.
+  ///
+  /// Rules disabled via [config] are not instantiated at all (registry-level
+  /// filter — not a post-run finding filter). This ensures the rule produces
+  /// no findings, no side effects, and no wasted computation.
   ///
   /// Returns all findings deterministically sorted by
   /// (`filePath`, `line`, `fingerprint`). Never throws in normal operation.
@@ -53,8 +101,13 @@ class AnalysisRunner {
 
     final loadResult = await ProjectLoader().load(root);
 
-    // MVP registry: exactly one rule.
-    final rules = [UnusedPublicExportsRule(projectRoot: root)];
+    // Build the registry for this run: full registry minus disabled rules.
+    final effectiveIds = activeRuleIdsForConfig(config);
+
+    final rules = [
+      if (effectiveIds.contains('unused-public-exports'))
+        UnusedPublicExportsRule(projectRoot: root),
+    ];
 
     final findings = <Finding>[];
     for (final rule in rules) {
