@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.0
+
+First functional preview. The walking-skeleton pipeline is real end to end:
+
+- **`loam scan`** — full audit via the tracer rule `unused-public-exports`:
+  finds project-wide unused public API (exports, classes, methods,
+  getters/setters, fields) on the resolved Dart element model, not regex.
+- **`loam baseline --write`** — freeze the accepted state to `baseline.json`.
+- **`loam gate`** — baseline/ratchet gate (default) and `--absolute` mode,
+  with exit codes for CI.
+- **Reporters** — `human` (default) and `sarif` (valid 2.1 for code-scanning).
+- Hardened against false positives on real Riverpod/Drift codebases
+  (part-file references, extensions, setter writes, pattern destructuring).
+
+Not yet implemented (wired in `--help` as "coming soon"): `health`, `slop`,
+`init`, `fix`, and the `json` / `markdown` / `html` reporters. See the roadmap
+in the repository.
+
 ## 0.0.2
 
 - Polished pub.dev page: logo, badges and clearer sections in the README.

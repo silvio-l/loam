@@ -335,7 +335,8 @@ void main() {
       expect(
         findings.any((f) => f.message.contains('`MemberOnlyUsedExtension`')),
         isFalse,
-        reason: 'extension kept alive solely by member usage must not be '
+        reason:
+            'extension kept alive solely by member usage must not be '
             'reported as unused',
       );
     },
@@ -615,56 +616,47 @@ void main() {
     );
   });
 
-  test(
-    'setter-only-used get/set pair is NOT reported (HellerIO '
-    'crashReportingConsent)',
-    () {
-      // Regression guard for AppMonitoring.crashReportingConsent: an explicit
-      // getter/setter pair whose setter is the only thing assigned (getter
-      // never read). The write target of an assignment carries a null element
-      // on the SimpleIdentifier in analyzer v13; the index must resolve the
-      // setter via AssignmentExpression.writeElement, otherwise `granted` is
-      // falsely reported.
-      final findings = makeRule().run(loadResult);
-      expect(
-        findings.any((f) => f.message.contains('`granted`')),
-        isFalse,
-        reason: 'setter assignment must count as usage of the shared symbol',
-      );
-    },
-  );
+  test('setter-only-used get/set pair is NOT reported (HellerIO '
+      'crashReportingConsent)', () {
+    // Regression guard for AppMonitoring.crashReportingConsent: an explicit
+    // getter/setter pair whose setter is the only thing assigned (getter
+    // never read). The write target of an assignment carries a null element
+    // on the SimpleIdentifier in analyzer v13; the index must resolve the
+    // setter via AssignmentExpression.writeElement, otherwise `granted` is
+    // falsely reported.
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`granted`')),
+      isFalse,
+      reason: 'setter assignment must count as usage of the shared symbol',
+    );
+  });
 
-  test(
-    'write-only plain field IS still reported (FN regression guard)',
-    () {
-      // Counterpart to the setter-write fix: a plain field assigned but never
-      // read resolves to a SYNTHETIC field setter, which must NOT count as
-      // usage — genuinely dead write-only fields (HellerIO stripped several)
-      // must keep surfacing.
-      final findings = makeRule().run(loadResult);
-      expect(
-        findings.any((f) => f.message.contains('`writeOnlyField`')),
-        isTrue,
-        reason: 'write-only plain field is dead code and must be reported',
-      );
-    },
-  );
+  test('write-only plain field IS still reported (FN regression guard)', () {
+    // Counterpart to the setter-write fix: a plain field assigned but never
+    // read resolves to a SYNTHETIC field setter, which must NOT count as
+    // usage — genuinely dead write-only fields (HellerIO stripped several)
+    // must keep surfacing.
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`writeOnlyField`')),
+      isTrue,
+      reason: 'write-only plain field is dead code and must be reported',
+    );
+  });
 
-  test(
-    'field read only via object-pattern destructuring is NOT reported',
-    () {
-      // HellerIO Dart-3 gap: `case PatternHost(:final patternRead)` reads the
-      // getter on PatternField.element, not via a SimpleIdentifier. The index
-      // must record it, otherwise a field destructured exclusively through
-      // pattern matching is falsely reported.
-      final findings = makeRule().run(loadResult);
-      expect(
-        findings.any((f) => f.message.contains('`patternRead`')),
-        isFalse,
-        reason: 'object-pattern destructuring is a real read of the field',
-      );
-    },
-  );
+  test('field read only via object-pattern destructuring is NOT reported', () {
+    // HellerIO Dart-3 gap: `case PatternHost(:final patternRead)` reads the
+    // getter on PatternField.element, not via a SimpleIdentifier. The index
+    // must record it, otherwise a field destructured exclusively through
+    // pattern matching is falsely reported.
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`patternRead`')),
+      isFalse,
+      reason: 'object-pattern destructuring is a real read of the field',
+    );
+  });
 
   test(
     'field never destructured IS reported (pattern guard does not over-suppress)',

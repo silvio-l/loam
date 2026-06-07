@@ -13,10 +13,10 @@
 </p>
 
 <p align="center">
+  <a href="https://pub.dev/packages/loam"><img alt="pub package" src="https://img.shields.io/pub/v/loam.svg?color=88C840"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-88C840">
   <img alt="Built with the Dart analyzer" src="https://img.shields.io/badge/built%20with-Dart%20analyzer-0175C2?logo=dart&logoColor=white">
-  <img alt="LLM layer: cache-stabilised" src="https://img.shields.io/badge/LLM%20layer-cache--stabilised-88C840">
-  <img alt="Status: early development" src="https://img.shields.io/badge/status-walking%20skeleton-A2635A">
+  <img alt="Status: early preview" src="https://img.shields.io/badge/status-0.1.0%20preview-A2635A">
 </p>
 
 > **loam.dev** is the product; **`loam`** is the CLI command and the pub.dev
@@ -41,63 +41,77 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
+**Available now (0.1.0):** project-wide **unused public API** — exports, classes,
+methods, getters/setters and fields that nothing in the project references —
+on the resolved Dart element model (not regex), behind the baseline/ratchet gate.
+
+Everything else is the **target surface**: each lands as one plugin behind a
+single, stable `Rule` interface, so adding a feature never changes the pipeline
+(🚧 = planned, not yet in 0.1.0).
+
 | Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) |
 |---|---|
-| Unused public exports, files, members | Empty / swallowing `catch` blocks |
-| Circular dependencies | Narrative filler comments |
-| Code duplication (AST-normalised) | Ungrounded `// ignore:` |
-| Complexity hotspots + health score | Duplicated helpers, dead guards |
-| Architecture-boundary violations | Hallucinated / superfluous abstractions |
-
-Every capability is one plugin behind a single, stable `Rule` interface — adding
-a feature never changes the pipeline.
+| ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks |
+| 🚧 Circular dependencies | 🚧 Narrative filler comments |
+| 🚧 Code duplication (AST-normalised) | 🚧 Ungrounded `// ignore:` |
+| 🚧 Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
+| 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions |
 
 ## What makes it different
 
 - **🌱 Semantic, not regex.** Structural rules use the resolved Dart element
   model and project-wide graphs — real whole-program resolution, not heuristics.
+  *(live in 0.1.0)*
 - **🔒 Baseline / ratchet gate (the default).** Freeze today's accepted findings;
   from then on only **new** findings fail CI. Monotone improvement, no day-one red.
+  *(live in 0.1.0)*
+- **📦 Dart-native.** Installed via `dart pub global activate loam`. SemVer;
+  `ruleset@ver` is part of the baseline identity (`prompt@ver` joins it with the
+  LLM layer). *(live in 0.1.0)*
 - **♻️ Reproducible, even with an LLM.** The LLM proposes `{score, label}` →
   cached by `sha(code)+prompt@ver` → fixed thresholds decide. Same code = cache
-  hit = stable verdict = zero token cost. No flaky gate.
+  hit = stable verdict = zero token cost. No flaky gate. *(🚧 planned)*
 - **📄 Self-contained HTML report.** A single offline `.html` artifact: toggle
   findings, then copy a curated **fix-prompt** straight into your AI agent. No
-  server, no hosting, no dashboard.
-- **📦 Dart-native.** Installed via `dart pub global activate` (pub.dev from v1.0;
-  Git source pre-release). SemVer; `ruleset@ver` + `prompt@ver` are part of the
-  baseline identity.
+  server, no hosting, no dashboard. *(🚧 planned)*
 
 ## Quick start
 
-> 🚧 **Early development (pre-release).** The walking skeleton proves the architecture
-> with one end-to-end rule (`unused-public-exports`); the remaining capabilities land
-> as individual rules. Commands below are the target surface.
+> 🚧 **0.1.0 — early preview.** The first functional release ships one
+> end-to-end rule (`unused-public-exports`); the remaining capabilities land as
+> individual rules. Commands marked *coming soon* are wired in `loam --help` but
+> not yet implemented.
 
-### Install (pre-release — Git source)
+### Install
 
-Install directly from the `dev` branch until v1.0 is published to pub.dev:
+```bash
+dart pub global activate loam
+```
+
+Make sure `$HOME/.pub-cache/bin` is on your `PATH` (Dart prints a reminder if it
+isn't). **To update**, re-run the exact same command.
+
+<details>
+<summary>Install the unreleased <code>dev</code> branch instead</summary>
 
 ```bash
 dart pub global activate --source git https://github.com/silvio-l/loam.git \
     --git-path packages/loam_cli --git-ref dev
 ```
-
-Make sure `$HOME/.pub-cache/bin` is on your `PATH` (Dart prints a reminder if it
-isn't). To update, simply re-run the command above.
-
-> **From v1.0 (pub.dev release):** `dart pub global activate loam`
+</details>
 
 ### Use
 
-# Available now (walking skeleton — tracer rule `unused-public-exports`):
+Available now (tracer rule `unused-public-exports`):
+
 ```bash
-loam scan                          # full audit: every active rule, whole repo
+loam scan                          # full audit: unused public API, whole repo
 loam baseline --write              # freeze the remaining, accepted state
 loam gate                          # CI from now on — ratchet: only new findings fail
 ```
 
-# Coming soon (wired in `loam --help`, not yet implemented):
+Coming soon (wired in `loam --help`, not yet implemented):
+
 ```bash
 loam init                          # scaffold loam.yaml config in the project
 loam health                        # project health score: complexity, drift, slop
@@ -127,7 +141,8 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-Walking skeleton in progress. The founding spec lives in
+**0.1.0 preview** — one rule (`unused-public-exports`) live end to end; the rest
+of the capabilities land as individual rules. The founding spec lives in
 [`docs/PRD.md`](./docs/PRD.md); the canonical domain vocabulary in
 [`CONTEXT.md`](./CONTEXT.md); architecture decisions in [`docs/adr/`](./docs/adr/).
 

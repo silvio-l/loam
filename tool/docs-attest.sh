@@ -22,6 +22,7 @@ WEB="$ROOT/web"
 WEBPAGE="$ROOT/web/src/pages/index.astro"   # Astro-Quelle der Startseite (Single Source des Markups)
 PUBSPEC="$ROOT/packages/loam_cli/pubspec.yaml"
 PKGREADME="$ROOT/packages/loam_cli/README.md"
+PKGCHANGELOG="$ROOT/packages/loam_cli/CHANGELOG.md"
 
 # Anti-Vokabular (PCRE via perl -> portabel macOS/Linux). Generische Wörter
 # bewusst ausgelassen, um False Positives in Prosa zu vermeiden.
@@ -100,8 +101,35 @@ check_pub() {
   if [ -f "$PKGREADME" ]; then
     local hits; hits="$(antivocab "$PKGREADME")"
     if [ -n "$hits" ]; then note "Anti-Vokabular in packages/loam_cli/README.md:"; echo "$hits"; fi
+    # Die pub.dev-Paketseite MUSS den einfachsten Install-Pfad zeigen.
+    grep -qF -- "dart pub global activate loam" "$PKGREADME" \
+      || note "Package-README fehlt pub.dev-Install-Zeile: dart pub global activate loam"
   else
     note "Package-README fehlt (pub.dev rendert sie)"
+  fi
+  return 0
+}
+
+# Versions-Sync: pubspec `version` ist die EINE Quelle. CHANGELOG-Top und der
+# Website-Versions-Chip dürfen nicht hinterherhinken (genau die Drift-Klasse,
+# die sonst beim Release still auf pub.dev/getloam.dev landet).
+check_version_sync() {
+  [ -f "$PUBSPEC" ] || return 0
+  local ver
+  ver="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*).*$/\1/p' "$PUBSPEC" | head -1)"
+  if [ -z "$ver" ]; then note "pubspec.yaml: keine semver version gefunden"; return 0; fi
+
+  if [ -f "$PKGCHANGELOG" ]; then
+    local clver
+    clver="$(grep -m1 -oE '^##[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*' "$PKGCHANGELOG" \
+             | sed -E 's/^##[[:space:]]+//')"
+    [ "$clver" = "$ver" ] || note "CHANGELOG-Top ($clver) ≠ pubspec version ($ver)"
+  else
+    note "Package-CHANGELOG fehlt (pub.dev rendert ihn)"
+  fi
+
+  if [ -f "$WEBPAGE" ]; then
+    grep -qF -- "v$ver" "$WEBPAGE" || note "Website-Versions-Chip ≠ v$ver (in ${WEBPAGE#$ROOT/})"
   fi
   return 0
 }
@@ -126,9 +154,9 @@ check_brand() {
 
 cmd_check() {
   fail=0
-  check_readme; check_cli; check_web; check_pub; check_brand
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync)"
 }
 
 cmd_attest() {

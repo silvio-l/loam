@@ -1,0 +1,4 @@
+# Test fixtures are standalone mini-packages with intentional cross-imports
+# (no pubspec deps) — needed for `dart test`, not for consumers. Excluding
+# them keeps the published archive clean (no analysis warnings) and small.
+test/fixtures/

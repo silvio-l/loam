@@ -16,52 +16,66 @@
 > **loam.dev** is the product; **`loam`** is this CLI command and pub.dev package.
 > Web: [getloam.dev](https://getloam.dev) · Source: [github.com/silvio-l/loam](https://github.com/silvio-l/loam)
 
-`loam` catches the **structural drift** and **AI-generated slop** that
-`dart analyze` never sees — behind a baseline/ratchet CI gate that never paints a
-grown codebase red on day one. Built on the Dart `analyzer` package: semantically
-accurate, project-wide, offline by default.
+`loam` is a Dart-native CLI for codebase intelligence and anti-AI-slop. It runs
+on the Dart `analyzer` package — semantically accurate, project-wide, offline by
+default — behind a baseline/ratchet CI gate that never paints a grown codebase
+red on day one.
+
+> 🚧 **0.1.0 — early preview.** This is the first functional release. It ships
+> **one** rule (`unused-public-exports`) end to end to prove the architecture;
+> the rest of the capabilities below are on the roadmap, each landing as its own
+> rule behind the same stable `Rule` interface.
 
 ## What it catches
 
+**Available now (0.1.0):** project-wide **unused public API** — exports, classes,
+methods, getters/setters and fields that nothing in the project references —
+emitted as findings behind the baseline/ratchet gate, in `human` or `sarif`.
+
+Everything else is the **target surface** (🚧 = planned, not in 0.1.0):
+
 | Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) |
 |---|---|
-| Unused public exports, files, members | Empty / swallowing `catch` blocks |
-| Circular dependencies | Narrative filler comments |
-| Code duplication (AST-normalised) | Ungrounded `// ignore:` |
-| Complexity hotspots + health score | Duplicated helpers, dead guards |
-| Architecture-boundary violations | Hallucinated / superfluous abstractions |
+| ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks |
+| 🚧 Circular dependencies | 🚧 Narrative filler comments |
+| 🚧 Code duplication (AST-normalised) | 🚧 Ungrounded `// ignore:` |
+| 🚧 Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
+| 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions |
 
 ## What makes it different
 
-- **🌱 Semantic, not regex** — resolved Dart element model + project-wide graphs.
-- **🔒 Baseline / ratchet gate (default)** — freeze today's findings; only **new** ones fail CI.
-- **♻️ Reproducible even with an LLM** — verdicts cached by `sha(code)+prompt@ver`, fixed thresholds decide. Same code = cache hit = stable verdict, zero token cost.
-- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a fix-prompt for your AI agent.
+- **🌱 Semantic, not regex** — resolved Dart element model + project-wide graphs. *(in 0.1.0)*
+- **🔒 Baseline / ratchet gate (default)** — freeze today's findings; only **new** ones fail CI. *(in 0.1.0)*
+- **♻️ Reproducible even with an LLM** — verdicts cached by `sha(code)+prompt@ver`, fixed thresholds decide. Same code = cache hit = stable verdict, zero token cost. *(🚧 planned)*
+- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a fix-prompt for your AI agent. *(🚧 planned)*
 
 ## Install
 
-> **Pre-release (before v1.0):** install directly from the `dev` branch on Git:
+```bash
+dart pub global activate loam
+```
+
+Make sure `$HOME/.pub-cache/bin` is on your `PATH` (Dart prints a reminder if it
+isn't). **To update**, re-run the exact same command.
+
+<details>
+<summary>Install the unreleased <code>dev</code> branch instead</summary>
 
 ```bash
 dart pub global activate --source git https://github.com/silvio-l/loam.git \
     --git-path packages/loam_cli --git-ref dev
 ```
-
-Make sure `$HOME/.pub-cache/bin` is on your `PATH`. To update, re-run the command.
-
-> **From v1.0 (pub.dev release):** `dart pub global activate loam`
+</details>
 
 ## Quick start
 
-> 🚧 **Early development.** The walking skeleton wires the pipeline and the tracer
-> rule (`unused-public-exports`); the remaining capabilities land as individual
-> rules. Commands below are the target surface.
-
 ```bash
-loam scan                 # full audit: every active rule, whole repo
-loam baseline --write      # freeze the accepted state
-loam gate                  # CI: ratchet — only new findings fail
+loam scan                  # full audit: unused public API across the whole repo
+loam baseline --write      # freeze the accepted state to baseline.json
+loam gate                  # CI: ratchet — only new findings fail (exit 1)
 ```
+
+`loam --help` lists every command; planned ones are marked *(coming soon)*.
 
 ## Status
 
