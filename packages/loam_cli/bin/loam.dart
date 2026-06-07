@@ -8,6 +8,7 @@ import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
+import 'package:loam/src/version.dart';
 
 /// loam.dev CLI entrypoint (command: `loam`).
 ///
@@ -107,7 +108,7 @@ class ScanCommand extends LoamCommand {
       findings: findings,
       projectRoot: projectRoot,
       rulesetVersion: AnalysisRunner.rulesetVersion,
-      toolVersion: '0.0.2',
+      toolVersion: loamVersion,
       isTty: stdout.hasTerminal,
     );
 
@@ -209,7 +210,7 @@ class _GateCommand extends LoamCommand {
         findings: findings,
         projectRoot: projectRoot,
         rulesetVersion: AnalysisRunner.rulesetVersion,
-        toolVersion: '0.0.2',
+        toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
       );
       stdout.write(reporter.render(payload));
@@ -266,7 +267,7 @@ class _GateCommand extends LoamCommand {
         findings: findings,
         projectRoot: projectRoot,
         rulesetVersion: AnalysisRunner.rulesetVersion,
-        toolVersion: '0.0.2',
+        toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
       );
       stdout.write(reporter.render(payload));
@@ -465,7 +466,7 @@ class _BaselineCommand extends LoamCommand {
         findings: mappedFindings,
         projectRoot: projectRoot,
         rulesetVersion: baseline.rulesetVersion,
-        toolVersion: '0.0.2',
+        toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
       );
 

@@ -23,6 +23,7 @@ WEBPAGE="$ROOT/web/src/pages/index.astro"   # Astro-Quelle der Startseite (Singl
 PUBSPEC="$ROOT/packages/loam_cli/pubspec.yaml"
 PKGREADME="$ROOT/packages/loam_cli/README.md"
 PKGCHANGELOG="$ROOT/packages/loam_cli/CHANGELOG.md"
+VERSIONDART="$ROOT/packages/loam_cli/lib/src/version.dart"  # in-code Versionsspiegel
 
 # Anti-Vokabular (PCRE via perl -> portabel macOS/Linux). Generische Wörter
 # bewusst ausgelassen, um False Positives in Prosa zu vermeiden.
@@ -130,6 +131,18 @@ check_version_sync() {
 
   if [ -f "$WEBPAGE" ]; then
     grep -qF -- "v$ver" "$WEBPAGE" || note "Website-Versions-Chip ≠ v$ver (in ${WEBPAGE#$ROOT/})"
+  fi
+
+  # In-code Versionsspiegel: die AOT-Binary (Homebrew/pub global) hat keine
+  # pubspec zur Laufzeit, darum ist die Version als `loamVersion` einkompiliert.
+  # Sie MUSS der pubspec-Version entsprechen, sonst zeigt der Scan-Footer eine
+  # falsche Version (genau die Drift, die diese Schranke verhindert).
+  if [ -f "$VERSIONDART" ]; then
+    local vd
+    vd="$(sed -nE "s/^const String loamVersion = '([^']+)';.*/\1/p" "$VERSIONDART" | head -1)"
+    [ "$vd" = "$ver" ] || note "version.dart loamVersion ($vd) ≠ pubspec version ($ver)"
+  else
+    note "version.dart fehlt (in-code Versionsquelle für die kompilierte Binary)"
   fi
   return 0
 }

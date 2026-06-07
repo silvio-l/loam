@@ -31,7 +31,7 @@ class ReportPayload {
   /// (e.g. `ruleset@abc12345`). Feeds reproducibility metadata.
   final String rulesetVersion;
 
-  /// Tool version from pubspec.yaml (e.g. `0.0.2`). Feeds SARIF tool block.
+  /// Tool version (mirrors pubspec.yaml via `loamVersion`). Feeds SARIF block.
   final String toolVersion;
 
   /// Whether the output sink is a terminal (true) or a pipe/file (false).

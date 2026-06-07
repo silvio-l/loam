@@ -16,7 +16,7 @@
   <a href="https://pub.dev/packages/loam"><img alt="pub package" src="https://img.shields.io/pub/v/loam.svg?color=88C840"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-88C840">
   <img alt="Built with the Dart analyzer" src="https://img.shields.io/badge/built%20with-Dart%20analyzer-0175C2?logo=dart&logoColor=white">
-  <img alt="Status: early preview" src="https://img.shields.io/badge/status-0.1.0%20preview-A2635A">
+  <img alt="Status: early preview" src="https://img.shields.io/badge/status-early%20preview-A2635A">
 </p>
 
 > **loam.dev** is the product; **`loam`** is the CLI command and the pub.dev
