@@ -137,10 +137,15 @@ loam baseline --write              # freeze the remaining, accepted state
 loam gate                          # CI from now on — ratchet: only new findings fail
 ```
 
-Coming soon (wired in `loam --help`, not yet implemented):
+Initialise configuration:
 
 ```bash
 loam init                          # scaffold loam.yaml config in the project
+```
+
+Coming soon (wired in `loam --help`, not yet implemented):
+
+```bash
 loam health                        # project health score: complexity, drift, slop
 loam slop                          # AI-slop audit: slop-focused rules only
 loam fix --safe                    # apply mechanical fixes

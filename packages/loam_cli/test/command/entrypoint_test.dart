@@ -109,10 +109,25 @@ void main() {
       expect(code, equals(0));
     });
 
-    test('init subcommand → exit 0 (stub)', () async {
-      final code = await cli.run(['init']);
-      expect(code, equals(0));
-    });
+    test(
+      'init subcommand → exit 0 or 1 (implemented: 0 = created, 1 = exists)',
+      () async {
+        // init is now implemented: exits 0 when loam.yaml is written,
+        // exits 1 when loam.yaml already exists. Either is valid here.
+        final code = await cli.run(['init']);
+        expect(code, anyOf(0, 1));
+
+        // Clean up any loam.yaml that may have been created in the cwd.
+        final created = File(p.join(Directory.current.path, 'loam.yaml'));
+        if (created.existsSync()) {
+          final content = created.readAsStringSync();
+          // Only remove if it looks like our scaffold (not a real project config).
+          if (content.contains('loam.yaml — loam.dev configuration')) {
+            created.deleteSync();
+          }
+        }
+      },
+    );
 
     test('fix subcommand → exit 0 (stub)', () async {
       final code = await cli.run(['fix']);
@@ -135,8 +150,8 @@ void main() {
       'fix',
     ];
 
-    // Stub commands (everything except scan, baseline, and gate which are now implemented).
-    const stubCommands = ['health', 'slop', 'init', 'fix'];
+    // Stub commands (everything except scan, baseline, gate, and init which are now implemented).
+    const stubCommands = ['health', 'slop', 'fix'];
 
     test('all seven commands are registered (--help lists them)', () {
       final entrypoint = '${Directory.current.path}/bin/loam.dart';

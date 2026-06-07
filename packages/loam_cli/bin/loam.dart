@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:loam/src/baseline/baseline_engine.dart';
 import 'package:loam/src/command/loam_command.dart';
 import 'package:loam/src/config/config_loader.dart';
+import 'package:loam/src/config/config_scaffold.dart';
 import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/gate/gate_engine.dart';
 import 'package:loam/src/model/finding.dart';
@@ -11,6 +12,7 @@ import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:loam/src/version.dart';
+import 'package:path/path.dart' as p;
 
 /// loam.dev CLI entrypoint (command: `loam`).
 ///
@@ -326,17 +328,48 @@ class _SlopCommand extends LoamCommand {
 }
 
 /// Initialises loam.dev configuration in the current project.
+///
+/// Writes a commented `loam.yaml` scaffold to the current project root.
+/// If `loam.yaml` already exists, the command refuses to overwrite it and
+/// exits with a non-zero code (no silent data loss).
 class _InitCommand extends LoamCommand {
+  _InitCommand() {
+    argParser.addOption(
+      'project-root',
+      abbr: 'p',
+      help:
+          'Root directory of the Dart project. '
+          'Defaults to the current working directory.',
+      defaultsTo: null,
+    );
+  }
+
   @override
   final String name = 'init';
   @override
   final String description =
-      'Initialise loam.dev configuration (loam.yaml) in the current project. '
-      '(coming soon)';
+      'Scaffold a loam.yaml configuration file in the current project.';
 
   @override
-  Future<int> run() =>
-      notImplemented('scaffold loam.yaml with default ruleset');
+  Future<int> run() async {
+    final projectRoot =
+        argResults?['project-root'] as String? ?? Directory.current.path;
+    final target = File(p.join(projectRoot, ConfigLoader.fileName));
+
+    if (target.existsSync()) {
+      stderr.writeln(
+        'loam init: ${ConfigLoader.fileName} already exists in $projectRoot — '
+        'not overwriting. '
+        'Edit it manually or delete it first.',
+      );
+      return 1;
+    }
+
+    final content = ConfigScaffold.generate();
+    target.writeAsStringSync(content);
+    stdout.writeln('loam init: wrote ${ConfigLoader.fileName} to $projectRoot');
+    return 0;
+  }
 }
 
 /// Applies mechanical fixes for findings that have a safe auto-fix.

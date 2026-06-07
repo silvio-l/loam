@@ -192,9 +192,21 @@ score. Not yet implemented.
 AI-slop audit: runs slop-focused rules only (empty `catch`, filler comments, dead
 guards, …). Not yet implemented.
 
-### `loam init` *(coming soon)*
+### `loam init`
 
-Scaffold a `loam.yaml` configuration in the current project. Not yet implemented.
+Scaffold a `loam.yaml` configuration in the current project.
+
+```bash
+loam init                    # writes loam.yaml in the current directory
+loam init -p /path/to/proj   # specify a different project root
+```
+
+If `loam.yaml` already exists, the command refuses to overwrite it and exits with
+code 1 — no silent data loss. Delete or edit the file manually to replace it.
+
+The generated `loam.yaml` includes commented examples for the `rules:` and `ignore:`
+sections. The file is valid and loadable as-is (all examples are YAML comments, so
+no rule toggles are active until you uncomment them).
 
 ### `loam fix` *(coming soon)*
 
