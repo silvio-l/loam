@@ -84,14 +84,14 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ### Install
 
-**Homebrew (macOS & Linux — recommended).** No `PATH` setup, lands on a directory
-that is already on your `PATH`:
+**Homebrew (Apple Silicon macOS & Linux — recommended).** No `PATH` setup, lands
+on a directory that is already on your `PATH`:
 
 ```bash
 brew install silvio-l/loam/loam
 ```
 
-`brew upgrade loam` updates it.
+`brew upgrade loam` updates it. (Intel Macs: use the Dart pub path below.)
 
 **Dart pub (all platforms).** The pub.dev package:
 

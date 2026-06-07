@@ -31,8 +31,6 @@ jobs:
         include:
           - runner: macos-14        # Apple Silicon (arm64)
             asset: loam-macos-arm64.tar.gz
-          - runner: macos-13        # Intel (x86_64)
-            asset: loam-macos-x86_64.tar.gz
           - runner: ubuntu-latest   # Linux x86_64
             asset: loam-linux-x86_64.tar.gz
     runs-on: ${{ matrix.runner }}
@@ -100,7 +98,6 @@ jobs:
           sed \
             -e "s|__VERSION__|${VERSION}|g" \
             -e "s|__SHA_MACOS_ARM64__|$(sha loam-macos-arm64.tar.gz)|g" \
-            -e "s|__SHA_MACOS_X86_64__|$(sha loam-macos-x86_64.tar.gz)|g" \
             -e "s|__SHA_LINUX_X86_64__|$(sha loam-linux-x86_64.tar.gz)|g" \
             tool/homebrew/loam.rb.tmpl > loam.rb
 

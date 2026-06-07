@@ -13,14 +13,11 @@ class Loam < Formula
   version "__VERSION__"
   license "MIT"
 
+  # Apple Silicon only — Intel Macs install via `dart pub global activate loam`.
   on_macos do
     on_arm do
       url "https://github.com/silvio-l/loam/releases/download/v__VERSION__/loam-macos-arm64.tar.gz"
       sha256 "__SHA_MACOS_ARM64__"
-    end
-    on_intel do
-      url "https://github.com/silvio-l/loam/releases/download/v__VERSION__/loam-macos-x86_64.tar.gz"
-      sha256 "__SHA_MACOS_X86_64__"
     end
   end
 
