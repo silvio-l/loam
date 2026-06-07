@@ -5,6 +5,8 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/diagnostic/diagnostic.dart';
 import 'package:path/path.dart' as p;
 
+import 'sdk_locator.dart';
+
 /// A successfully resolved Dart file entry produced by [ProjectLoader].
 ///
 /// Carries the full [ResolvedUnitResult] (element model reachable via
@@ -130,7 +132,13 @@ class ProjectLoader {
       return const ProjectLoadResult(resolved: [], errors: []);
     }
 
-    final collection = AnalysisContextCollection(includedPaths: [root]);
+    // Pass an explicitly resolved SDK path so the analyzer works both on the
+    // Dart VM (pub install) and as a compiled AOT binary (Homebrew), where no
+    // SDK sits beside the executable. Null falls back to the analyzer default.
+    final collection = AnalysisContextCollection(
+      includedPaths: [root],
+      sdkPath: resolveDartSdkPath(),
+    );
     try {
       final resolved = <LoadedFile>[];
       final errors = <LoadFileError>[];

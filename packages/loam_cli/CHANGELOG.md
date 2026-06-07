@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1
+
+- **Run as a compiled binary.** The analyzer needs a real Dart SDK at runtime;
+  as an AOT executable (Homebrew) none sits beside the binary, so `loam scan`
+  crashed with a `PathNotFoundException`. loam now resolves the SDK explicitly
+  (`DART_SDK`, the Dart VM, or a `dart` on `PATH`) and passes it to the analyzer
+  — works both as a pub global binary and via the Homebrew tap.
+- **Homebrew install** (Apple Silicon macOS & Linux): `brew install silvio-l/loam/loam`.
+
 ## 0.1.0
 
 First functional preview. The walking-skeleton pipeline is real end to end:

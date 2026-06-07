@@ -1,6 +1,6 @@
 name: loam
 description: "Codebase intelligence for Dart & Flutter: finds project-wide unused public API (dead code) behind a baseline/ratchet CI gate. More rules on the roadmap."
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/silvio-l/loam
 homepage: https://getloam.dev
 
