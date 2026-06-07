@@ -304,15 +304,84 @@ Plain classes, utilities, and any class that matches none of the three signals a
 remain candidates for the `unused-public-exports` rule. The suppression is targeted —
 it only applies where the generator actually consumes the members.
 
-### Planned: user-driven suppression *(not yet available)*
-
-A future sprint (roadmap phase 7) will add a `loam.yaml` configuration and
-`// loam-ignore:` inline comment syntax for user-driven suppression of individual
-Findings. That feature does not exist yet — do not add `// loam-ignore:` comments
-expecting loam.dev to honour them. This guide will be updated with full how-to
-documentation when the feature ships.
-
 <!-- codegen-suppression:end -->
+
+---
+
+## User-driven suppression
+
+<!-- user-suppression:start -->
+
+Three complementary mechanisms let you suppress Findings intentionally.
+All three act **before** the baseline and gate — suppressed Findings are invisible
+to the gate and do not appear in output or `baseline.json`.
+
+### 1. Rule toggles (`loam.yaml` — `rules:` map)
+
+Disable a rule project-wide in `loam.yaml`:
+
+```yaml
+rules:
+  unused-public-exports: false   # rule is disabled; its findings are never produced
+```
+
+- A disabled rule is **not run** at all (no findings, no gate cost).
+- Disabling a rule changes the `rulesetVersion` (the gate warns and suggests a
+  baseline refresh — Invariant 5).
+- An unknown `ruleId` raises a clear error on startup (`ConfigLoadException`) —
+  no silent typo pass-through.
+
+### 2. Path suppression (`loam.yaml` — `ignore:` glob list)
+
+Exclude whole files or directories from the audit with project-relative glob
+patterns:
+
+```yaml
+ignore:
+  - "lib/generated/**"   # all files under lib/generated/
+  - "**/*.g.dart"        # every .g.dart file anywhere in the project
+```
+
+- Matched files are **removed from the audit entirely** — no findings are produced
+  for them, regardless of which rules are active.
+- Path suppression does **not** change the `rulesetVersion` (it does not alter the
+  rule set — only the scope of analysed files).
+- Patterns are matched against project-relative POSIX paths (reproducible across
+  platforms, Invariant 5).
+
+### 3. Inline suppression (`// loam-ignore:` directive)
+
+Suppress a single Finding for one specific rule at one specific location by
+placing a `// loam-ignore:` comment **on the same line** as the flagged code or
+on the **immediately preceding line**:
+
+```dart
+// loam-ignore: unused-public-exports – exported via barrel file, not direct ref
+class MyPublicApi { … }
+
+class AnotherClass { … }  // loam-ignore: unused-public-exports – plugin entry point
+```
+
+**Format:** `// loam-ignore: <ruleId> – <reason>`
+
+- `<ruleId>` is the rule identifier (e.g. `unused-public-exports`).
+- The reason is **mandatory** — directives without a reason are silently ignored
+  (Grund-Pflicht).
+- A separator between rule ID and reason is conventional (` – `, ` - `, or a
+  space) but flexible; what matters is that non-empty text follows the rule ID.
+- Only the **named rule** at the **named location** is suppressed; other findings
+  of the same rule at different locations are not affected.
+- This mechanism is **distinct from automatic codegen-input suppression** — the
+  inline directive is user-authored and intentional, not derived from the element
+  model.
+
+### Scaffold via `loam init`
+
+`loam init` writes a commented `loam.yaml` scaffold that illustrates all three
+mechanisms. If `loam.yaml` already exists, the command refuses to overwrite it
+(exit code 1) — no silent data loss.
+
+<!-- user-suppression:end -->
 
 ---
 
