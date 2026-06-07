@@ -161,7 +161,7 @@ Machine-readable output for CI and agents, a human-readable report for you:
 ```
 --format human        # default, readable terminal output      (available)
 --format sarif        # CI / code-scanning                      (available)
---format json         # agent / tooling integration             (coming soon)
+--format json         # agent / tooling integration             (available)
 --format markdown     # PR / docs embedding                     (coming soon)
 --format html         # interactive, self-contained report      (coming soon)
 ```

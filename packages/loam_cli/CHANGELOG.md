@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2
+
+- **`--format json`** is now available: a stable, machine-readable JSON report
+  (schema-versioned, with tool/ruleset metadata, summary counts and findings)
+  for agent and tooling integration. `markdown` and `html` remain on the roadmap.
+- **Correct version everywhere.** The tool version is now sourced from the
+  pubspec via a single in-code constant (`loamVersion`) instead of a hard-coded
+  string, so the scan footer and SARIF/JSON tool block always match the release.
+  A `docs-attest` check makes version drift across code and docs impossible.
+
 ## 0.1.1
 
 - **Run as a compiled binary.** The analyzer needs a real Dart SDK at runtime;
