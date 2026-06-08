@@ -1,0 +1,6 @@
+name: circular_deps_fixture
+description: "Test fixture for ImportGraph tests — circular dependency detection."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0
