@@ -12,6 +12,9 @@
  * Font-Import-Slot: vorbereitet für self-hosted Spline Sans Mono (issue 04).
  * KEIN Link zu fonts.googleapis.com / gstatic (Privacy-Constraint).
  */
+import '@fontsource/spline-sans-mono/400.css';
+import '@fontsource/spline-sans-mono/500.css';
+import '@fontsource/spline-sans-mono/600.css';
 import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import { hreflangAlternates } from '../i18n/utils';
 import { t } from '../i18n/ui';
@@ -64,12 +67,8 @@ const ogImage = 'https://getloam.dev/og-image.png';
   <meta name="twitter:description" content={description}>
   <meta name="twitter:image" content={ogImage}>
 
-  <!--
-    Font-Import-Slot — self-hosted Spline Sans Mono.
-    Full self-host via @fontsource/spline-sans-mono lands in issue 04.
-    NO fonts.googleapis.com / gstatic link here (privacy constraint).
-  -->
-
+  <!-- Self-hosted Spline Sans Mono via @fontsource — no third-party font CDN requests.
+       Font CSS is imported via ESM in the frontmatter so Vite bundles the woff2 files. -->
   <style is:inline>
     /* Brand-Tokens — identisch zu assets/brand/tokens.json (Corporate Design).
        88C840 = green | 564F47 = soil | ECEAE3 = ink | 101014 = bg          */
@@ -145,6 +144,8 @@ const ogImage = 'https://getloam.dev/og-image.png';
 
   <footer>
     <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">{t(lang, 'footer.devGuide')}</a>
+    &nbsp;<span class="accent">·</span>&nbsp;
+    <a href={lang === 'de' ? '/de/privacy' : '/privacy'}>{t(lang, 'footer.privacy')}</a>
     &nbsp;<span class="accent">·</span>&nbsp;
     {t(lang, 'footer.copyright')}
   </footer>

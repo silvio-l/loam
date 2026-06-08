@@ -18,7 +18,10 @@ export const ui: Record<Locale, Record<string, string>> = {
     'switcher.label': 'DE',
     'switcher.ariaLabel': 'Switch to German',
     'footer.devGuide': 'Developer Guide',
+    'footer.privacy': 'Privacy',
     'footer.copyright': '© 2026 Silvio Lindstedt · MIT · built in the open',
+    'privacy.title': 'Privacy Policy — loam.dev',
+    'privacy.heading': 'Privacy Policy',
   },
   de: {
     'nav.home': 'Start',
@@ -32,7 +35,10 @@ export const ui: Record<Locale, Record<string, string>> = {
     'switcher.label': 'EN',
     'switcher.ariaLabel': 'Zu Englisch wechseln',
     'footer.devGuide': 'Developer Guide',
+    'footer.privacy': 'Datenschutz',
     'footer.copyright': '© 2026 Silvio Lindstedt · MIT · quelloffen gebaut',
+    'privacy.title': 'Datenschutzerklärung — loam.dev',
+    'privacy.heading': 'Datenschutzerklärung',
   },
 };
 

@@ -1,0 +1,143 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  lang="de"
+  title="Datenschutzerklärung — loam.dev"
+  description="Datenschutzerklärung für loam.dev: selbst gehostete Schriften, keine Cookies, kein Tracking. Datenflüsse: Cloudflare-Zugriffslogs und ein GitHub-API-Aufruf nur auf der Startseite."
+  path="/de/privacy"
+>
+  <div class="prose-page">
+    <h1>Datenschutzerklärung</h1>
+
+    <section>
+      <h2>Verantwortlicher</h2>
+      <p>
+        Silvio Lindstedt<br>
+        <a href="mailto:silvio-lindstedt@outlook.com">silvio-lindstedt@outlook.com</a>
+      </p>
+      <p>Eine Anschrift ist hier nicht erforderlich — bei loam.dev handelt es sich um ein nicht-kommerzielles Open-Source-Projekt, auf das §5 DDG keine Anwendung findet.</p>
+    </section>
+
+    <section>
+      <h2>Hosting &amp; Infrastruktur</h2>
+      <p>
+        Diese Website wird auf <strong>Cloudflare Pages</strong> (Cloudflare, Inc., 101 Townsend St., San Francisco, CA 94107, USA) gehostet.
+        Cloudflare erfasst automatisch Standard-Server-Zugriffslogs (IP-Adresse, Browser, aufgerufene Seite, Zeitstempel) für jede Anfrage.
+        Diese Logs werden von Cloudflare als Auftragsverarbeiter verarbeitet und unterliegen der
+        <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer">Datenschutzrichtlinie von Cloudflare</a>.
+        Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO — berechtigtes Interesse am Betrieb einer sicheren, funktionsfähigen Website.
+      </p>
+      <p>
+        Cloudflare kann Daten in die USA übermitteln. Es liegen Standardvertragsklauseln (SCC) vor.
+      </p>
+    </section>
+
+    <section>
+      <h2>Schriftarten</h2>
+      <p>
+        Diese Website verwendet <strong>Spline Sans Mono</strong>, das <strong>selbst gehostet</strong> von dieser Domain über
+        <code>@fontsource/spline-sans-mono</code> bereitgestellt wird.
+        Es wird keine Anfrage an den Google Fonts CDN oder einen anderen Schriftarten-Dienst Dritter gestellt.
+        Ihre IP-Adresse wird für das Laden der Schriftarten nicht an Google übermittelt.
+      </p>
+    </section>
+
+    <section>
+      <h2>GitHub-API-Aufruf (nur Startseite)</h2>
+      <p>
+        Die Startseite führt einen <strong>direkten clientseitigen Fetch</strong> an die öffentliche
+        <a href="https://docs.github.com/en/rest" rel="noopener noreferrer">GitHub REST API</a>
+        (<code>api.github.com</code>) durch, um die aktuelle Sternanzahl des loam.dev-Repositorys anzuzeigen.
+        Dieser Aufruf wird von Ihrem Browser ausgeführt und übermittelt dabei Ihre IP-Adresse an GitHub (GitHub, Inc., ein Microsoft-Tochterunternehmen, San Francisco, CA, USA —
+        ein Drittland im Sinne der DSGVO).
+        <strong>Dieser Aufruf erfolgt ausschließlich auf der Startseite.</strong> Keine andere Seite kontaktiert GitHub.
+        Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO — berechtigtes Interesse an der Anzeige eines aktuellen Community-Signals.
+        Drittlandübermittlung: GitHub verarbeitet Daten in den USA; für Teilnehmer des EU–US Data Privacy Framework liegt ein Angemessenheitsbeschluss vor.
+        Datenschutzerklärung von GitHub: <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub Privacy Statement</a>.
+      </p>
+    </section>
+
+    <section>
+      <h2>Cookies &amp; Tracking</h2>
+      <p>
+        Diese Website setzt <strong>keine Cookies</strong>, verwendet <strong>keine Tracking-Skripte</strong>
+        und bindet <strong>keine Analyse- oder Werbedienste</strong> ein.
+        Ein Consent-Banner ist nicht notwendig, da es schlicht nichts gibt, dem zugestimmt werden müsste.
+      </p>
+    </section>
+
+    <section>
+      <h2>Ihre Rechte</h2>
+      <p>
+        Nach der DSGVO haben Sie das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung,
+        Datenübertragbarkeit sowie das Widerspruchsrecht. Zur Ausübung dieser Rechte wenden Sie sich an
+        <a href="mailto:silvio-lindstedt@outlook.com">silvio-lindstedt@outlook.com</a>.
+        Zudem steht Ihnen das Beschwerderecht bei einer Aufsichtsbehörde zu.
+      </p>
+    </section>
+
+    <section>
+      <h2>Änderungen dieser Erklärung</h2>
+      <p>
+        Diese Erklärung wird im öffentlichen Repository unter
+        <a href="https://github.com/silvio-l/loam" rel="noopener noreferrer">github.com/silvio-l/loam</a> versioniert.
+        Wesentliche Änderungen werden im Repository-Changelog vermerkt.
+      </p>
+    </section>
+  </div>
+</Layout>
+
+<style is:inline>
+  .prose-page {
+    max-width: 68ch;
+    margin: 0 auto;
+    padding: 3rem clamp(1.2rem, 5vw, 3rem) 4rem;
+    line-height: 1.7;
+  }
+  .prose-page h1 {
+    font-size: clamp(1.5rem, 4vw, 2.2rem);
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 2rem;
+  }
+  .prose-page h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin: 2rem 0 .6rem;
+  }
+  .prose-page p {
+    color: var(--dim);
+    font-size: .9rem;
+    margin-bottom: .8rem;
+  }
+  .prose-page a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(236,233,225,.3);
+    padding-bottom: 1px;
+    transition: .18s;
+  }
+  .prose-page a:hover {
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .prose-page code {
+    color: var(--ink);
+    background: rgba(255,255,255,.05);
+    padding: .05em .4em;
+    border-radius: 5px;
+    font-size: .88em;
+  }
+  .prose-page section {
+    border-top: 1px solid var(--line);
+    padding-top: .4rem;
+  }
+  .prose-page section:first-of-type {
+    border-top: none;
+  }
+</style>

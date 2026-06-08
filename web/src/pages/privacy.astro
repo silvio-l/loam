@@ -1,0 +1,143 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  lang="en"
+  title="Privacy Policy — loam.dev"
+  description="Privacy policy for loam.dev: self-hosted fonts, no cookies, no tracking. Data flows: Cloudflare access logs and a GitHub API call on the home page only."
+  path="/privacy"
+>
+  <div class="prose-page">
+    <h1>Privacy Policy</h1>
+
+    <section>
+      <h2>Controller</h2>
+      <p>
+        Silvio Lindstedt<br>
+        <a href="mailto:silvio-lindstedt@outlook.com">silvio-lindstedt@outlook.com</a>
+      </p>
+      <p>No postal address is required here — this is a non-commercial open-source project to which §5 DDG does not apply.</p>
+    </section>
+
+    <section>
+      <h2>Hosting &amp; Infrastructure</h2>
+      <p>
+        This website is hosted on <strong>Cloudflare Pages</strong> (Cloudflare, Inc., 101 Townsend St., San Francisco, CA 94107, USA).
+        Cloudflare automatically records standard server access logs (IP address, browser, page requested, timestamp) for every request.
+        These logs are processed by Cloudflare in its role as a data processor and are subject to
+        <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer">Cloudflare's Privacy Policy</a>.
+        The legal basis is Art. 6(1)(f) GDPR — legitimate interest in operating a secure, functional website.
+      </p>
+      <p>
+        Cloudflare may transfer data to the United States. Standard Contractual Clauses (SCCs) are in place.
+      </p>
+    </section>
+
+    <section>
+      <h2>Fonts</h2>
+      <p>
+        This website uses <strong>Spline Sans Mono</strong>, served <strong>self-hosted</strong> from this domain via
+        <code>@fontsource/spline-sans-mono</code>.
+        No request is made to the Google Fonts CDN or any other third-party font service.
+        Your IP address is never sent to Google for font loading.
+      </p>
+    </section>
+
+    <section>
+      <h2>GitHub API Call (Home Page Only)</h2>
+      <p>
+        The home page makes a <strong>direct client-side fetch</strong> to the public
+        <a href="https://docs.github.com/en/rest" rel="noopener noreferrer">GitHub REST API</a>
+        (<code>api.github.com</code>) to display the current star count for the loam.dev repository.
+        This call is made by your browser and transmits your IP address to GitHub (GitHub, Inc., a Microsoft subsidiary, San Francisco, CA, USA —
+        a third country under GDPR).
+        <strong>This call occurs only on the home page.</strong> No other page contacts GitHub.
+        The legal basis is Art. 6(1)(f) GDPR — legitimate interest in showing a live community signal.
+        Third-country transfer: GitHub processes data in the United States; an adequacy decision exists for EU–US Data Privacy Framework participants.
+        GitHub's privacy policy: <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub Privacy Statement</a>.
+      </p>
+    </section>
+
+    <section>
+      <h2>Cookies &amp; Tracking</h2>
+      <p>
+        This website sets <strong>no cookies</strong>, uses <strong>no tracking scripts</strong>,
+        and integrates <strong>no analytics or advertising services</strong>.
+        No consent banner is needed because there is nothing to consent to.
+      </p>
+    </section>
+
+    <section>
+      <h2>Your Rights</h2>
+      <p>
+        Under the GDPR you have the right to access, rectification, erasure, restriction of processing,
+        data portability, and the right to object. To exercise these rights, contact
+        <a href="mailto:silvio-lindstedt@outlook.com">silvio-lindstedt@outlook.com</a>.
+        You also have the right to lodge a complaint with a supervisory authority.
+      </p>
+    </section>
+
+    <section>
+      <h2>Changes to This Policy</h2>
+      <p>
+        This policy is versioned in the public repository at
+        <a href="https://github.com/silvio-l/loam" rel="noopener noreferrer">github.com/silvio-l/loam</a>.
+        Material changes will be noted in the repository changelog.
+      </p>
+    </section>
+  </div>
+</Layout>
+
+<style is:inline>
+  .prose-page {
+    max-width: 68ch;
+    margin: 0 auto;
+    padding: 3rem clamp(1.2rem, 5vw, 3rem) 4rem;
+    line-height: 1.7;
+  }
+  .prose-page h1 {
+    font-size: clamp(1.5rem, 4vw, 2.2rem);
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 2rem;
+  }
+  .prose-page h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin: 2rem 0 .6rem;
+  }
+  .prose-page p {
+    color: var(--dim);
+    font-size: .9rem;
+    margin-bottom: .8rem;
+  }
+  .prose-page a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(236,233,225,.3);
+    padding-bottom: 1px;
+    transition: .18s;
+  }
+  .prose-page a:hover {
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .prose-page code {
+    color: var(--ink);
+    background: rgba(255,255,255,.05);
+    padding: .05em .4em;
+    border-radius: 5px;
+    font-size: .88em;
+  }
+  .prose-page section {
+    border-top: 1px solid var(--line);
+    padding-top: .4rem;
+  }
+  .prose-page section:first-of-type {
+    border-top: none;
+  }
+</style>

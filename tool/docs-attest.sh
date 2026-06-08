@@ -272,15 +272,31 @@ check_i18n() {
   return 0
 }
 
+check_privacy_footer() {
+  # Privacy Hard-Check (ab Issue 04):
+  #  Layout.astro muss einen Footer-Link auf /privacy (EN) UND /de/privacy (DE) enthalten.
+  [ -f "$WEBPAGE" ] || { note "privacy-footer: Website-Quelle fehlt: ${WEBPAGE#$ROOT/}"; return; }
+  grep -qF '/privacy' "$WEBPAGE" \
+    || note "privacy-footer: Footer in Layout.astro verlinkt nicht /privacy (EN)"
+  grep -qF '/de/privacy' "$WEBPAGE" \
+    || note "privacy-footer: Footer in Layout.astro verlinkt nicht /de/privacy (DE)"
+  # Privacy-Seiten müssen als Astro-Dateien existieren.
+  local priv_en="$ROOT/web/src/pages/privacy.astro"
+  local priv_de="$ROOT/web/src/pages/de/privacy.astro"
+  [ -f "$priv_en" ] || note "privacy-footer: EN Privacy-Seite fehlt: web/src/pages/privacy.astro"
+  [ -f "$priv_de" ] || note "privacy-footer: DE Privacy-Seite fehlt: web/src/pages/de/privacy.astro"
+  return 0
+}
+
 cmd_check() {
   fail=0
   # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
   # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
   # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
-  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs; check_i18n
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs; check_i18n; check_privacy_footer
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points · i18n)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points · i18n · privacy-footer)"
 }
 
 cmd_attest() {
