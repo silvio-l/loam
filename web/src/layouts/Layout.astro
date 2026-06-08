@@ -90,6 +90,9 @@ const navItems = [
       --panel:#15171c; --line:#23252b;
       --font:'Spline Sans Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
       --wm:clamp(248px,46vw,430px);
+      /* Shared content-column width — single source for the prose column and
+         any element that must flush with it (e.g. the DE guide hint box). */
+      --prose-width:72ch;
     }
     *{ box-sizing:border-box; margin:0; padding:0; }
     body{
@@ -151,7 +154,7 @@ const navItems = [
        deferred to Slice 2 (developer-guide) to preserve optical equivalence on the
        6 hand-authored pages (none of them use those elements).                   */
     .prose-page {
-      max-width: 72ch;
+      max-width: var(--prose-width);
       margin: 0 auto;
       padding: 3rem clamp(1.2rem, 5vw, 3rem) 5rem;
       line-height: 1.7;
@@ -220,6 +223,69 @@ const navItems = [
     .prose-page section {
       border-top: 1px solid var(--line);
       padding-top: .4rem;
+    }
+    /* ── Markdown variant: h2 section separator (Slice 02) ───────────────────
+       Hand-authored pages use <section> wrappers; .prose-page section supplies
+       the border-top. Markdown output has no <section>, so .prose-page--md h2
+       gets its own top border. Scoped to avoid doubling on hand-authored pages. */
+    .prose-page--md h2 {
+      padding-top: 1.4rem;
+      border-top: 1px solid var(--line);
+    }
+    /* ── Markdown-rendered element rules (added Slice 02) ──────────────────────
+       Used by GuideArticle (developer-guide pages). Hand-authored content pages
+       never emit these elements, so there is no display change for them.
+       RuleCard's <pre> lives inside .prose-page on rules pages; its
+       .example-block pre rules (border:none;border-radius:0) in RuleCard.astro
+       neutralise the cascade so rules pages stay pixel-identical.              */
+    .prose-page pre {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      overflow-x: auto;
+      margin: 0 0 1.2rem;
+    }
+    .prose-page pre code {
+      background: none;
+      padding: 0;
+      font-size: .82rem;
+      line-height: 1.6;
+      color: var(--ink);
+    }
+    .prose-page blockquote {
+      border-left: 2px solid var(--green);
+      padding: .2rem 0 .2rem 1rem;
+      margin: 0 0 1rem;
+      color: var(--dim);
+      font-size: .9rem;
+    }
+    .prose-page blockquote p {
+      margin-bottom: .4rem;
+    }
+    .prose-page hr {
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 2.2rem 0;
+    }
+    .prose-page table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 1.2rem;
+      font-size: .86rem;
+    }
+    .prose-page th,
+    .prose-page td {
+      border: 1px solid var(--line);
+      padding: .45rem .6rem;
+      text-align: left;
+      color: var(--dim);
+    }
+    .prose-page th {
+      color: var(--green);
+    }
+    .prose-page strong {
+      color: var(--ink);
     }
   </style>
 </head>

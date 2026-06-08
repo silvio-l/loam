@@ -136,11 +136,19 @@ const { ruleId, title, status, badgeLabel, slopLabel, cleanLabel, description, s
     background: rgba(136,200,64,.08);
     color: var(--green);
   }
-  .example-block pre {
+  /* Selector scoped to .rule-card so its specificity (0,2,1) beats the global
+     .prose-page pre (0,1,1) deterministically — independent of bundle source
+     order — and the neutralisation always wins on the rules pages. */
+  .rule-card .example-block pre {
     margin: 0;
     padding: .6rem .8rem .7rem;
     background: rgba(0,0,0,.18);
     overflow-x: auto;
+    /* Neutralise the global .prose-page pre cascade (border+border-radius)
+       so RuleCard code boxes stay visually unchanged after Slice 02 adds
+       those rules globally. */
+    border: none;
+    border-radius: 0;
   }
   .example-block pre code {
     font-size: .78rem;
