@@ -155,6 +155,12 @@ loam fix --safe                    # apply mechanical fixes
 green): `scan` → clean up → `baseline --write` → `gate` in CI. A later cleanup
 round just repeats it. Greenfield? `loam gate --absolute` needs no baseline.
 
+**Update notice.** loam.dev checks pub.dev at most once a day and, when a newer
+release exists, prints one line to stderr *after* the command output — never to
+stdout, never touching the exit code. Silence it per run with `--no-update-check`,
+machine-wide with the `LOAM_NO_UPDATE_CHECK` environment variable, or repo-wide
+with `update_check: false` in `loam.yaml`. CI is always silent.
+
 ## Built for the terminal
 
 <p align="center">

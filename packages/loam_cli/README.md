@@ -57,7 +57,10 @@ dart pub global activate loam
 ```
 
 Make sure `$HOME/.pub-cache/bin` is on your `PATH` (Dart prints a reminder if it
-isn't). **To update**, re-run the exact same command.
+isn't). **To update**, re-run the exact same command. loam.dev reminds you when a
+newer release is on pub.dev with one line on stderr (at most once a day); silence
+it with `--no-update-check`, `LOAM_NO_UPDATE_CHECK`, or `update_check: false` in
+`loam.yaml`. CI is always silent.
 
 On Apple Silicon macOS / Linux you can skip the `PATH` step entirely with
 Homebrew: `brew install silvio-l/loam/loam`.
