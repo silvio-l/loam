@@ -22,6 +22,8 @@ export const ui: Record<Locale, Record<string, string>> = {
     'footer.copyright': '© 2026 Silvio Lindstedt · MIT · built in the open',
     'privacy.title': 'Privacy Policy — loam.dev',
     'privacy.heading': 'Privacy Policy',
+    'stars.label': 'Star on GitHub',
+    'stars.ariaLabel': 'Star loam.dev on GitHub',
   },
   de: {
     'nav.home': 'Start',
@@ -39,6 +41,8 @@ export const ui: Record<Locale, Record<string, string>> = {
     'footer.copyright': '© 2026 Silvio Lindstedt · MIT · quelloffen gebaut',
     'privacy.title': 'Datenschutzerklärung — loam.dev',
     'privacy.heading': 'Datenschutzerklärung',
+    'stars.label': 'Bei GitHub staren',
+    'stars.ariaLabel': 'loam.dev auf GitHub staren',
   },
 };
 

@@ -1,5 +1,29 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import GitHubStars from '../../components/GitHubStars.astro';
+import { t } from '../../i18n/ui';
+
+// Build-time fetch — bake a star count into the HTML for JS-free fallback.
+// On any failure (network, timeout, API rate-limit) we fall back to null
+// and render the neutral CTA without a number. The build must never fail here.
+let initialStars: number | null = null;
+try {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  const res = await fetch('https://api.github.com/repos/silvio-l/loam', {
+    signal: controller.signal,
+    headers: { 'Accept': 'application/vnd.github+json' },
+  });
+  clearTimeout(timer);
+  if (res.ok) {
+    const data = await res.json();
+    if (typeof data.stargazers_count === 'number') {
+      initialStars = data.stargazers_count;
+    }
+  }
+} catch (_) {
+  // Network unavailable, timeout, or API error — neutral CTA rendered below.
+}
 ---
 
 <Layout
@@ -33,6 +57,13 @@ import Layout from '../../layouts/Layout.astro';
       <span class="sep"></span>
       <button class="sharelink" id="share" type="button">teilen</button>
     </nav>
+    <div class="stars-wrap">
+      <GitHubStars
+        initialCount={initialStars}
+        label={t('de', 'stars.label')}
+        ariaLabel={t('de', 'stars.ariaLabel')}
+      />
+    </div>
   </div>
 </Layout>
 
@@ -78,6 +109,8 @@ import Layout from '../../layouts/Layout.astro';
   .links .sharelink{ font:inherit; color:var(--ink); background:transparent; border:none;
     border-bottom:1px solid rgba(236,233,225,.22); padding:0 0 2px; cursor:pointer; transition:.18s; }
   .links .sharelink:hover,.links .sharelink.ok{ color:var(--green); border-color:var(--green); }
+
+  .stars-wrap{ margin-top:2rem; animation:rise .9s .48s cubic-bezier(.2,.8,.2,1) both; }
 
   @keyframes blink{ 0%,50%{ opacity:1; } 50.01%,100%{ opacity:0; } }
 </style>
