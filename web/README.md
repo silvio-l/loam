@@ -39,13 +39,16 @@ npm run preview  # gebautes dist/ lokal servieren
 | `src/pages/de/how-it-works.astro` | Pipeline-Erklärung DE (`/de/how-it-works`). |
 | `src/pages/de/rules.astro` | Rule-Katalog DE (`/de/rules`). |
 | `src/pages/de/privacy.astro` | Datenschutzerklärung DE (`/de/privacy`). |
+| `src/pages/developer-guide.astro` | Developer & Tool Guide EN (`/developer-guide`) — rendert `docs/developer-guide.md`. |
+| `src/pages/de/developer-guide.astro` | Developer & Tool Guide DE (`/de/developer-guide`) — gleicher Inhalt, DE-Hinweis. |
+| `src/content.config.ts` | Content-Layer-Loader: liest `docs/developer-guide.md` direkt aus `../docs` (Single-Source, keine Kopie). |
 | `src/i18n/` | Übersetzungsstrings (`ui.ts`) und Hilfsfunktionen (`utils.ts`, inkl. `hreflangAlternates`). |
-| `src/components/` | Astro-Komponenten (z. B. `LanguageSwitcher.astro`, `GitHubStars.astro`, `RuleCard.astro`). |
+| `src/components/` | Astro-Komponenten (z. B. `LanguageSwitcher.astro`, `GitHubStars.astro`, `RuleCard.astro`, `GuideArticle.astro`). |
 | `public/` | Statische Assets, die 1:1 unter `/` ausgeliefert werden (Wortmarke, Icon, Favicon, OG-Image, `robots.txt`). |
 | `astro.config.mjs` | `site: https://getloam.dev`, `output: 'static'`, `@astrojs/sitemap` mit i18n-Konfiguration. |
 | `dist/` | Build-Output (gitignored). |
 
-### Routen (8 Seiten)
+### Routen (10 Seiten)
 
 | EN | DE | Inhalt |
 |---|---|---|
@@ -53,6 +56,7 @@ npm run preview  # gebautes dist/ lokal servieren
 | `/how-it-works` | `/de/how-it-works` | Pipeline-Erklärung |
 | `/rules` | `/de/rules` | Rule-Katalog |
 | `/privacy` | `/de/privacy` | Datenschutz |
+| `/developer-guide` | `/de/developer-guide` | Developer & Tool Guide (aus `docs/` gerendert) |
 
 ## Leitplanken
 

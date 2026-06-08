@@ -199,7 +199,7 @@ This is a monorepo — everything that makes up loam.dev:
 
 ### Website routes (`web/`)
 
-The site is multilingual (EN default at root, DE under `/de/`) with 8 pages:
+The site is multilingual (EN default at root, DE under `/de/`) with 10 pages:
 
 | EN route | DE route | Content |
 |---|---|---|
@@ -207,6 +207,7 @@ The site is multilingual (EN default at root, DE under `/de/`) with 8 pages:
 | `/how-it-works` | `/de/how-it-works` | Pipeline walkthrough |
 | `/rules` | `/de/rules` | Rule catalogue (live + planned) |
 | `/privacy` | `/de/privacy` | Privacy policy |
+| `/developer-guide` | `/de/developer-guide` | Developer & Tool Guide (rendered on-site from `docs/developer-guide.md`) |
 
 All pages share a single `Layout.astro` (brand tokens, hreflang alternates, footer).
 Font: self-hosted `@fontsource/spline-sans-mono` (no Google CDN).

@@ -9,9 +9,37 @@ import sitemap from '@astrojs/sitemap';
 // @astrojs/sitemap ist als dokumentierte Ausnahme zur „keine Integrations"-
 // Leitplanke erlaubt: der Sitemap-Generator ist deterministischer Build-Output
 // (statisches XML), kein Runtime-Service, kein Server, kein Drittanbieter-Call.
+
+// Rehype-Plugin: der eingebettete Developer-Guide (docs/developer-guide.md) ist
+// gegen seinen GitHub-Ort relativ verlinkt (z. B. ../README.md). On-Site würden
+// solche Pfade brechen — hier auf absolute GitHub-Blob-URLs umgeschrieben.
+// In-Page-Anker (#…), absolute (http/mailto) und Wurzel-Links (/…) bleiben.
+function rehypeRewriteRelativeRepoLinks() {
+  const GH = 'https://github.com/silvio-l/loam/blob/main/';
+  /** @param {any} node */
+  const walk = (node) => {
+    if (
+      node.type === 'element' &&
+      node.tagName === 'a' &&
+      node.properties &&
+      typeof node.properties.href === 'string'
+    ) {
+      const href = node.properties.href;
+      if (!/^(https?:|mailto:|#|\/)/.test(href)) {
+        node.properties.href = GH + href.replace(/^(\.\.\/)+/, '');
+      }
+    }
+    if (node.children) node.children.forEach(walk);
+  };
+  return (/** @type {any} */ tree) => walk(tree);
+}
+
 export default defineConfig({
   site: 'https://getloam.dev',
   output: 'static',
+  markdown: {
+    rehypePlugins: [rehypeRewriteRelativeRepoLinks],
+  },
   // Directory-Format-URLs enden auf einem Slash. Explizit gesetzt, damit die
   // canonical-/hreflang-Tags (Layout.astro) und die Sitemap-<loc>/<xhtml:link>-
   // Einträge exakt dieselbe URL-Form tragen (kein Trailing-Slash-Mismatch mehr).

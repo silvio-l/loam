@@ -1,0 +1,124 @@
+---
+/**
+ * GuideArticle — rendert den Developer & Tool Guide (docs/developer-guide.md)
+ * über den Astro-Content-Layer in das gebrandete Layout. Single-Source: der
+ * Inhalt kommt direkt aus docs/, es gibt keine Kopie unter web/.
+ */
+import { getEntry, render } from 'astro:content';
+
+const entry = await getEntry('guide', 'developer-guide');
+if (!entry) {
+  throw new Error(
+    'GuideArticle: Content-Eintrag "developer-guide" nicht gefunden — ' +
+      'erwartet docs/developer-guide.md (siehe web/src/content.config.ts).',
+  );
+}
+const { Content } = await render(entry);
+---
+
+<article class="guide">
+  <Content />
+</article>
+
+<style is:inline>
+  .guide {
+    position: relative;
+    z-index: 3;
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: clamp(1.4rem, 4vw, 3rem) clamp(1.2rem, 5vw, 3rem) 6rem;
+    color: var(--ink);
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+  .guide :global(h1) {
+    font-size: clamp(1.7rem, 4vw, 2.3rem);
+    letter-spacing: -0.01em;
+    margin: 0 0 0.4rem;
+  }
+  .guide :global(h2) {
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+    margin: 2.6rem 0 0.8rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .guide :global(h3) {
+    font-size: 1.02rem;
+    margin: 1.8rem 0 0.5rem;
+    color: var(--green);
+  }
+  .guide :global(p),
+  .guide :global(ul),
+  .guide :global(ol),
+  .guide :global(blockquote) {
+    margin: 0 0 1rem;
+  }
+  .guide :global(ul),
+  .guide :global(ol) {
+    padding-left: 1.4rem;
+  }
+  .guide :global(li) {
+    margin: 0.3rem 0;
+  }
+  .guide :global(a) {
+    color: var(--green);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(136, 200, 64, 0.35);
+    transition: 0.18s;
+  }
+  .guide :global(a:hover) {
+    border-color: var(--green);
+  }
+  .guide :global(strong) {
+    color: var(--ink);
+  }
+  .guide :global(blockquote) {
+    border-left: 2px solid var(--soil);
+    padding: 0.2rem 0 0.2rem 1rem;
+    color: var(--dim);
+  }
+  .guide :global(code) {
+    font-family: var(--font);
+    font-size: 0.86em;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 0.1rem 0.35rem;
+  }
+  .guide :global(pre) {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    margin: 0 0 1.2rem;
+  }
+  .guide :global(pre code) {
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+  .guide :global(hr) {
+    border: 0;
+    border-top: 1px solid var(--line);
+    margin: 2.2rem 0;
+  }
+  .guide :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 1.2rem;
+    font-size: 0.86rem;
+  }
+  .guide :global(th),
+  .guide :global(td) {
+    border: 1px solid var(--line);
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+  }
+  .guide :global(th) {
+    color: var(--green);
+  }
+</style>

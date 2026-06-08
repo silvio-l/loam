@@ -216,9 +216,24 @@ check_devguide() {
   grep -qF -- "docs/developer-guide.md" "$README" \
     || note "README verweist nicht auf Developer-Guide (docs/developer-guide.md)"
 
-  # Website muss den Guide verlinken.
-  grep -qF -- "developer-guide.md" "$WEBPAGE" \
-    || note "Website-Quelle verweist nicht auf Developer-Guide (developer-guide.md)"
+  # Website rendert den Guide als EIGENE Seite (Single-Source aus docs/, via
+  # Astro-Content-Layer — keine duplizierte Kopie unter web/). Geprüft wird:
+  #  (a) beide Sprachfassungen der Guide-Route existieren,
+  #  (b) der Content-Layer liest die eine Quelle docs/developer-guide.md,
+  #  (c) das Layout (Chrome) verlinkt die On-Site-Guide-Route.
+  local guide_en="$ROOT/web/src/pages/developer-guide.astro"
+  local guide_de="$ROOT/web/src/pages/de/developer-guide.astro"
+  local guide_loader="$ROOT/web/src/content.config.ts"
+  [ -f "$guide_en" ] || note "Website: EN Developer-Guide-Seite fehlt: web/src/pages/developer-guide.astro"
+  [ -f "$guide_de" ] || note "Website: DE Developer-Guide-Seite fehlt: web/src/pages/de/developer-guide.astro"
+  if [ -f "$guide_loader" ]; then
+    grep -qF -- "developer-guide.md" "$guide_loader" \
+      || note "Website: content.config.ts liest nicht docs/developer-guide.md (Single-Source verletzt)"
+  else
+    note "Website: web/src/content.config.ts fehlt (Guide-Content-Loader)"
+  fi
+  grep -qF -- "/developer-guide" "$WEBPAGE" \
+    || note "Website-Quelle (Layout.astro) verlinkt nicht die On-Site-Guide-Route /developer-guide"
 
   return 0
 }
@@ -266,7 +281,7 @@ check_i18n() {
   # Restliche: EN = pages/<slug>.astro, DE = pages/de/<slug>.astro.
   # Neuen Route hinzufügen: nur hier in die Liste eintragen.
   local pages_dir="$ROOT/web/src/pages"
-  local -a CONTENT_ROUTES=("" "how-it-works" "rules" "privacy")
+  local -a CONTENT_ROUTES=("" "how-it-works" "rules" "privacy" "developer-guide")
   local route
   for route in "${CONTENT_ROUTES[@]}"; do
     if [ -z "$route" ]; then

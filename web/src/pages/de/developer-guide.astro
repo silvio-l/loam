@@ -1,0 +1,33 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import GuideArticle from '../../components/GuideArticle.astro';
+---
+
+<Layout
+  lang="de"
+  title="Developer & Tool Guide — loam.dev"
+  description="Der Developer & Tool Guide von loam.dev: Kernkonzepte, CLI-Befehle, Ausgabeformate und der Umgang mit Codegeneratoren — gerendert aus der einen Quelle in /docs."
+  path="/de/developer-guide"
+>
+  <p class="guide-note">
+    Dieser Leitfaden wird auf Englisch gepflegt — die Fachbegriffe sind im
+    gesamten Tool einheitlich englisch.
+  </p>
+  <GuideArticle />
+</Layout>
+
+<style is:inline>
+  .guide-note {
+    position: relative;
+    z-index: 3;
+    max-width: 56rem;
+    margin: clamp(1.4rem, 4vw, 3rem) auto 0;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--green);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--dim);
+    font-size: 0.82rem;
+  }
+</style>

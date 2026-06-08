@@ -7,7 +7,7 @@
  *
  * Versions-Chip: v0.1.4 · preview (muss zur pubspec.yaml version passen).
  *
- * Footer-Link: Developer-Guide (developer-guide.md).
+ * Footer-Link: Developer-Guide (On-Site-Route /developer-guide bzw. /de/developer-guide).
  *
  * Font-Import-Slot: vorbereitet für self-hosted Spline Sans Mono (issue 04).
  * KEIN Link zu fonts.googleapis.com / gstatic (Privacy-Constraint).
@@ -147,7 +147,7 @@ const ogImage = 'https://getloam.dev/og-image.png';
   <div class="strata"></div>
 
   <footer>
-    <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">{t(lang, 'footer.devGuide')}</a>
+    <a href={lang === 'de' ? '/de/developer-guide/' : '/developer-guide/'}>{t(lang, 'footer.devGuide')}</a>
     &nbsp;<span class="accent">·</span>&nbsp;
     <a href={lang === 'de' ? '/de/privacy/' : '/privacy/'}>{t(lang, 'footer.privacy')}</a>
     &nbsp;<span class="accent">·</span>&nbsp;
