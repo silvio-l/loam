@@ -18,7 +18,7 @@ fi
 # ── Riegel 0: interne, nicht-öffentliche Artefakte dürfen NIE getrackt werden ─
 # Harte Denylist — greift auch bei `git add -f` (das nur .gitignore umgeht, nicht
 # diesen Hook). Nur Additions/Modifications blocken, Deletions (Untracking) erlaubt.
-DENY='^(CLAUDE\.md|CONTEXT\.md|docs/PRD\.md|docs/public-docs-spec\.md|docs/readme-spec\.md|docs/adr/|\.wrangler/|\.readme-stamp$)'
+DENY='^(CLAUDE\.md|CONTEXT\.md|docs/PRD\.md|docs/zielgruppe\.md|docs/public-docs-spec\.md|docs/readme-spec\.md|docs/adr/|\.wrangler/|\.readme-stamp$)'
 blocked="$(git diff --cached --name-only --diff-filter=AM | grep -E "$DENY" || true)"
 if [ -n "$blocked" ]; then
   cat >&2 <<EOF
@@ -34,3 +34,14 @@ fi
 QA="$ROOT/tool/docs-attest.sh"
 [ -x "$QA" ] || { echo "pre-commit: $QA fehlt/nicht ausführbar"; exit 1; }
 "$QA" check
+
+# ── Nudge (nicht-blockierend, 0 Token): Zielgruppen-Eignung ──────────────────
+# Kein Urteil, kein Gate (Eignung ist semantisch, nicht deterministisch prüfbar
+# — ein LLM-Gate verstieße gegen Invariante 2 + Free-Tier-Disziplin und würde
+# False Positives produzieren). Stattdessen: erinnern, den Lackmustest selbst
+# anzulegen, wenn Produktfläche (CLI/Rules/Website) berührt wird.
+SURFACE='^(packages/loam_cli/bin/|packages/loam_cli/lib/|web/)'
+if git diff --cached --name-only --diff-filter=AM | grep -qE "$SURFACE"; then
+  echo "› Produktfläche berührt — prüfe gegen docs/zielgruppe.md (Lackmustest):" >&2
+  echo "  „Findet/hilft das echten Schaden, dem ein Entwickler blind vertraut?“" >&2
+fi
