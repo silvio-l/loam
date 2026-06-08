@@ -32,6 +32,18 @@ jobs:
       - name: dart pub get
         run: dart pub get
 
+      # Die test/fixtures/* sind eigenständige Mini-Pakete mit package:-Selbst-
+      # importen. Im frischen CI-Checkout fehlt ihr package_config -> sonst
+      # uri_does_not_exist beim Analyze und unauflösbare Imports in den Fixture-
+      # ladenden Tests. Lokal sind sie längst aufgelöst.
+      - name: Resolve fixture packages
+        run: |
+          for d in test/fixtures/*/; do
+            [ -f "${d}pubspec.yaml" ] || continue
+            echo "pub get: $d"
+            ( cd "$d" && dart pub get ) || echo "  (übersprungen: $d)"
+          done
+
       - name: Format
         run: dart format --output=none --set-exit-if-changed bin lib test
 
