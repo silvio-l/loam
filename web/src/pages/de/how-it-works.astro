@@ -1,0 +1,370 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  lang="de"
+  title="Funktionsweise — loam.dev"
+  description="Wie loam.dev zu seinem Urteil kommt: Loader, Rules, Findings, Baseline, Gate und Report — verständlich erklärt, mit dem Unterschied zwischen loam scan und loam gate."
+  path="/de/how-it-works"
+>
+  <div class="prose-page">
+    <h1>Funktionsweise</h1>
+
+    <p class="lead">
+      loam.dev durchläuft eine sechsstufige Pipeline, die ein Dart/Flutter-Projekt
+      von den Quelldateien zu einer deterministischen Pass/Fail-Entscheidung in CI
+      führt — ohne Raten, ohne Regex-Abkürzungen, ohne False Positives aus
+      generiertem Code.
+    </p>
+
+    <!-- Pipeline -->
+    <section>
+      <h2>Die Pipeline</h2>
+
+      <div class="pipeline">
+        <div class="step">
+          <span class="step-num">01</span>
+          <div class="step-body">
+            <strong>Loader</strong>
+            <p>
+              Der <code>ProjectLoader</code> speist das gesamte Projekt in
+              Darts eigene <code>AnalysisContextCollection</code>.
+              Jede Datei wird geparst und vollständig in ein typisiertes
+              Element-Model aufgelöst — dasselbe Model, das das Dart-SDK intern
+              verwendet. Das ist die Grundlage, die alles Nachgelagerte semantisch
+              statt syntaktisch macht.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-num">02</span>
+          <div class="step-body">
+            <strong>Rules</strong>
+            <p>
+              Eine Menge von <strong>Rules</strong> läuft über das aufgelöste
+              Model. Jede Rule ist eine eigenständige Analyseeinheit hinter einem
+              gemeinsamen Interface; eine neue Fähigkeit hinzuzufügen ändert die
+              Pipeline nicht — nur die Rule-Liste. Rules sind entweder
+              deterministisch (reines AST/Element-Model, reproduzierbar ohne
+              Netz) oder LLM-gestützt (geplant, immer verdict-gecacht, bevor
+              sie CI berühren).
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-num">03</span>
+          <div class="step-body">
+            <strong>Findings</strong>
+            <p>
+              Jede Rule emittiert <strong>Findings</strong> — strukturierte
+              Ergebnisse der Form
+              <code>&#123; ruleId, severity, location, message, fingerprint &#125;</code>.
+              Jedes Finding trägt einen stabilen <strong>Fingerprint</strong>
+              (einen positionsrobusten Hash), der Umformatierungen und
+              Zeilennummernverschiebungen überlebt. Das ist der Schlüssel,
+              der den Baseline-Diff exakt macht.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-num">04</span>
+          <div class="step-body">
+            <strong>Baseline</strong>
+            <p>
+              Die <strong>Baseline</strong> ist ein eingefrorener Stand
+              akzeptierter Findings, gespeichert in <code>baseline.json</code>.
+              Beim Onboarding eines bestehenden Projekts führt man einen
+              Vollaudit durch, bereinigt, was möglich ist, und friert den Rest
+              mit <code>loam baseline --write</code> ein. Ab diesem Punkt
+              interessiert das Gate nur noch <em>neue</em> Findings — nicht die
+              bereits bekannten.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-num">05</span>
+          <div class="step-body">
+            <strong>Gate</strong>
+            <p>
+              Das <strong>Gate</strong> ist der CI-Entscheidungspunkt: Es
+              vergleicht aktuelle Findings mit der Baseline und gibt einen
+              strukturierten Exit-Code zurück. Keine Regression → Exit 0.
+              Neues Finding → Exit 1. Keine Überraschungen beim Merge.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-num">06</span>
+          <div class="step-body">
+            <strong>Report</strong>
+            <p>
+              Der <strong>Reporter</strong> formatiert Ergebnisse für Menschen
+              oder Maschinen: <code>human</code> für die Terminal-Ausgabe,
+              <code>json</code> / <code>sarif</code> / <code>markdown</code>
+              für Agent-Pipelines und <code>html</code> für einen interaktiven,
+              in sich geschlossenen Report mit eingebautem Fix-Prompt-Builder.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- loam scan vs loam gate -->
+    <section>
+      <h2>loam scan vs. loam gate</h2>
+
+      <p>
+        Zwei Befehle, zwei Zwecke. Wer den richtigen kennt, hält den
+        Workflow sauber.
+      </p>
+
+      <div class="compare">
+        <div class="compare-block">
+          <h3><code>loam scan</code></h3>
+          <p class="compare-tag">Vollaudit · baseline-unabhängig</p>
+          <p>
+            Führt alle aktiven Rules über das gesamte Projekt aus und zeigt
+            <em>alle</em> Findings — unabhängig vom Stand der Baseline.
+            Dieser Befehl eignet sich beim erstmaligen Einsatz in einem
+            bestehenden Repo: Gesamtbild sehen, bereinigen, was vertretbar ist,
+            dann den Rest mit <code>loam baseline --write</code> einfrieren.
+          </p>
+        </div>
+
+        <div class="compare-block">
+          <h3><code>loam gate</code></h3>
+          <p class="compare-tag">CI-Ratchet · Baseline-bewusst</p>
+          <p>
+            Der Alltagsbefehl für CI. Standardmäßig läuft er im
+            <strong>Ratchet-Modus</strong>: Nur Findings, die <em>neu</em>
+            sind (nicht in der Baseline), lassen den Build scheitern.
+            Der Score kann sich nur verbessern — die Codebasis ratchet
+            vorwärts, nie rückwärts. Für Greenfield-Projekte oder Pipelines,
+            die null Findings erzwingen, gibt es <code>--absolute</code> als
+            harte Schwelle.
+          </p>
+        </div>
+      </div>
+
+      <p>
+        Typische Onboarding-Sequenz: <code>loam scan</code> → relevante
+        Findings bereinigen → <code>loam baseline --write</code> →
+        <code>loam gate</code> ab sofort in CI.
+      </p>
+    </section>
+
+    <!-- Semantik vor Syntax -->
+    <section>
+      <h2>Semantik vor Syntax</h2>
+
+      <p>
+        Die wichtigste Architekturentscheidung in loam.dev ist, <em>worüber</em>
+        die Analyse läuft.
+      </p>
+
+      <p>
+        <code>dart analyze</code> meldet Typfehler, fehlende Imports und
+        Style-Lint-Verletzungen — alles, was sich auf Deklarationsebene erkennen
+        lässt. Was es nicht tut: über den <em>Referenzgraphen</em> des gesamten
+        Projekts nachdenken — welche öffentlichen API-Member tatsächlich von
+        außen erreichbar sind, welche Schichtgrenzen überschritten werden,
+        welche Hilfsfunktionen als Duplikat vorliegen.
+      </p>
+
+      <p>
+        Diese Dinge per Regex oder String-Matching zu finden ist fragil.
+        Ein Regex, der einen Bezeichnernamen sucht, kann nicht zwischen
+        Definition und Referenz unterscheiden, nicht zwischen einer lokalen
+        Variable und einem öffentlichen Export, nicht zwischen einer generierten
+        Datei und handgeschriebenem Code.
+      </p>
+
+      <p>
+        loam.dev arbeitet auf dem <strong>aufgelösten Element-Model</strong>:
+        Jedes Symbol ist ein typisiertes Element mit kanonischer Identität,
+        jede Referenz ist ein aufgelöster Zeiger. Rules operieren auf diesem
+        Model — nicht auf Rohtext. Das bedeutet konkret:
+      </p>
+
+      <ul>
+        <li>Keine False Positives durch zufällig ähnliche Namen.</li>
+        <li>Generierte Dateien werden automatisch ausgeschlossen — so wie
+        das SDK sie kennt.</li>
+        <li>Das Umbenennen einer Klasse ist für die Rule unsichtbar — entscheidend
+        ist, ob das Element referenziert wird, nicht wie es heißt.</li>
+        <li>Bibliotheks- und paketübergreifende Referenzen werden korrekt
+        nachverfolgt.</li>
+      </ul>
+
+      <p>
+        Das ist „Semantik vor Syntax" in der Praxis: Rules sehen den Code so,
+        wie der Compiler ihn sieht — nicht wie ein Texteditor.
+      </p>
+    </section>
+
+    <!-- Developer Guide link -->
+    <section>
+      <h2>Mehr in die Tiefe</h2>
+
+      <p>
+        Der <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">Developer Guide</a>
+        (englisch) enthält die vollständige CLI-Referenz, Output-Formate,
+        Konfiguration und ausgearbeitete Beispiele — darunter die vollständige
+        Baseline-Onboarding-Sequenz und die Integration von
+        <code>loam gate</code> in GitHub Actions.
+      </p>
+    </section>
+  </div>
+</Layout>
+
+<style is:inline>
+  .prose-page {
+    max-width: 72ch;
+    margin: 0 auto;
+    padding: 3rem clamp(1.2rem, 5vw, 3rem) 5rem;
+    line-height: 1.7;
+  }
+  .prose-page h1 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 1rem;
+  }
+  .lead {
+    color: var(--dim);
+    font-size: .95rem;
+    margin-bottom: 2.8rem;
+    border-left: 2px solid var(--green);
+    padding-left: 1rem;
+  }
+  .prose-page h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin: 2.8rem 0 1rem;
+  }
+  .prose-page h3 {
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 .3rem;
+  }
+  .prose-page p {
+    color: var(--dim);
+    font-size: .9rem;
+    margin-bottom: .8rem;
+  }
+  .prose-page ul {
+    color: var(--dim);
+    font-size: .9rem;
+    padding-left: 1.4rem;
+    margin-bottom: .8rem;
+  }
+  .prose-page ul li {
+    margin-bottom: .4rem;
+  }
+  .prose-page a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(236,233,225,.3);
+    padding-bottom: 1px;
+    transition: .18s;
+  }
+  .prose-page a:hover {
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .prose-page code {
+    color: var(--ink);
+    background: rgba(255,255,255,.05);
+    padding: .05em .4em;
+    border-radius: 5px;
+    font-size: .88em;
+  }
+  .prose-page section {
+    border-top: 1px solid var(--line);
+    padding-top: .4rem;
+  }
+
+  /* Pipeline steps */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    margin: 1.2rem 0 .8rem;
+  }
+  .step {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    color: var(--green);
+    border: 1px solid rgba(136,200,64,.28);
+    border-radius: 50%;
+    background: rgba(136,200,64,.05);
+    margin-top: .1rem;
+  }
+  .step-body {
+    flex: 1;
+  }
+  .step-body strong {
+    display: block;
+    color: var(--ink);
+    font-size: .92rem;
+    margin-bottom: .3rem;
+  }
+  .step-body p {
+    margin-bottom: 0;
+  }
+
+  /* scan vs gate compare */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0 1.2rem;
+  }
+  @media (max-width: 560px) {
+    .compare { grid-template-columns: 1fr; }
+  }
+  .compare-block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1.1rem 1.2rem 1rem;
+  }
+  .compare-block h3 code {
+    font-size: .92rem;
+    background: none;
+    padding: 0;
+    color: var(--ink);
+  }
+  .compare-tag {
+    font-size: .72rem !important;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--green) !important;
+    margin: .1rem 0 .7rem !important;
+  }
+  .compare-block p:last-child {
+    margin-bottom: 0;
+  }
+</style>
