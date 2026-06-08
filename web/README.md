@@ -30,10 +30,29 @@ npm run preview  # gebautes dist/ lokal servieren
 
 | Pfad | Zweck |
 |---|---|
-| `src/pages/index.astro` | Die Startseite (volles HTML-Dokument, Single Source des Markups). |
-| `public/` | Statische Assets, die 1:1 unter `/` ausgeliefert werden (Wortmarke, Icon, Favicon, OG-Image). |
-| `astro.config.mjs` | `site: https://getloam.dev`, `output: 'static'`. |
+| `src/layouts/Layout.astro` | Single Source des Chrome: Brand-Tokens, hreflang-Alternates, Versions-Chip, Footer-Links, self-hosted Spline Sans Mono. |
+| `src/pages/index.astro` | Startseite EN (`/`) — Hero, Install, GitHub-Stars-CTA. |
+| `src/pages/how-it-works.astro` | Pipeline-Erklärung EN (`/how-it-works`). |
+| `src/pages/rules.astro` | Rule-Katalog EN (`/rules`). |
+| `src/pages/privacy.astro` | Datenschutzerklärung EN (`/privacy`). |
+| `src/pages/de/index.astro` | Startseite DE (`/de/`). |
+| `src/pages/de/how-it-works.astro` | Pipeline-Erklärung DE (`/de/how-it-works`). |
+| `src/pages/de/rules.astro` | Rule-Katalog DE (`/de/rules`). |
+| `src/pages/de/privacy.astro` | Datenschutzerklärung DE (`/de/privacy`). |
+| `src/i18n/` | Übersetzungsstrings (`ui.ts`) und Hilfsfunktionen (`utils.ts`, inkl. `hreflangAlternates`). |
+| `src/components/` | Astro-Komponenten (z. B. `LanguageSwitcher.astro`, `GitHubStars.astro`, `RuleCard.astro`). |
+| `public/` | Statische Assets, die 1:1 unter `/` ausgeliefert werden (Wortmarke, Icon, Favicon, OG-Image, `robots.txt`). |
+| `astro.config.mjs` | `site: https://getloam.dev`, `output: 'static'`, `@astrojs/sitemap` mit i18n-Konfiguration. |
 | `dist/` | Build-Output (gitignored). |
+
+### Routen (8 Seiten)
+
+| EN | DE | Inhalt |
+|---|---|---|
+| `/` | `/de/` | Startseite |
+| `/how-it-works` | `/de/how-it-works` | Pipeline-Erklärung |
+| `/rules` | `/de/rules` | Rule-Katalog |
+| `/privacy` | `/de/privacy` | Datenschutz |
 
 ## Leitplanken
 

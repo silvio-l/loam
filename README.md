@@ -192,10 +192,25 @@ This is a monorepo — everything that makes up loam.dev:
 | Path | What |
 |---|---|
 | [`packages/loam_cli/`](./packages/loam_cli/) | The Dart CLI (pub.dev package `loam`). The actual tool. |
-| [`web/`](./web/) | Promo / docs website (static, free-tier). Scaffold. |
+| [`web/`](./web/) | Promo / docs website (static, multipage, EN/DE, free-tier). See its [README](./web/README.md). |
 | [`skill/`](./skill/) | Claude skill/plugin that drives `loam` for agents. Scaffold. |
 | [`assets/brand/`](./assets/brand/) | Logo, colors, terminal banner. See its [README](./assets/brand/README.md). |
 | [`docs/`](./docs/) | Developer & tool guide. |
+
+### Website routes (`web/`)
+
+The site is multilingual (EN default at root, DE under `/de/`) with 8 pages:
+
+| EN route | DE route | Content |
+|---|---|---|
+| `/` | `/de/` | Home — hero, install, GitHub-Stars CTA |
+| `/how-it-works` | `/de/how-it-works` | Pipeline walkthrough |
+| `/rules` | `/de/rules` | Rule catalogue (live + planned) |
+| `/privacy` | `/de/privacy` | Privacy policy |
+
+All pages share a single `Layout.astro` (brand tokens, hreflang alternates, footer).
+Font: self-hosted `@fontsource/spline-sans-mono` (no Google CDN).
+Sitemap: `@astrojs/sitemap` (documented exception — deterministic static XML, no runtime service).
 
 ## Develop
 

@@ -256,12 +256,32 @@ check_pubdev_docs() {
 }
 
 check_i18n() {
-  # i18n Hard-Checks (ab Issue 01):
-  #  (a) Home-Seite existiert auf EN (/index.astro) UND DE (/de/index.astro).
+  # i18n Hard-Checks (ab Issue 01, verschärft in Issue 07 auf ALLE Inhalts-Routen):
+  #  (a) Jede Inhalts-Route hat BEIDE Sprachfassungen (EN + DE).
   #  (b) Layout.astro enthält hreflang-Alternates (das Muster prüfen, nicht die
   #      gebauten HTML-Seiten, damit der Check ohne Build läuft).
-  [ -f "$WEBPAGE_HOME_EN" ] || note "i18n: EN Home fehlt: ${WEBPAGE_HOME_EN#$ROOT/}"
-  [ -f "$WEBPAGE_HOME_DE" ] || note "i18n: DE Home fehlt: ${WEBPAGE_HOME_DE#$ROOT/}"
+  #
+  # CONTENT_ROUTES: slug-relative Pfad-Segmente (ohne führenden Slash).
+  # Home: EN = pages/index.astro, DE = pages/de/index.astro.
+  # Restliche: EN = pages/<slug>.astro, DE = pages/de/<slug>.astro.
+  # Neuen Route hinzufügen: nur hier in die Liste eintragen.
+  local pages_dir="$ROOT/web/src/pages"
+  local -a CONTENT_ROUTES=("" "how-it-works" "rules" "privacy")
+  local route
+  for route in "${CONTENT_ROUTES[@]}"; do
+    if [ -z "$route" ]; then
+      # Home: index.astro / de/index.astro
+      local en_file="$pages_dir/index.astro"
+      local de_file="$pages_dir/de/index.astro"
+      local label="Home (/)"
+    else
+      local en_file="$pages_dir/${route}.astro"
+      local de_file="$pages_dir/de/${route}.astro"
+      local label="${route} (/${route})"
+    fi
+    [ -f "$en_file" ] || note "i18n: EN ${label} fehlt: ${en_file#$ROOT/}"
+    [ -f "$de_file" ] || note "i18n: DE ${label} fehlt: ${de_file#$ROOT/}"
+  done
   # Jede Seite leitet ihre hreflang-Tags aus Layout.astro ab (hreflangAlternates-Aufruf).
   [ -f "$WEBPAGE" ] && {
     grep -qF 'hreflangAlternates' "$WEBPAGE" \
