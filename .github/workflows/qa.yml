@@ -1,0 +1,45 @@
+name: QA
+
+# Qualitäts-Gate für loam selbst: Format, Analyze, Tests (inkl. Self-Dogfooding)
+# und das loam-Dogfood-Gate (loam prüft loam). Läuft bei jedem Push auf dev/main,
+# manuell, UND wöchentlich (Cron) als regelmäßige Regressions-/SDK-Drift-Erkennung.
+# Free-Tier-freundlich: ein einzelner ubuntu-Job, wenige Minuten.
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'   # montags 06:00 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/loam_cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      - name: dart pub get
+        run: dart pub get
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed bin lib test
+
+      - name: Analyze
+        run: dart analyze --fatal-infos --fatal-warnings
+
+      - name: Test (inkl. Self-Dogfooding + Public-Docs-QS)
+        run: dart test
+
+      - name: Dogfood-Gate — loam prüft loam
+        run: dart run bin/loam.dart gate --absolute --project-root .

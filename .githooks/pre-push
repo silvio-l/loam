@@ -38,7 +38,7 @@ REFS="$(cat || true)"
 # HARD RULE (CLAUDE.md). Zweiter Riegel zusätzlich zum commit-msg-Hook — fängt
 # Commits, die den commit-msg-Hook umgangen haben (Merges, Cherry-Picks,
 # --no-verify, Imports).
-AI_TRAILER='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude)'
+AI_TRAILER='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude|cursor|codeium)'
 block_ai() {
   cat >&2 <<EOF
 
@@ -88,4 +88,27 @@ if [ "$pushed_any" -eq 0 ]; then
   [ "$head" = "$attested" ] || block "HEAD ${head:0:12} ist nicht attestiert."
 fi
 
-echo "Public-Docs-QS: README für ${attested:0:12} attestiert · kein KI-Trailer — Push frei."
+# ── Riegel 3: Dogfood-Gate — loam prüft loam ─────────────────────────────────
+# Eigenes Tool gegen eigenen Code: unused-public-exports u. a. Toter/ungenutzter
+# Public-Code im CLI blockt den Push. `gate --absolute` = rot bei JEDEM Finding,
+# kein baseline.json nötig. ~6s (dart run kompiliert die aktuelle Quelle).
+# Robust: fehlt dart im Hook-PATH (GUI-Clients), wird das Quality-Net übersprungen
+# statt fälschlich zu blockieren — die Sicherheits-/Attestierungs-Riegel oben gelten
+# weiter und der dart-test-Lauf fängt es ohnehin.
+DART="$(command -v dart || true)"
+if [ -z "$DART" ]; then
+  echo "pre-push: dart nicht im PATH — loam-Dogfood-Gate übersprungen (Quality-Net)." >&2
+else
+  echo "loam-Dogfood-Gate: gate --absolute auf packages/loam_cli …" >&2
+  if ! ( cd "$ROOT/packages/loam_cli" && "$DART" run bin/loam.dart gate --absolute --project-root . ); then
+    cat >&2 <<EOF
+
+╳ Push blockiert — loam-Dogfood-Gate ROT: loam findet Probleme im eigenen Code.
+  → Findings oben beheben (toter/ungenutzter Public-Code), dann erneut pushen.
+    (kein --no-verify)
+EOF
+    exit 1
+  fi
+fi
+
+echo "Public-Docs-QS: README für ${attested:0:12} attestiert · kein KI-Trailer · loam-Dogfood grün — Push frei."
