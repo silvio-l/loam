@@ -14,13 +14,16 @@ import 'update_notice.dart';
 /// without real I/O.
 ///
 /// Decision matrix (applied in order):
-/// 1. `LOAM_NO_UPDATE_CHECK` set → returns `null` immediately.
-/// 2. `CI` or `GITHUB_ACTIONS` set → returns `null` (CI is always silent).
-/// 3. Cache is fresh (< 24 h) → compares against cached version, no network.
-/// 4. Cache is stale / absent → fetches from pub.dev (2 s timeout).
+/// 1. `noUpdateCheckFlag` is `true` (CLI `--no-update-check`) → returns `null`.
+/// 2. `LOAM_NO_UPDATE_CHECK` set (env) → returns `null` immediately.
+/// 3. `CI` or `GITHUB_ACTIONS` set → returns `null` (CI is always silent;
+///    not overridable).
+/// 4. `configUpdateCheck` is `false` (loam.yaml opt-out) → returns `null`.
+/// 5. Cache is fresh (< 24 h) → compares against cached version, no network.
+/// 6. Cache is stale / absent → fetches from pub.dev (2 s timeout).
 ///    Success: writes `latest` + timestamp. Error: writes timestamp only
 ///    (no retry storm), returns `null`.
-/// 5. Returns [UpdateNotice] only when `latest > current`; `null` otherwise.
+/// 7. Returns [UpdateNotice] only when `latest > current`; `null` otherwise.
 class UpdateChecker {
   /// The name of the package to check on pub.dev.
   static const _packageName = 'loam';
@@ -63,33 +66,60 @@ class UpdateChecker {
   /// Checks for an available update and returns an [UpdateNotice] when one is
   /// found.
   ///
+  /// The full opt-out precedence chain is applied before any network/cache I/O:
+  /// `--no-update-check` (CLI via [noUpdateCheckFlag]) >
+  /// `LOAM_NO_UPDATE_CHECK` (env) >
+  /// CI/GITHUB_ACTIONS (env, non-overridable) >
+  /// `update_check: false` (loam.yaml via [configUpdateCheck]) >
+  /// default (on).
+  ///
   /// Returns `null` when:
-  /// - Suppressed by env vars (`LOAM_NO_UPDATE_CHECK`, `CI`, `GITHUB_ACTIONS`).
+  /// - Suppressed by any opt-out in the precedence chain.
   /// - The installed version is already the latest (or newer / prerelease).
   /// - Any network/parse/filesystem error occurs.
   ///
   /// Never throws — all errors are swallowed internally.
-  Future<UpdateNotice?> check() async {
+  ///
+  /// - [noUpdateCheckFlag]: `true` when the user passed `--no-update-check` on
+  ///   the CLI (highest-priority opt-out, per-run only).
+  /// - [configUpdateCheck]: the `update_check` value from `loam.yaml`
+  ///   (`false` = repo-wide opt-out). Defaults to `true` (no config opt-out).
+  Future<UpdateNotice?> check({
+    bool noUpdateCheckFlag = false,
+    bool configUpdateCheck = true,
+  }) async {
     try {
-      return await _check();
+      return await _check(
+        noUpdateCheckFlag: noUpdateCheckFlag,
+        configUpdateCheck: configUpdateCheck,
+      );
     } catch (_) {
       return null;
     }
   }
 
-  Future<UpdateNotice?> _check() async {
-    // 1. Hard env opt-out.
+  Future<UpdateNotice?> _check({
+    required bool noUpdateCheckFlag,
+    required bool configUpdateCheck,
+  }) async {
+    // 1. CLI flag opt-out (highest priority, per-run).
+    if (noUpdateCheckFlag) return null;
+
+    // 2. Hard env opt-out.
     if (_env.containsKey('LOAM_NO_UPDATE_CHECK')) return null;
 
-    // 2. CI silence.
+    // 3. CI silence (non-overridable).
     if (_env.containsKey('CI') || _env.containsKey('GITHUB_ACTIONS')) {
       return null;
     }
 
+    // 4. Config-layer opt-out (loam.yaml: update_check: false).
+    if (!configUpdateCheck) return null;
+
     final current = Version.parse(_currentVersion);
     final now = _now();
 
-    // 3. Throttle: try to use cache if fresh.
+    // 5. Throttle: try to use cache if fresh.
     final cached = _cache.read();
     Version? latest;
 
@@ -97,7 +127,7 @@ class UpdateChecker {
       // Cache is fresh — use cached version, no network call.
       latest = cached.latest;
     } else {
-      // 4. Cache is stale or absent — fetch from pub.dev.
+      // 6. Cache is stale or absent — fetch from pub.dev.
       final fetched = await _fetcher.fetchLatest(_packageName);
 
       // Always refresh the timestamp to avoid retry storms, even on failure.
@@ -114,7 +144,7 @@ class UpdateChecker {
       latest = fetched;
     }
 
-    // 5. Semver comparison: return notice only when latest > current.
+    // 7. Semver comparison: return notice only when latest > current.
     if (latest <= current) return null;
 
     return UpdateNotice(

@@ -128,9 +128,23 @@ abstract final class ConfigLoader {
       }
     }
 
+    // Parse `update_check` field (bool, default true).
+    var updateCheck = true;
+    final rawUpdateCheck = doc['update_check'];
+    if (rawUpdateCheck != null) {
+      if (rawUpdateCheck is! bool) {
+        throw ConfigLoadException(
+          '$fileName: "update_check" must be a boolean value (true/false), '
+          'got: $rawUpdateCheck.',
+        );
+      }
+      updateCheck = rawUpdateCheck;
+    }
+
     return LoamConfig(
       ruleToggles: Map.unmodifiable(ruleToggles),
       ignoreGlobs: List.unmodifiable(ignoreGlobs),
+      updateCheck: updateCheck,
     );
   }
 }

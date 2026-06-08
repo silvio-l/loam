@@ -42,20 +42,40 @@ Future<int> run(List<String> args) async {
         ..addCommand(_InitCommand())
         ..addCommand(_FixCommand());
 
-  runner.argParser.addOption(
-    'format',
-    allowed: ['human', 'sarif', 'json', 'markdown', 'html'],
-    defaultsTo: 'human',
-    help: 'Output format.',
-    allowedHelp: {
-      'human': 'Human-readable text (default).',
-      'sarif': 'SARIF 2.1 JSON (CI/tooling).',
-      'json': 'Machine-readable JSON (agent/tooling integration).',
-      'markdown': 'Markdown report (PR/docs embedding, agent/LLM pipelines).',
-      'html':
-          'Self-contained HTML report (stdout; redirect to loam-report.html).',
-    },
-  );
+  runner.argParser
+    ..addOption(
+      'format',
+      allowed: ['human', 'sarif', 'json', 'markdown', 'html'],
+      defaultsTo: 'human',
+      help: 'Output format.',
+      allowedHelp: {
+        'human': 'Human-readable text (default).',
+        'sarif': 'SARIF 2.1 JSON (CI/tooling).',
+        'json': 'Machine-readable JSON (agent/tooling integration).',
+        'markdown': 'Markdown report (PR/docs embedding, agent/LLM pipelines).',
+        'html':
+            'Self-contained HTML report (stdout; redirect to loam-report.html).',
+      },
+    )
+    ..addFlag(
+      'no-update-check',
+      negatable: false,
+      help:
+          'Skip the update-availability check for this run. '
+          'See also: LOAM_NO_UPDATE_CHECK env var and '
+          'update_check: false in loam.yaml.',
+    );
+
+  // Peek at the global --no-update-check flag before running the command so
+  // the parsed value is available for the post-command update-notice step.
+  // runner.run() will re-parse args internally — this peek is read-only.
+  // Errors here are silently ignored; runner.run() will surface them below.
+  var noUpdateCheckFlag = false;
+  try {
+    noUpdateCheckFlag = runner.argParser.parse(args).flag('no-update-check');
+  } catch (_) {
+    // Ignore — runner.run() will handle parse errors.
+  }
 
   int code;
   try {
@@ -74,8 +94,27 @@ Future<int> run(List<String> args) async {
   // Update notice: shown after command output (last line), out-of-band on
   // stderr. Wrapped in try/catch so any error never affects the exit code.
   // (ADR-0004, CONTEXT.md Invariant 4/5).
+  //
+  // Precedence chain: --no-update-check (CLI) > LOAM_NO_UPDATE_CHECK (env,
+  // handled inside UpdateChecker) > update_check: false (loam.yaml) >
+  // default (on).
+  //
+  // Config is loaded from cwd as a best-effort; load failure is silently
+  // swallowed so a broken loam.yaml never blocks the update notice.
   try {
-    final notice = await UpdateChecker(currentVersion: loamVersion).check();
+    var configUpdateCheck = true;
+    try {
+      final config = await _loadConfig(Directory.current.path);
+      configUpdateCheck = config.updateCheck;
+    } catch (_) {
+      // Config load failure → use default (on). The command itself already
+      // surfaced the error via the ConfigLoadException path above.
+    }
+
+    final notice = await UpdateChecker(currentVersion: loamVersion).check(
+      noUpdateCheckFlag: noUpdateCheckFlag,
+      configUpdateCheck: configUpdateCheck,
+    );
     if (notice != null) {
       stderr.writeln(formatUpdateNotice(notice));
     }

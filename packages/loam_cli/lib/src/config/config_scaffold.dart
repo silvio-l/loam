@@ -38,6 +38,18 @@ abstract final class ConfigScaffold {
 # Schema: https://github.com/silvio-l/loam (see docs/PRD.md)
 
 # ---------------------------------------------------------------------------
+# update_check — opt out of the update-availability notice (bool, default true)
+#
+# true  = loam checks for a new version once per 24 h and prints a notice on
+#         stderr when a newer version is available (default, Zero-Config).
+# false = disable the check repo-wide (e.g. for offline or corporate setups).
+#
+# The full opt-out precedence chain:
+#   --no-update-check (CLI) > LOAM_NO_UPDATE_CHECK (env) > update_check: false
+# ---------------------------------------------------------------------------
+# update_check: true
+
+# ---------------------------------------------------------------------------
 # rules — per-rule on/off switches (ruleId: true/false)
 #
 # true  = rule is active (default for every rule).

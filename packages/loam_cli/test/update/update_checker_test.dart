@@ -420,6 +420,269 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Precedence matrix — CLI flag, Env, CI, Config, Default
+  // ---------------------------------------------------------------------------
+  //
+  // The full chain:
+  //   --no-update-check (CLI) > LOAM_NO_UPDATE_CHECK (env) >
+  //   CI/GITHUB_ACTIONS (env, non-overridable) >
+  //   update_check: false (config) > default (on).
+  //
+  // Each test below activates a single opt-out level while the higher-priority
+  // levels are neutral. Combinations confirm priority ordering.
+  // ---------------------------------------------------------------------------
+
+  group('UpdateChecker — precedence: CLI flag (highest)', () {
+    test(
+      'noUpdateCheckFlag=true suppresses when env neutral and config on',
+      () async {
+        final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+        final checker = _checker(fetcher: fetcher, env: {});
+        expect(
+          await checker.check(noUpdateCheckFlag: true, configUpdateCheck: true),
+          isNull,
+        );
+        expect(fetcher.callCount, 0);
+      },
+    );
+
+    test(
+      'noUpdateCheckFlag=true suppresses even if LOAM_NO_UPDATE_CHECK unset',
+      () async {
+        final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+        final checker = _checker(fetcher: fetcher, env: {});
+        expect(
+          await checker.check(noUpdateCheckFlag: true, configUpdateCheck: true),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'noUpdateCheckFlag=false does NOT suppress when other levels neutral',
+      () async {
+        // noUpdateCheckFlag off, env neutral, config on → notice produced.
+        final now = DateTime.utc(2026, 1, 1);
+        final cache = FakeUpdateCheckCache()
+          ..write(
+            UpdateCheckEntry(
+              latest: Version.parse('1.0.0'),
+              checkedAt: now.subtract(const Duration(hours: 1)),
+            ),
+          );
+        final checker = _checker(
+          currentVersion: '0.1.4',
+          cache: cache,
+          now: () => now,
+          env: {},
+        );
+        expect(
+          await checker.check(
+            noUpdateCheckFlag: false,
+            configUpdateCheck: true,
+          ),
+          isNotNull,
+        );
+      },
+    );
+  });
+
+  group('UpdateChecker — precedence: Env (LOAM_NO_UPDATE_CHECK)', () {
+    test(
+      'env opt-out suppresses when CLI flag neutral and config on',
+      () async {
+        final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+        final checker = _checker(
+          fetcher: fetcher,
+          env: {'LOAM_NO_UPDATE_CHECK': '1'},
+        );
+        expect(
+          await checker.check(
+            noUpdateCheckFlag: false,
+            configUpdateCheck: true,
+          ),
+          isNull,
+        );
+        expect(fetcher.callCount, 0);
+      },
+    );
+  });
+
+  group('UpdateChecker — precedence: CI (non-overridable)', () {
+    test('CI env suppresses when CLI flag neutral and config on', () async {
+      final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+      final checker = _checker(fetcher: fetcher, env: {'CI': 'true'});
+      expect(
+        await checker.check(noUpdateCheckFlag: false, configUpdateCheck: true),
+        isNull,
+      );
+    });
+
+    test(
+      'GITHUB_ACTIONS env suppresses when CLI flag neutral and config on',
+      () async {
+        final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+        final checker = _checker(
+          fetcher: fetcher,
+          env: {'GITHUB_ACTIONS': 'true'},
+        );
+        expect(
+          await checker.check(
+            noUpdateCheckFlag: false,
+            configUpdateCheck: true,
+          ),
+          isNull,
+        );
+      },
+    );
+  });
+
+  group('UpdateChecker — precedence: Config opt-out', () {
+    test(
+      'configUpdateCheck=false suppresses when CLI flag neutral and env clear',
+      () async {
+        final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+        final checker = _checker(fetcher: fetcher, env: {});
+        expect(
+          await checker.check(
+            noUpdateCheckFlag: false,
+            configUpdateCheck: false,
+          ),
+          isNull,
+        );
+        expect(fetcher.callCount, 0);
+      },
+    );
+
+    test(
+      'configUpdateCheck=true does NOT suppress when other levels neutral',
+      () async {
+        final now = DateTime.utc(2026, 1, 1);
+        final cache = FakeUpdateCheckCache()
+          ..write(
+            UpdateCheckEntry(
+              latest: Version.parse('1.0.0'),
+              checkedAt: now.subtract(const Duration(hours: 1)),
+            ),
+          );
+        final checker = _checker(
+          currentVersion: '0.1.4',
+          cache: cache,
+          now: () => now,
+          env: {},
+        );
+        expect(
+          await checker.check(
+            noUpdateCheckFlag: false,
+            configUpdateCheck: true,
+          ),
+          isNotNull,
+        );
+      },
+    );
+  });
+
+  group('UpdateChecker — precedence combinations', () {
+    test(
+      'CLI flag beats config opt-out (flag=true, config=false → null)',
+      () async {
+        final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+        final checker = _checker(fetcher: fetcher, env: {});
+        expect(
+          await checker.check(
+            noUpdateCheckFlag: true,
+            configUpdateCheck: false,
+          ),
+          isNull,
+        );
+        expect(fetcher.callCount, 0);
+      },
+    );
+
+    test(
+      'CLI flag beats env opt-out (both suppress; flag checked first)',
+      () async {
+        // Both CLI and env suppress; the point is that the first match (CLI)
+        // short-circuits so no fetcher call happens regardless.
+        final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+        final checker = _checker(
+          fetcher: fetcher,
+          env: {'LOAM_NO_UPDATE_CHECK': '1'},
+        );
+        expect(
+          await checker.check(noUpdateCheckFlag: true, configUpdateCheck: true),
+          isNull,
+        );
+        expect(fetcher.callCount, 0);
+      },
+    );
+
+    test(
+      'env opt-out beats config opt-out (env set, config=false → null)',
+      () async {
+        final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+        final checker = _checker(
+          fetcher: fetcher,
+          env: {'LOAM_NO_UPDATE_CHECK': '1'},
+        );
+        expect(
+          await checker.check(
+            noUpdateCheckFlag: false,
+            configUpdateCheck: false,
+          ),
+          isNull,
+        );
+      },
+    );
+
+    test('all neutral → notice returned when update available', () async {
+      final now = DateTime.utc(2026, 1, 1);
+      final cache = FakeUpdateCheckCache()
+        ..write(
+          UpdateCheckEntry(
+            latest: Version.parse('1.0.0'),
+            checkedAt: now.subtract(const Duration(hours: 1)),
+          ),
+        );
+      final checker = _checker(
+        currentVersion: '0.1.4',
+        cache: cache,
+        now: () => now,
+        env: {},
+      );
+      final notice = await checker.check(
+        noUpdateCheckFlag: false,
+        configUpdateCheck: true,
+      );
+      expect(notice, isNotNull);
+      expect(notice!.latestVersion, Version.parse('1.0.0'));
+    });
+
+    test(
+      'check() without named args uses defaults → same as all-neutral',
+      () async {
+        // Backward-compat: existing callers that omit the new params still work.
+        final now = DateTime.utc(2026, 1, 1);
+        final cache = FakeUpdateCheckCache()
+          ..write(
+            UpdateCheckEntry(
+              latest: Version.parse('1.0.0'),
+              checkedAt: now.subtract(const Duration(hours: 1)),
+            ),
+          );
+        final checker = _checker(
+          currentVersion: '0.1.4',
+          cache: cache,
+          now: () => now,
+          env: {},
+        );
+        // No named args → defaults (noUpdateCheckFlag: false, configUpdateCheck: true)
+        expect(await checker.check(), isNotNull);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // FileUpdateCheckCache round-trip (real filesystem)
   // ---------------------------------------------------------------------------
 

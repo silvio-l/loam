@@ -62,6 +62,12 @@ void main() {
         contains('loam.dev'),
         reason: 'product name must appear in scaffold',
       );
+      // update_check entry must appear (as a comment).
+      expect(
+        content,
+        contains('update_check'),
+        reason: 'scaffold must document the update_check field',
+      );
     });
   });
 

@@ -4,6 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:loam/src/config/config_loader.dart';
+import 'package:loam/src/config/loam_config.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -151,5 +152,116 @@ ignore:
       config.ignoreGlobs,
       containsAll(['test/fixtures/**', 'lib/generated/**']),
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // update_check field
+  // ---------------------------------------------------------------------------
+
+  test('missing update_check field defaults to true (Zero-Config)', () async {
+    // No loam.yaml at all → defaults.
+    final config = await ConfigLoader.load(tempDir.path);
+    expect(config.updateCheck, isTrue);
+  });
+
+  test('update_check: true parses correctly', () async {
+    File(
+      p.join(tempDir.path, 'loam.yaml'),
+    ).writeAsStringSync('update_check: true\n');
+    final config = await ConfigLoader.load(tempDir.path);
+    expect(config.updateCheck, isTrue);
+  });
+
+  test('update_check: false parses correctly', () async {
+    File(
+      p.join(tempDir.path, 'loam.yaml'),
+    ).writeAsStringSync('update_check: false\n');
+    final config = await ConfigLoader.load(tempDir.path);
+    expect(config.updateCheck, isFalse);
+  });
+
+  test('update_check with non-bool value throws ConfigLoadException', () async {
+    File(
+      p.join(tempDir.path, 'loam.yaml'),
+    ).writeAsStringSync('update_check: "yes"\n');
+
+    await expectLater(
+      ConfigLoader.load(tempDir.path),
+      throwsA(isA<ConfigLoadException>()),
+    );
+  });
+
+  test('update_check non-bool error message mentions the field', () async {
+    File(
+      p.join(tempDir.path, 'loam.yaml'),
+    ).writeAsStringSync('update_check: 1\n');
+
+    try {
+      await ConfigLoader.load(tempDir.path);
+      fail('Expected ConfigLoadException');
+    } on ConfigLoadException catch (e) {
+      expect(e.message, contains('update_check'));
+    }
+  });
+
+  test('update_check: false coexists with rule-toggles', () async {
+    final yaml = '''
+update_check: false
+rules:
+  unused-public-exports: false
+''';
+    File(p.join(tempDir.path, 'loam.yaml')).writeAsStringSync(yaml);
+    final config = await ConfigLoader.load(tempDir.path);
+    expect(config.updateCheck, isFalse);
+    expect(config.ruleToggles, equals({'unused-public-exports': false}));
+  });
+
+  // ---------------------------------------------------------------------------
+  // LoamConfig equality and hashCode — updateCheck field participates
+  // ---------------------------------------------------------------------------
+
+  group('LoamConfig == and hashCode with updateCheck', () {
+    test('two defaults() are equal', () {
+      expect(const LoamConfig.defaults(), equals(const LoamConfig.defaults()));
+    });
+
+    test('updateCheck=true vs updateCheck=false are not equal', () {
+      const a = LoamConfig(ruleToggles: {}, ignoreGlobs: [], updateCheck: true);
+      const b = LoamConfig(
+        ruleToggles: {},
+        ignoreGlobs: [],
+        updateCheck: false,
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('same updateCheck values produce equal configs', () {
+      const a = LoamConfig(
+        ruleToggles: {},
+        ignoreGlobs: [],
+        updateCheck: false,
+      );
+      const b = LoamConfig(
+        ruleToggles: {},
+        ignoreGlobs: [],
+        updateCheck: false,
+      );
+      expect(a, equals(b));
+    });
+
+    test('hashCode differs when updateCheck differs', () {
+      const a = LoamConfig(ruleToggles: {}, ignoreGlobs: [], updateCheck: true);
+      const b = LoamConfig(
+        ruleToggles: {},
+        ignoreGlobs: [],
+        updateCheck: false,
+      );
+      // hashCode collision is theoretically possible but unlikely for booleans.
+      expect(a.hashCode, isNot(equals(b.hashCode)));
+    });
+
+    test('defaults() updateCheck is true', () {
+      expect(const LoamConfig.defaults().updateCheck, isTrue);
+    });
   });
 }
