@@ -19,7 +19,9 @@ ATTEST="$ROOT/.docs-attest"
 README="$ROOT/README.md"
 CLI="$ROOT/packages/loam_cli/bin/loam.dart"
 WEB="$ROOT/web"
-WEBPAGE="$ROOT/web/src/pages/index.astro"   # Astro-Quelle der Startseite (Single Source des Markups)
+WEBPAGE="$ROOT/web/src/layouts/Layout.astro"  # Single Source des Chrome (Brand-Tokens, Versions-Chip, Footer-Links)
+WEBPAGE_HOME_EN="$ROOT/web/src/pages/index.astro"
+WEBPAGE_HOME_DE="$ROOT/web/src/pages/de/index.astro"
 PUBSPEC="$ROOT/packages/loam_cli/pubspec.yaml"
 PKGREADME="$ROOT/packages/loam_cli/README.md"
 PKGCHANGELOG="$ROOT/packages/loam_cli/CHANGELOG.md"
@@ -253,15 +255,32 @@ check_pubdev_docs() {
   return 0
 }
 
+check_i18n() {
+  # i18n Hard-Checks (ab Issue 01):
+  #  (a) Home-Seite existiert auf EN (/index.astro) UND DE (/de/index.astro).
+  #  (b) Layout.astro enthält hreflang-Alternates (das Muster prüfen, nicht die
+  #      gebauten HTML-Seiten, damit der Check ohne Build läuft).
+  [ -f "$WEBPAGE_HOME_EN" ] || note "i18n: EN Home fehlt: ${WEBPAGE_HOME_EN#$ROOT/}"
+  [ -f "$WEBPAGE_HOME_DE" ] || note "i18n: DE Home fehlt: ${WEBPAGE_HOME_DE#$ROOT/}"
+  # Jede Seite leitet ihre hreflang-Tags aus Layout.astro ab (hreflangAlternates-Aufruf).
+  [ -f "$WEBPAGE" ] && {
+    grep -qF 'hreflangAlternates' "$WEBPAGE" \
+      || note "i18n: Layout.astro ruft hreflangAlternates nicht auf (hreflang-Alternates fehlen)"
+    grep -qF 'rel="alternate"' "$WEBPAGE" \
+      || note "i18n: Layout.astro rendert keine hreflang-<link>-Tags"
+  }
+  return 0
+}
+
 cmd_check() {
   fail=0
   # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
   # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
   # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
-  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs; check_i18n
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points · i18n)"
 }
 
 cmd_attest() {

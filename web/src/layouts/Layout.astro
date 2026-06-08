@@ -1,0 +1,152 @@
+---
+/**
+ * Layout.astro — Single Source of Chrome for loam.dev.
+ *
+ * Brand-Tokens (CSS :root): bg=#101014, ink=#ECEAE3, green=#88C840,
+ *   soil=#564F47, dim=#8D8A7E — identisch zu assets/brand/tokens.json.
+ *
+ * Versions-Chip: v0.1.4 · preview (muss zur pubspec.yaml version passen).
+ *
+ * Footer-Link: Developer-Guide (developer-guide.md).
+ *
+ * Font-Import-Slot: vorbereitet für self-hosted Spline Sans Mono (issue 04).
+ * KEIN Link zu fonts.googleapis.com / gstatic (Privacy-Constraint).
+ */
+import LanguageSwitcher from '../components/LanguageSwitcher.astro';
+import { hreflangAlternates } from '../i18n/utils';
+import { t } from '../i18n/ui';
+import type { Locale } from '../i18n/utils';
+
+interface Props {
+  lang: Locale;
+  title: string;
+  description: string;
+  /** Canonical path, e.g. '/' or '/de/' or '/rules'. */
+  path: string;
+}
+
+const { lang, title, description, path } = Astro.props;
+const alternates = hreflangAlternates(path);
+const canonicalUrl = `https://getloam.dev${path}`;
+const ogImage = 'https://getloam.dev/og-image.png';
+---
+
+<!doctype html>
+<html lang={lang}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <meta name="description" content={description}>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <meta name="theme-color" content="#101014">
+  <link rel="canonical" href={canonicalUrl}>
+
+  <!-- hreflang alternates (i18n SEO) -->
+  {alternates.map(alt => (
+    <link rel="alternate" hreflang={alt.hreflang} href={alt.href}>
+  ))}
+
+  <!-- OpenGraph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="loam.dev">
+  <meta property="og:url" content={canonicalUrl}>
+  <meta property="og:title" content={title}>
+  <meta property="og:description" content={description}>
+  <meta property="og:image" content={ogImage}>
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta property="og:image:alt" content="loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content={title}>
+  <meta name="twitter:description" content={description}>
+  <meta name="twitter:image" content={ogImage}>
+
+  <!--
+    Font-Import-Slot — self-hosted Spline Sans Mono.
+    Full self-host via @fontsource/spline-sans-mono lands in issue 04.
+    NO fonts.googleapis.com / gstatic link here (privacy constraint).
+  -->
+
+  <style is:inline>
+    /* Brand-Tokens — identisch zu assets/brand/tokens.json (Corporate Design).
+       88C840 = green | 564F47 = soil | ECEAE3 = ink | 101014 = bg          */
+    :root{
+      --bg:#101014; --ink:#ECEAE3; --green:#88C840; --soil:#564F47; --dim:#8D8A7E;
+      --panel:#15171c; --line:#23252b;
+      --font:'Spline Sans Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+      --wm:clamp(248px,46vw,430px);
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{
+      min-height:100svh; background:var(--bg); color:var(--ink);
+      font-family:var(--font); position:relative; overflow-x:hidden;
+      display:flex; flex-direction:column;
+    }
+    body::before{ content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background:
+        radial-gradient(60% 50% at 50% 28%, rgba(136,200,64,.10) 0%, rgba(136,200,64,0) 60%),
+        linear-gradient(180deg,#0e0f13 0%, #101014 55%, #0e0f0d 100%); }
+    body::after{ content:""; position:fixed; inset:0; z-index:2; pointer-events:none; opacity:.05;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .grid{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
+      background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                       linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+      background-size:64px 64px; mask-image:radial-gradient(80% 70% at 50% 35%,#000 30%,transparent 78%); }
+
+    header{ position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between;
+      padding:clamp(1.1rem,3vw,1.8rem) clamp(1.2rem,5vw,3rem); }
+    .brand{ display:flex; align-items:center; gap:.6rem; text-decoration:none; }
+    .brand .b-dot{ width:.5rem; height:.5rem; border-radius:50%; background:var(--green); box-shadow:0 0 12px var(--green); }
+    .wm-sm{ height:1.05rem; width:auto; display:block; }
+    .header-right{ display:flex; align-items:center; gap:.8rem; }
+    .chip{ font-size:.7rem; letter-spacing:.16em; text-transform:uppercase; color:var(--green);
+      border:1px solid rgba(136,200,64,.28); border-radius:999px; padding:.42rem .8rem; background:rgba(136,200,64,.05); }
+
+    main{ position:relative; z-index:3; flex:1; }
+
+    .strata{ position:fixed; left:0; right:0; bottom:0; height:34vh; z-index:1; pointer-events:none;
+      background:linear-gradient(180deg, transparent 0%, rgba(86,79,71,.0) 30%, rgba(86,79,71,.30) 72%, rgba(86,79,71,.55) 100%);
+      mask-image:linear-gradient(180deg,transparent,#000 60%); }
+    .strata::before{ content:""; position:absolute; left:0; right:0; bottom:0; height:120px;
+      background:repeating-linear-gradient(180deg, rgba(86,79,71,.16) 0 10px, rgba(0,0,0,0) 10px 22px); opacity:.6; }
+
+    footer{ position:relative; z-index:3; text-align:center; padding:1.4rem; font-size:.74rem; color:var(--dim); letter-spacing:.04em; }
+    footer .accent{ color:var(--soil); }
+    footer a{ color:var(--dim); text-decoration:none; border-bottom:1px solid rgba(141,138,126,.3); padding-bottom:1px; transition:.18s; }
+    footer a:hover{ color:var(--green); border-color:var(--green); }
+
+    @keyframes rise{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
+    @media (prefers-reduced-motion:reduce){ *{ animation:none !important; } }
+  </style>
+</head>
+<body>
+  <div class="grid"></div>
+
+  <header>
+    <a class="brand" href={lang === 'de' ? '/de/' : '/'} aria-label="loam.dev">
+      <span class="b-dot"></span>
+      <img class="wm-sm" src="/wordmark.svg" alt="loam.dev">
+    </a>
+    <div class="header-right">
+      <!-- Versions-Chip: v0.1.4 · preview — muss zur pubspec.yaml version passen -->
+      <span class="chip">v0.1.4 · preview</span>
+      <LanguageSwitcher lang={lang} path={path} />
+    </div>
+  </header>
+
+  <main>
+    <slot />
+  </main>
+
+  <div class="strata"></div>
+
+  <footer>
+    <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">{t(lang, 'footer.devGuide')}</a>
+    &nbsp;<span class="accent">·</span>&nbsp;
+    {t(lang, 'footer.copyright')}
+  </footer>
+</body>
+</html>

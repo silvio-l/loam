@@ -7,4 +7,11 @@ import { defineConfig } from 'astro/config';
 export default defineConfig({
   site: 'https://getloam.dev',
   output: 'static',
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en', 'de'],
+    routing: {
+      prefixDefaultLocale: false,
+    },
+  },
 });

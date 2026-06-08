@@ -1,0 +1,65 @@
+---
+/**
+ * LanguageSwitcher — navigates page-accurately to the counterpart URL.
+ * localStorage is used only to pre-populate the switcher label preference,
+ * never as an automatic redirect.
+ */
+import { counterpartUrl } from '../i18n/utils';
+import { t } from '../i18n/ui';
+import type { Locale } from '../i18n/utils';
+
+interface Props {
+  lang: Locale;
+  path: string;
+}
+
+const { lang, path } = Astro.props;
+const targetLocale: Locale = lang === 'en' ? 'de' : 'en';
+const switchUrl = counterpartUrl(path, targetLocale);
+const label = t(lang, 'switcher.label');
+const ariaLabel = t(lang, 'switcher.ariaLabel');
+---
+
+<a
+  class="lang-switch"
+  href={switchUrl}
+  aria-label={ariaLabel}
+  data-target-locale={targetLocale}
+>{label}</a>
+
+<script is:inline>
+  // Pre-populate: if the user previously chose a locale, highlight the switcher
+  // visually. This is purely cosmetic — no redirect happens automatically.
+  (function () {
+    var pref = localStorage.getItem('loam-locale');
+    if (!pref) return;
+    var el = document.querySelector('.lang-switch');
+    if (el && el.getAttribute('data-target-locale') !== pref) {
+      el.classList.add('lang-active');
+    }
+  })();
+  // Store chosen locale when user clicks
+  document.querySelector('.lang-switch')?.addEventListener('click', function () {
+    var locale = this.getAttribute('data-target-locale');
+    if (locale) localStorage.setItem('loam-locale', locale);
+  });
+</script>
+
+<style is:inline>
+  .lang-switch {
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--dim);
+    text-decoration: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: .3rem .7rem;
+    transition: .18s;
+  }
+  .lang-switch:hover,
+  .lang-switch.lang-active {
+    color: var(--green);
+    border-color: rgba(136,200,64,.5);
+  }
+</style>

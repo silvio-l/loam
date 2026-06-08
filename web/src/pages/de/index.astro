@@ -1,37 +1,37 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import Layout from '../../layouts/Layout.astro';
 ---
 
 <Layout
-  lang="en"
-  title="loam.dev — Codebase intelligence & anti-AI-slop for Dart & Flutter"
-  description="loam.dev catches the structural drift and AI-generated slop that dart analyze never sees — behind a baseline/ratchet CI gate. Semantic, project-wide, offline by default."
-  path="/"
+  lang="de"
+  title="loam.dev — Codebase-Intelligence &amp; Anti-AI-Slop für Dart &amp; Flutter"
+  description="loam.dev findet strukturellen Drift und KI-generierten Slop, den dart analyze übersieht — hinter einem Baseline/Ratchet-CI-Gate. Semantisch, projektübergreifend, standardmäßig offline."
+  path="/de/"
 >
   <div class="home-main">
-    <img class="mark" src="/icon-mark.svg" alt="loam.dev logo — a sprout growing from layered soil">
+    <img class="mark" src="/icon-mark.svg" alt="loam.dev Logo — ein Keimling wächst aus geschichteten Erdschichten">
     <span class="lockup">
       <img class="wm-hero" src="/wordmark.svg" alt="loam.dev">
       <span class="caret" aria-hidden="true"></span>
     </span>
-    <p class="tagline">Codebase intelligence &amp; <em>anti-AI-slop</em> for Dart&nbsp;&amp;&nbsp;Flutter.</p>
-    <p class="sub">Catches the structural drift and AI-generated slop that <code>dart&nbsp;analyze</code>
-       never sees — semantic, project-wide, behind a baseline/ratchet CI gate that never paints a
-       grown codebase red on day one.</p>
+    <p class="tagline">Codebase-Intelligence &amp; <em>Anti-AI-Slop</em> für Dart&nbsp;&amp;&nbsp;Flutter.</p>
+    <p class="sub">Findet den strukturellen Drift und den KI-generierten Slop, den <code>dart&nbsp;analyze</code>
+       übersieht — semantisch, projektübergreifend, hinter einem Baseline/Ratchet-CI-Gate,
+       das gewachsenen Code nicht am ersten Tag rot malt.</p>
     <div class="cmd">
       <span class="p">$</span><span class="t" id="cmd">dart pub global activate loam</span>
-      <button id="copy" aria-label="Copy install command">copy</button>
+      <button id="copy" aria-label="Installationsbefehl kopieren">kopieren</button>
     </div>
     <nav class="links">
       <a href="https://pub.dev/packages/loam">pub.dev</a>
       <span class="sep"></span>
       <a href="https://github.com/silvio-l/loam">GitHub</a>
       <span class="sep"></span>
-      <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">docs</a>
+      <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">Doku</a>
       <span class="sep"></span>
-      <a href="mailto:silvio-lindstedt@outlook.com">contact</a>
+      <a href="mailto:silvio-lindstedt@outlook.com">Kontakt</a>
       <span class="sep"></span>
-      <button class="sharelink" id="share" type="button">share</button>
+      <button class="sharelink" id="share" type="button">teilen</button>
     </nav>
   </div>
 </Layout>
@@ -86,14 +86,14 @@ import Layout from '../layouts/Layout.astro';
   const b=document.getElementById('copy');
   b?.addEventListener('click',async()=>{ try{
     await navigator.clipboard.writeText(document.getElementById('cmd').textContent.trim());
-    b.textContent='copied'; b.classList.add('ok'); setTimeout(()=>{b.textContent='copy';b.classList.remove('ok');},1600);
+    b.textContent='kopiert'; b.classList.add('ok'); setTimeout(()=>{b.textContent='kopieren';b.classList.remove('ok');},1600);
   }catch(e){} });
 
   const s=document.getElementById('share');
-  const shareData={ title:'loam.dev', text:'Codebase intelligence & anti-AI-slop for Dart & Flutter.', url:'https://getloam.dev/' };
+  const shareData={ title:'loam.dev', text:'Codebase-Intelligence & Anti-AI-Slop für Dart & Flutter.', url:'https://getloam.dev/de/' };
   s?.addEventListener('click',async()=>{ try{
     if(navigator.share){ await navigator.share(shareData); return; }
     await navigator.clipboard.writeText(shareData.url);
-    s.textContent='link copied'; s.classList.add('ok'); setTimeout(()=>{s.textContent='share';s.classList.remove('ok');},1600);
+    s.textContent='Link kopiert'; s.classList.add('ok'); setTimeout(()=>{s.textContent='teilen';s.classList.remove('ok');},1600);
   }catch(e){} });
 </script>
