@@ -11,8 +11,10 @@ LLM-Slop mit Cache, der interaktive HTML-Report) zeigen, und den Einstieg
   (`output: 'static'`, kein Adapter, kein Server).
 - **Cloudflare Pages** (Free-Tier, Projekt `loam`, Domain `getloam.dev`), das **aus der
   Quelle baut** — `dist/` wird nicht eingecheckt (siehe `.gitignore`).
-- Keine Integrations, keine Runtime-Abhängigkeiten: eine einzelne Seite, Brand-Tokens
-  inline, Schrift via Google Fonts.
+- **`@astrojs/sitemap`** — dokumentierte Ausnahme zur „keine Integrations"-Leitplanke:
+  der Sitemap-Generator produziert deterministischen Build-Output (statisches XML),
+  ist kein Runtime-Service und hat keine Drittanbieter-Call-Seite (kein Quota-Risiko).
+  Alle anderen Integrations bleiben verboten.
 
 ## Entwickeln
 

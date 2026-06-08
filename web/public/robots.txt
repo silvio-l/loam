@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://getloam.dev/sitemap-index.xml
