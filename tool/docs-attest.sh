@@ -38,7 +38,10 @@ check_readme() {
   # Pflicht-Marker aus der Spec (Single Source of Truth für den Aufbau)
   # Verwende den exakten Kommentar-Marker (<!-- required:start -->) damit andere
   # Marker-Blöcke (z. B. devguide-required:start) nicht irrtümlich mitgelesen werden.
-  local markers; markers="$(awk '/<!-- required:start -->/{f=1;next} /<!-- required:end -->/{f=0} f' "$SPEC" \
+  # SPEC ist bewusst gitignored (interne QS-Spec) -> in CI/Fresh-Clone abwesend.
+  # Dann Marker-Check überspringen statt unter set -e an awk zu sterben.
+  local markers=""
+  [ -f "$SPEC" ] && markers="$(awk '/<!-- required:start -->/{f=1;next} /<!-- required:end -->/{f=0} f' "$SPEC" \
                             | sed '/^[[:space:]]*$/d')"
   while IFS= read -r m; do
     [ -z "$m" ] && continue
@@ -173,7 +176,8 @@ check_devguide() {
   # Pflicht-Marker aus der Spec (§6, devguide-required:start … devguide-required:end).
   [ -f "$DEVGUIDE" ] || { note "Developer-Guide fehlt: ${DEVGUIDE#$ROOT/}"; return; }
 
-  local markers; markers="$(awk '/devguide-required:start/{f=1;next} /devguide-required:end/{f=0} f' "$SPEC" \
+  local markers=""
+  [ -f "$SPEC" ] && markers="$(awk '/devguide-required:start/{f=1;next} /devguide-required:end/{f=0} f' "$SPEC" \
                             | sed '/^[[:space:]]*$/d')"
   while IFS= read -r m; do
     [ -z "$m" ] && continue
