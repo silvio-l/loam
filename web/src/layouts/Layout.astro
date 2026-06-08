@@ -112,6 +112,7 @@ const navItems = [
       flex-wrap:wrap; gap:.5rem clamp(.8rem,2vw,1.6rem);
       padding:clamp(1.1rem,3vw,1.8rem) clamp(1.2rem,5vw,3rem); }
 
+    .header-left{ display:flex; align-items:center; gap:clamp(.9rem,2.5vw,2rem); flex-wrap:wrap; }
     .mainnav{ display:flex; align-items:center; flex-wrap:wrap; gap:clamp(.6rem,1.8vw,1.4rem); }
     .mainnav .navlink{ font-size:.74rem; letter-spacing:.12em; text-transform:uppercase;
       color:var(--dim); text-decoration:none; padding:.3rem 0; border-bottom:1px solid transparent; transition:.18s; }
@@ -146,19 +147,21 @@ const navItems = [
   <div class="grid"></div>
 
   <header>
-    <a class="brand" href={lang === 'de' ? '/de/' : '/'} aria-label="loam.dev">
-      <span class="b-dot"></span>
-      <img class="wm-sm" src="/wordmark.svg" alt="loam.dev">
-    </a>
-    <nav class="mainnav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
-      {navItems.map(item => (
-        <a
-          href={item.href}
-          class:list={["navlink", { active: normalizedPath === item.href }]}
-          aria-current={normalizedPath === item.href ? 'page' : undefined}
-        >{item.label}</a>
-      ))}
-    </nav>
+    <div class="header-left">
+      <a class="brand" href={lang === 'de' ? '/de/' : '/'} aria-label="loam.dev">
+        <span class="b-dot"></span>
+        <img class="wm-sm" src="/wordmark.svg" alt="loam.dev">
+      </a>
+      <nav class="mainnav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
+        {navItems.map(item => (
+          <a
+            href={item.href}
+            class:list={["navlink", { active: normalizedPath === item.href }]}
+            aria-current={normalizedPath === item.href ? 'page' : undefined}
+          >{item.label}</a>
+        ))}
+      </nav>
+    </div>
     <div class="header-right">
       <!-- Versions-Chip: v0.1.4 · preview — muss zur pubspec.yaml version passen -->
       <span class="chip">v0.1.4 · preview</span>

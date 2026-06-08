@@ -12,10 +12,12 @@ import Layout from '../../layouts/Layout.astro';
     <h1>Funktionsweise</h1>
 
     <p class="lead">
-      loam.dev durchläuft eine sechsstufige Pipeline, die ein Dart/Flutter-Projekt
-      von den Quelldateien zu einer deterministischen Pass/Fail-Entscheidung in CI
-      führt — ohne Raten, ohne Regex-Abkürzungen, ohne False Positives aus
-      generiertem Code.
+      loam.dev liest ein Dart/Flutter-Projekt semantisch und über die ganze
+      Codebase — nicht Datei für Datei — und macht daraus eine deterministische
+      Pass/Fail-Entscheidung in CI. Eine Baseline duldet den vorhandenen Code,
+      sodass nur neu hinzugekommene Probleme den Build blockieren. Das geschieht in
+      einer sechsstufigen Pipeline, ohne Raten, ohne Regex-Abkürzungen, ohne False
+      Positives aus generiertem Code.
     </p>
 
     <!-- Pipeline -->
