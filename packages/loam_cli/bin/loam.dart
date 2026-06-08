@@ -11,6 +11,8 @@ import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
+import 'package:loam/src/update/update_checker.dart';
+import 'package:loam/src/update/update_notice.dart';
 import 'package:loam/src/version.dart';
 import 'package:path/path.dart' as p;
 
@@ -55,9 +57,9 @@ Future<int> run(List<String> args) async {
     },
   );
 
+  int code;
   try {
-    final code = await runner.run(args) ?? 0;
-    return code;
+    code = await runner.run(args) ?? 0;
   } on UsageException catch (e) {
     stderr.writeln(e);
     return 64;
@@ -68,6 +70,20 @@ Future<int> run(List<String> args) async {
     stderr.writeln(e.toString());
     return 78;
   }
+
+  // Update notice: shown after command output (last line), out-of-band on
+  // stderr. Wrapped in try/catch so any error never affects the exit code.
+  // (ADR-0004, CONTEXT.md Invariant 4/5).
+  try {
+    final notice = await UpdateChecker(currentVersion: loamVersion).check();
+    if (notice != null) {
+      stderr.writeln(formatUpdateNotice(notice));
+    }
+  } catch (_) {
+    // Silently swallow any unexpected error — notice is optional.
+  }
+
+  return code;
 }
 
 /// Full audit: runs all active rules across the whole project
