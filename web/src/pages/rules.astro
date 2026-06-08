@@ -1,0 +1,311 @@
+---
+import Layout from '../layouts/Layout.astro';
+import RuleCard from '../components/RuleCard.astro';
+import { t } from '../i18n/ui';
+
+const lang = 'en';
+const live = t(lang, 'rules.badge.live');
+const planned = t(lang, 'rules.badge.planned');
+const slopLabel = t(lang, 'rules.slop.label');
+const cleanLabel = t(lang, 'rules.clean.label');
+---
+
+<Layout
+  lang="en"
+  title="Rules — loam.dev"
+  description="The full loam.dev rule catalogue: six analysis capabilities for Dart/Flutter projects — one live today, five planned. Each rule shows a slop vs. clean code example."
+  path="/rules"
+>
+  <div class="prose-page">
+    <h1>Rules</h1>
+
+    <p class="lead">
+      loam.dev ships six analysis capabilities, all behind one stable
+      <code>Rule</code> interface. Adding a new rule never changes the pipeline —
+      only the rule list. One rule is live today; five are planned and will ship
+      as post-MVP iterations. Status is always honest.
+    </p>
+
+    <!-- Live rule -->
+    <section>
+      <h2>Live</h2>
+
+      <RuleCard
+        ruleId="unused-public-exports"
+        title="Unused public exports"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Finds public API members — classes, methods, getters/setters, fields, enums, typedefs — that have no references anywhere in the project. Analysis runs on the resolved element model, not regex, so generated-code inputs (Drift, freezed, Riverpod, json_serializable) are automatically excluded without any configuration."
+        slopCode={`// public but never used outside this library
+class OldHelper {
+  static String format(String s) => s.trim();
+}
+
+// also unreferenced — reported by loam.dev
+enum LegacyStatus { active, archived }`}
+        cleanCode={`// either remove it, make it private, or add
+// a loam-ignore directive with a reason:
+// loam-ignore: unused-public-exports – re-exported via barrel
+
+// kept and used:
+class ActiveHelper {
+  static String format(String s) => s.trim();
+}`}
+      />
+
+      <div class="deeper-box">
+        <h3>Going deeper</h3>
+        <p>
+          The
+          <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">Developer Guide</a>
+          covers the full CLI reference, configuration options (rule toggles,
+          path suppression, inline <code>// loam-ignore:</code> directives),
+          and the complete baseline onboarding sequence — including how to
+          integrate <code>loam gate</code> into GitHub Actions.
+        </p>
+        <p>
+          Automatic suppression for code-generator inputs is described in detail
+          under "Automatic codegen-input suppression" in the guide — the three
+          detection signals (base-type registry, annotation registry, structural
+          fallback) work without any <code>loam.yaml</code> configuration.
+        </p>
+      </div>
+    </section>
+
+    <!-- Planned rules -->
+    <section>
+      <h2>Planned</h2>
+
+      <p class="section-intro">
+        These five rules are on the post-MVP roadmap. Each is a separate plugin
+        behind the same <code>Rule</code> interface — the pipeline will not
+        change when they ship.
+      </p>
+
+      <RuleCard
+        ruleId="circular-dependencies"
+        title="Circular dependencies"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Detects import cycles across your Dart libraries. Cycles make compilation order ambiguous, prevent tree-shaking, and are a common sign of unclear layer responsibilities."
+        slopCode={`// lib/a.dart
+import 'b.dart';
+
+// lib/b.dart
+import 'a.dart'; // ← cycle: a → b → a`}
+        cleanCode={`// Extract shared types into a third library
+// lib/shared.dart  (no imports from a or b)
+// lib/a.dart  imports shared.dart
+// lib/b.dart  imports shared.dart`}
+      />
+
+      <RuleCard
+        ruleId="code-duplicates"
+        title="Code duplicates"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Finds structurally similar code blocks using AST-normalised token hashing. Flags helpers that were copy-pasted rather than extracted — a classic AI-agent side effect."
+        slopCode={`// feature_a/utils.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// feature_b/helpers.dart  ← near-duplicate
+String renderDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';`}
+        cleanCode={`// lib/shared/date_format.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// both features import the shared helper`}
+      />
+
+      <RuleCard
+        ruleId="complexity-hotspots"
+        title="Complexity hotspots"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Measures cyclomatic and cognitive complexity per function/method and aggregates them into a project health score. Flags functions that are too complex to review or test reliably."
+        slopCode={`// cognitive complexity ≫ threshold
+Future<void> syncData(List<Item> items) async {
+  for (final item in items) {
+    if (item.isValid) {
+      if (item.needsSync) {
+        try {
+          if (await remote.has(item.id)) {
+            await remote.update(item);
+          } else { await remote.create(item); }
+        } catch (e) { /* swallowed */ }
+      }
+    }
+  }
+}`}
+        cleanCode={`// split into focused, testable helpers
+Future<void> syncData(List<Item> items) async {
+  final candidates = items.where(_needsSync);
+  await Future.wait(candidates.map(_syncOne));
+}
+
+Future<void> _syncOne(Item item) async { … }`}
+      />
+
+      <RuleCard
+        ruleId="architecture-boundaries"
+        title="Architecture boundaries"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Auto-detects your layer layout (core/, features/, services/, …) and flags imports that cross forbidden boundaries. Zero-config: the derived rule set is written out transparently and can be frozen or refined."
+        slopCode={`// features/profile/profile_page.dart
+// ↓ features layer reaching into services internals
+import '../../services/db/internal_schema.dart';`}
+        cleanCode={`// services exposes a public API instead:
+// services/user_repository.dart (public interface)
+// features/profile/profile_page.dart
+import '../../services/user_repository.dart';`}
+      />
+
+      <RuleCard
+        ruleId="anti-ai-slop"
+        title="Anti-AI-slop"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Detects AI-agent quality shortcuts: empty catch blocks, narrative filler comments, groundless // ignore: directives, dead guard clauses, and hallucinated abstractions. Deterministic AST patterns run first; an optional LLM layer handles intent-level slop via a verdict cache — the same code always produces the same verdict, zero token cost on repeats."
+        slopCode={`// empty catch — classic slop
+try {
+  await fetchData();
+} catch (e) {} // ← swallows all errors
+
+// narrative filler comment
+/// This method processes the data by iterating
+/// over all items and applying the transformation.
+List<String> process(List<String> items) =>
+    items.map((i) => i.toUpperCase()).toList();`}
+        cleanCode={`// handle or rethrow with context
+try {
+  await fetchData();
+} catch (e, st) {
+  log.error('fetchData failed', e, st);
+  rethrow;
+}
+
+// doc comment adds value, not noise
+/// Returns [items] uppercased.
+List<String> process(List<String> items) =>
+    items.map((i) => i.toUpperCase()).toList();`}
+      />
+    </section>
+
+    <!-- Going deeper -->
+    <section>
+      <h2>Going deeper</h2>
+
+      <p>
+        The
+        <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">Developer Guide</a>
+        covers the full CLI reference, output formats, configuration, and
+        worked examples — including how to integrate <code>loam gate</code>
+        into GitHub Actions.
+      </p>
+    </section>
+  </div>
+</Layout>
+
+<style is:inline>
+  .prose-page {
+    max-width: 72ch;
+    margin: 0 auto;
+    padding: 3rem clamp(1.2rem, 5vw, 3rem) 5rem;
+    line-height: 1.7;
+  }
+  .prose-page h1 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 1rem;
+  }
+  .lead {
+    color: var(--dim);
+    font-size: .95rem;
+    margin-bottom: 2.8rem;
+    border-left: 2px solid var(--green);
+    padding-left: 1rem;
+  }
+  .prose-page h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin: 2.8rem 0 1rem;
+  }
+  .prose-page h3 {
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 .3rem;
+  }
+  .prose-page p {
+    color: var(--dim);
+    font-size: .9rem;
+    margin-bottom: .8rem;
+  }
+  .prose-page a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(236,233,225,.3);
+    padding-bottom: 1px;
+    transition: .18s;
+  }
+  .prose-page a:hover {
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .prose-page code {
+    color: var(--ink);
+    background: rgba(255,255,255,.05);
+    padding: .05em .4em;
+    border-radius: 5px;
+    font-size: .88em;
+  }
+  .prose-page section {
+    border-top: 1px solid var(--line);
+    padding-top: .4rem;
+  }
+  .section-intro {
+    margin-bottom: 1.4rem !important;
+  }
+  .deeper-box {
+    background: var(--panel);
+    border: 1px solid rgba(136,200,64,.18);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin: .4rem 0 1.6rem;
+  }
+  .deeper-box h3 {
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin: 0 0 .6rem;
+  }
+  .deeper-box p {
+    font-size: .86rem !important;
+    color: var(--dim);
+    margin-bottom: .5rem !important;
+  }
+  .deeper-box p:last-child {
+    margin-bottom: 0 !important;
+  }
+</style>

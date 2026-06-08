@@ -1,0 +1,154 @@
+---
+/**
+ * RuleCard.astro — displays one rule from the loam.dev catalogue.
+ *
+ * Props:
+ *   ruleId     — canonical rule identifier (e.g. 'unused-public-exports')
+ *   title      — human-readable rule name
+ *   status     — 'live' | 'planned'
+ *   badgeLabel — localised status label (e.g. 'live' / 'geplant')
+ *   slopLabel  — localised label for the bad-code tab
+ *   cleanLabel — localised label for the clean-code tab
+ *   description — prose description of what the rule detects
+ *   slopCode   — Dart snippet illustrating the bad pattern
+ *   cleanCode  — Dart snippet illustrating the clean version
+ */
+
+interface Props {
+  ruleId: string;
+  title: string;
+  status: 'live' | 'planned';
+  badgeLabel: string;
+  slopLabel: string;
+  cleanLabel: string;
+  description: string;
+  slopCode: string;
+  cleanCode: string;
+}
+
+const { ruleId, title, status, badgeLabel, slopLabel, cleanLabel, description, slopCode, cleanCode } = Astro.props;
+---
+
+<div class={`rule-card rule-card--${status}`}>
+  <div class="rule-card__header">
+    <span class="rule-card__id">{ruleId}</span>
+    <span class={`rule-card__badge rule-card__badge--${status}`}>{badgeLabel}</span>
+  </div>
+  <h3 class="rule-card__title">{title}</h3>
+  <p class="rule-card__desc">{description}</p>
+  <div class="rule-card__examples">
+    <div class="example-block example-block--slop">
+      <span class="example-label">{slopLabel}</span>
+      <pre><code>{slopCode}</code></pre>
+    </div>
+    <div class="example-block example-block--clean">
+      <span class="example-label">{cleanLabel}</span>
+      <pre><code>{cleanCode}</code></pre>
+    </div>
+  </div>
+</div>
+
+<style is:inline>
+  .rule-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1.2rem 1.4rem 1.1rem;
+    margin-bottom: 1.4rem;
+  }
+  .rule-card--live {
+    border-color: rgba(136,200,64,.32);
+  }
+  .rule-card__header {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: .45rem;
+  }
+  .rule-card__id {
+    font-size: .75rem;
+    letter-spacing: .06em;
+    color: var(--dim);
+    font-family: var(--font);
+  }
+  .rule-card__badge {
+    font-size: .65rem;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: .18rem .6rem;
+  }
+  .rule-card__badge--live {
+    color: var(--green);
+    background: rgba(136,200,64,.1);
+    border: 1px solid rgba(136,200,64,.28);
+  }
+  .rule-card__badge--planned {
+    color: var(--dim);
+    background: rgba(141,138,126,.08);
+    border: 1px solid rgba(141,138,126,.22);
+  }
+  .rule-card__title {
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 .5rem;
+  }
+  .rule-card__desc {
+    font-size: .88rem;
+    color: var(--dim);
+    line-height: 1.6;
+    margin: 0 0 1rem;
+  }
+  .rule-card__examples {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .7rem;
+  }
+  @media (max-width: 560px) {
+    .rule-card__examples { grid-template-columns: 1fr; }
+  }
+  .example-block {
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .example-block--slop {
+    border-color: rgba(200,64,64,.22);
+  }
+  .example-block--clean {
+    border-color: rgba(136,200,64,.22);
+  }
+  .example-label {
+    display: block;
+    font-size: .65rem;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: .3rem .7rem;
+  }
+  .example-block--slop .example-label {
+    background: rgba(200,64,64,.1);
+    color: #c85050;
+  }
+  .example-block--clean .example-label {
+    background: rgba(136,200,64,.08);
+    color: var(--green);
+  }
+  .example-block pre {
+    margin: 0;
+    padding: .6rem .8rem .7rem;
+    background: rgba(0,0,0,.18);
+    overflow-x: auto;
+  }
+  .example-block pre code {
+    font-size: .78rem;
+    line-height: 1.55;
+    color: var(--ink);
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    white-space: pre;
+  }
+</style>

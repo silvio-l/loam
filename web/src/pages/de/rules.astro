@@ -1,0 +1,313 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import RuleCard from '../../components/RuleCard.astro';
+import { t } from '../../i18n/ui';
+
+const lang = 'de';
+const live = t(lang, 'rules.badge.live');
+const planned = t(lang, 'rules.badge.planned');
+const slopLabel = t(lang, 'rules.slop.label');
+const cleanLabel = t(lang, 'rules.clean.label');
+---
+
+<Layout
+  lang="de"
+  title="Rules — loam.dev"
+  description="Der vollständige loam.dev-Regelkatalog: sechs Analyse-Fähigkeiten für Dart/Flutter-Projekte — eine heute live, fünf geplant. Jede Rule zeigt ein Slop-vs.-sauber-Codebeispiel."
+  path="/de/rules"
+>
+  <div class="prose-page">
+    <h1>Rules</h1>
+
+    <p class="lead">
+      loam.dev bietet sechs Analyse-Fähigkeiten, alle hinter einem stabilen
+      <code>Rule</code>-Interface. Eine neue Rule hinzuzufügen ändert die
+      Pipeline nicht — nur die Rule-Liste. Eine Rule ist heute live,
+      fünf sind geplant und erscheinen als Post-MVP-Iterationen.
+      Der Status ist immer ehrlich angegeben.
+    </p>
+
+    <!-- Live-Rule -->
+    <section>
+      <h2>Live</h2>
+
+      <RuleCard
+        ruleId="unused-public-exports"
+        title="Ungenutzte öffentliche Exports"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Findet öffentliche API-Member — Klassen, Methoden, Getter/Setter, Felder, Enums, Typedefs — ohne Referenz im gesamten Projekt. Die Analyse läuft auf dem aufgelösten Element-Model, nicht per Regex. Code-Generator-Eingaben (Drift, freezed, Riverpod, json_serializable) werden automatisch ausgeschlossen, ohne jede Konfiguration."
+        slopCode={`// öffentlich, aber nirgendwo verwendet
+class OldHelper {
+  static String format(String s) => s.trim();
+}
+
+// ebenfalls unreferenziert — wird gemeldet
+enum LegacyStatus { active, archived }`}
+        cleanCode={`// entweder entfernen, privat machen oder
+// mit Begründung unterdrücken:
+// loam-ignore: unused-public-exports – re-exported via barrel
+
+// genutzt und behalten:
+class ActiveHelper {
+  static String format(String s) => s.trim();
+}`}
+      />
+
+      <div class="deeper-box">
+        <h3>Mehr in die Tiefe</h3>
+        <p>
+          Der
+          <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">Developer Guide</a>
+          (englisch) enthält die vollständige CLI-Referenz, Konfigurationsoptionen
+          (Rule-Toggles, Pfad-Suppression, Inline-<code>// loam-ignore:</code>-Direktiven)
+          und die vollständige Baseline-Onboarding-Sequenz — einschließlich der
+          Integration von <code>loam gate</code> in GitHub Actions.
+        </p>
+        <p>
+          Die automatische Unterdrückung für Code-Generator-Eingaben ist im Guide
+          unter „Automatic codegen-input suppression" beschrieben — die drei
+          Erkennungssignale (Base-Type-Registry, Annotation-Registry, struktureller
+          Fallback) funktionieren ohne <code>loam.yaml</code>-Konfiguration.
+        </p>
+      </div>
+    </section>
+
+    <!-- Geplante Rules -->
+    <section>
+      <h2>Geplant</h2>
+
+      <p class="section-intro">
+        Diese fünf Rules stehen auf der Post-MVP-Roadmap. Jede ist ein
+        eigenständiges Plugin hinter demselben <code>Rule</code>-Interface —
+        die Pipeline ändert sich beim Erscheinen nicht.
+      </p>
+
+      <RuleCard
+        ruleId="circular-dependencies"
+        title="Zirkuläre Dependencies"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Erkennt Import-Zyklen zwischen Dart-Bibliotheken. Zyklen machen die Kompilierungsreihenfolge mehrdeutig, verhindern Tree-Shaking und sind ein häufiges Zeichen unklarer Schichtverantwortlichkeiten."
+        slopCode={`// lib/a.dart
+import 'b.dart';
+
+// lib/b.dart
+import 'a.dart'; // ← Zyklus: a → b → a`}
+        cleanCode={`// Gemeinsame Typen in eine dritte Bibliothek auslagern:
+// lib/shared.dart  (importiert weder a noch b)
+// lib/a.dart  importiert shared.dart
+// lib/b.dart  importiert shared.dart`}
+      />
+
+      <RuleCard
+        ruleId="code-duplicates"
+        title="Code-Duplikate"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Findet strukturell ähnliche Code-Blöcke per AST-normalisiertem Token-Hashing. Markiert Hilfsfunktionen, die kopiert statt extrahiert wurden — ein klassischer KI-Agent-Nebeneffekt."
+        slopCode={`// feature_a/utils.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// feature_b/helpers.dart  ← Beinahe-Duplikat
+String renderDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';`}
+        cleanCode={`// lib/shared/date_format.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// beide Features importieren den gemeinsamen Helper`}
+      />
+
+      <RuleCard
+        ruleId="complexity-hotspots"
+        title="Komplexitäts-Hotspots"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Misst zyklomatische und kognitive Komplexität je Funktion/Methode und aggregiert sie zu einem Projekt-Health-Score. Markiert Funktionen, die zu komplex zum Review oder Testen sind."
+        slopCode={`// kognitive Komplexität ≫ Schwellwert
+Future<void> syncData(List<Item> items) async {
+  for (final item in items) {
+    if (item.isValid) {
+      if (item.needsSync) {
+        try {
+          if (await remote.has(item.id)) {
+            await remote.update(item);
+          } else { await remote.create(item); }
+        } catch (e) { /* geschluckt */ }
+      }
+    }
+  }
+}`}
+        cleanCode={`// aufgeteilt in fokussierte, testbare Helpers
+Future<void> syncData(List<Item> items) async {
+  final candidates = items.where(_needsSync);
+  await Future.wait(candidates.map(_syncOne));
+}
+
+Future<void> _syncOne(Item item) async { … }`}
+      />
+
+      <RuleCard
+        ruleId="architecture-boundaries"
+        title="Architektur-Grenzen"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Erkennt das Layer-Layout automatisch (core/, features/, services/, …) und meldet Imports, die verbotene Grenzen überschreiten. Zero-Config: das abgeleitete Regelset wird transparent herausgeschrieben und kann eingefroren oder verfeinert werden."
+        slopCode={`// features/profile/profile_page.dart
+// ↓ Features-Schicht greift in Services-Interna
+import '../../services/db/internal_schema.dart';`}
+        cleanCode={`// services exponiert stattdessen ein öffentliches API:
+// services/user_repository.dart (öffentliches Interface)
+// features/profile/profile_page.dart
+import '../../services/user_repository.dart';`}
+      />
+
+      <RuleCard
+        ruleId="anti-ai-slop"
+        title="Anti-AI-Slop"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Erkennt KI-typische Qualitätsmängel: leere catch-Blöcke, narrative Füll-Kommentare, grundlose // ignore:-Direktiven, tote Guard-Clauses und halluzinierte Abstraktionen. Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer erkennt Slop auf Intentionsebene — über einen Verdict-Cache deterministisch und kostenarm."
+        slopCode={`// leerer catch — klassischer Slop
+try {
+  await fetchData();
+} catch (e) {} // ← schluckt alle Fehler
+
+// narrativer Füll-Kommentar
+/// Diese Methode verarbeitet die Daten, indem sie
+/// über alle Elemente iteriert und die Transformation
+/// anwendet.
+List<String> process(List<String> items) =>
+    items.map((i) => i.toUpperCase()).toList();`}
+        cleanCode={`// mit Kontext behandeln oder weiterwerfen
+try {
+  await fetchData();
+} catch (e, st) {
+  log.error('fetchData failed', e, st);
+  rethrow;
+}
+
+// Doku-Kommentar mit Mehrwert, nicht Rauschen
+/// Gibt [items] in Großbuchstaben zurück.
+List<String> process(List<String> items) =>
+    items.map((i) => i.toUpperCase()).toList();`}
+      />
+    </section>
+
+    <!-- Mehr in die Tiefe -->
+    <section>
+      <h2>Mehr in die Tiefe</h2>
+
+      <p>
+        Der
+        <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">Developer Guide</a>
+        (englisch) enthält die vollständige CLI-Referenz, Output-Formate,
+        Konfiguration und ausgearbeitete Beispiele — einschließlich der
+        Integration von <code>loam gate</code> in GitHub Actions.
+      </p>
+    </section>
+  </div>
+</Layout>
+
+<style is:inline>
+  .prose-page {
+    max-width: 72ch;
+    margin: 0 auto;
+    padding: 3rem clamp(1.2rem, 5vw, 3rem) 5rem;
+    line-height: 1.7;
+  }
+  .prose-page h1 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 1rem;
+  }
+  .lead {
+    color: var(--dim);
+    font-size: .95rem;
+    margin-bottom: 2.8rem;
+    border-left: 2px solid var(--green);
+    padding-left: 1rem;
+  }
+  .prose-page h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin: 2.8rem 0 1rem;
+  }
+  .prose-page h3 {
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 .3rem;
+  }
+  .prose-page p {
+    color: var(--dim);
+    font-size: .9rem;
+    margin-bottom: .8rem;
+  }
+  .prose-page a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(236,233,225,.3);
+    padding-bottom: 1px;
+    transition: .18s;
+  }
+  .prose-page a:hover {
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .prose-page code {
+    color: var(--ink);
+    background: rgba(255,255,255,.05);
+    padding: .05em .4em;
+    border-radius: 5px;
+    font-size: .88em;
+  }
+  .prose-page section {
+    border-top: 1px solid var(--line);
+    padding-top: .4rem;
+  }
+  .section-intro {
+    margin-bottom: 1.4rem !important;
+  }
+  .deeper-box {
+    background: var(--panel);
+    border: 1px solid rgba(136,200,64,.18);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin: .4rem 0 1.6rem;
+  }
+  .deeper-box h3 {
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin: 0 0 .6rem;
+  }
+  .deeper-box p {
+    font-size: .86rem !important;
+    color: var(--dim);
+    margin-bottom: .5rem !important;
+  }
+  .deeper-box p:last-child {
+    margin-bottom: 0 !important;
+  }
+</style>
