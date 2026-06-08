@@ -535,6 +535,33 @@ void main() {
         );
       },
     );
+
+    test('CI suppresses for every CLI-flag / config combination '
+        '(no force-on escape hatch)', () async {
+      // An update is genuinely available and CI is set. No combination of the
+      // lower-priority opt-out inputs may turn the notice back on — CI is a
+      // hard, non-overridable suppressor (decision matrix step 3). This makes
+      // the "non-overridable" property provable rather than merely structural.
+      for (final flag in [false, true]) {
+        for (final config in [true, false]) {
+          final fetcher = FakeLatestVersionFetcher(Version.parse('1.0.0'));
+          final checker = _checker(fetcher: fetcher, env: {'CI': 'true'});
+          expect(
+            await checker.check(
+              noUpdateCheckFlag: flag,
+              configUpdateCheck: config,
+            ),
+            isNull,
+            reason: 'CI must suppress (flag=$flag, config=$config)',
+          );
+          expect(
+            fetcher.callCount,
+            0,
+            reason: 'CI must short-circuit before any network call',
+          );
+        }
+      }
+    });
   });
 
   group('UpdateChecker — precedence: Config opt-out', () {
