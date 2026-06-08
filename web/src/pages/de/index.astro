@@ -29,7 +29,7 @@ try {
 <Layout
   lang="de"
   title="loam.dev — Codebase-Intelligence &amp; Anti-AI-Slop für Dart &amp; Flutter"
-  description="loam.dev findet strukturellen Drift und KI-generierten Slop, den dart analyze übersieht — hinter einem Baseline/Ratchet-CI-Gate. Semantisch, projektübergreifend, standardmäßig offline."
+  description="loam.dev findet strukturellen Drift und KI-generierten Slop, den dart analyze übersieht — semantisch und über das ganze Projekt. In der CI duldet eine Baseline den Bestand und blockiert nur, was neu dazukommt."
   path="/de/"
 >
   <div class="home-main">
@@ -40,8 +40,8 @@ try {
     </span>
     <p class="tagline">Codebase-Intelligence &amp; <em>Anti-AI-Slop</em> für Dart&nbsp;&amp;&nbsp;Flutter.</p>
     <p class="sub">Findet den strukturellen Drift und den KI-generierten Slop, den <code>dart&nbsp;analyze</code>
-       übersieht — semantisch, projektübergreifend, hinter einem Baseline/Ratchet-CI-Gate,
-       das gewachsenen Code nicht am ersten Tag rot malt.</p>
+       übersieht — semantisch und über das ganze Projekt statt Datei für Datei. In der CI merkt sich eine
+       Baseline den heutigen Stand: Vorhandenes bleibt geduldet, blockiert wird nur, was neu dazukommt.</p>
     <div class="cmd">
       <span class="p">$</span><span class="t" id="cmd">dart pub global activate loam</span>
       <button id="copy" aria-label="Installationsbefehl kopieren">kopieren</button>

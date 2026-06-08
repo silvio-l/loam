@@ -36,6 +36,15 @@ const normalizedPath = path.endsWith('/') ? path : `${path}/`;
 const alternates = hreflangAlternates(normalizedPath);
 const canonicalUrl = `https://getloam.dev${normalizedPath}`;
 const ogImage = 'https://getloam.dev/og-image.png';
+
+// Hauptnavigation (locale-scharf). Labels aus i18n/ui.ts; die aktive Seite wird
+// über den normalisierten Pfad markiert, damit jede Seite von jeder erreichbar ist.
+const navBase = lang === 'de' ? '/de' : '';
+const navItems = [
+  { href: `${navBase}/how-it-works/`, label: t(lang, 'nav.howItWorks') },
+  { href: `${navBase}/rules/`, label: t(lang, 'nav.rules') },
+  { href: `${navBase}/developer-guide/`, label: t(lang, 'nav.docs') },
+];
 ---
 
 <!doctype html>
@@ -100,7 +109,15 @@ const ogImage = 'https://getloam.dev/og-image.png';
       background-size:64px 64px; mask-image:radial-gradient(80% 70% at 50% 35%,#000 30%,transparent 78%); }
 
     header{ position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:.5rem clamp(.8rem,2vw,1.6rem);
       padding:clamp(1.1rem,3vw,1.8rem) clamp(1.2rem,5vw,3rem); }
+
+    .mainnav{ display:flex; align-items:center; flex-wrap:wrap; gap:clamp(.6rem,1.8vw,1.4rem); }
+    .mainnav .navlink{ font-size:.74rem; letter-spacing:.12em; text-transform:uppercase;
+      color:var(--dim); text-decoration:none; padding:.3rem 0; border-bottom:1px solid transparent; transition:.18s; }
+    .mainnav .navlink:hover{ color:var(--ink); }
+    .mainnav .navlink.active{ color:var(--green); border-bottom-color:var(--green); }
+    @media (max-width:560px){ .chip{ display:none; } }
     .brand{ display:flex; align-items:center; gap:.6rem; text-decoration:none; }
     .brand .b-dot{ width:.5rem; height:.5rem; border-radius:50%; background:var(--green); box-shadow:0 0 12px var(--green); }
     .wm-sm{ height:1.05rem; width:auto; display:block; }
@@ -133,6 +150,15 @@ const ogImage = 'https://getloam.dev/og-image.png';
       <span class="b-dot"></span>
       <img class="wm-sm" src="/wordmark.svg" alt="loam.dev">
     </a>
+    <nav class="mainnav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
+      {navItems.map(item => (
+        <a
+          href={item.href}
+          class:list={["navlink", { active: normalizedPath === item.href }]}
+          aria-current={normalizedPath === item.href ? 'page' : undefined}
+        >{item.label}</a>
+      ))}
+    </nav>
     <div class="header-right">
       <!-- Versions-Chip: v0.1.4 · preview — muss zur pubspec.yaml version passen -->
       <span class="chip">v0.1.4 · preview</span>
