@@ -53,6 +53,7 @@ Currently active rules:
 
 | Rule ID | What it finds |
 |---|---|
+| `circular-dependencies` | Circular import/export chains between first-party `lib/` libraries — one finding per strongly connected component, naming all files in the loop. |
 | `unused-public-exports` | Public API members (classes, methods, getters/setters, fields, enums, typedefs) with no references anywhere in the project — on the resolved element model, not regex. |
 
 All other rules in the planned target surface are still to come (🚧).

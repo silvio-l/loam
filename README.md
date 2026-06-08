@@ -52,7 +52,7 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 | Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) |
 |---|---|
 | ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks |
-| 🚧 Circular dependencies | 🚧 Narrative filler comments |
+| ✅ Circular dependencies | 🚧 Narrative filler comments |
 | 🚧 Code duplication (AST-normalised) | 🚧 Ungrounded `// ignore:` |
 | 🚧 Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions |
