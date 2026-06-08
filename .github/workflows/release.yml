@@ -35,7 +35,7 @@ jobs:
             asset: loam-linux-x86_64.tar.gz
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.tag || github.ref_name }}
 
@@ -73,7 +73,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4   # nur für tool/homebrew/loam.rb.tmpl
+      - uses: actions/checkout@v6   # nur für tool/homebrew/loam.rb.tmpl
 
       - uses: actions/download-artifact@v4
         with:
@@ -133,7 +133,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.tag || github.ref_name }}
 
