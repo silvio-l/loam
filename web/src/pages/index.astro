@@ -7,10 +7,20 @@
 <meta name="description" content="loam.dev catches the structural drift and AI-generated slop that dart analyze never sees — behind a baseline/ratchet CI gate. Semantic, project-wide, offline by default.">
 <link rel="icon" type="image/png" href="/favicon.png">
 <meta name="theme-color" content="#101014">
+<link rel="canonical" href="https://getloam.dev/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="loam.dev">
-<meta property="og:description" content="Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter.">
-<meta property="og:image" content="https://getloam.dev/loam-lockup.png">
+<meta property="og:site_name" content="loam.dev">
+<meta property="og:url" content="https://getloam.dev/">
+<meta property="og:title" content="loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter">
+<meta property="og:description" content="Catches the structural drift and AI-generated slop that dart analyze never sees — semantic, project-wide, behind a baseline/ratchet CI gate.">
+<meta property="og:image" content="https://getloam.dev/og-image.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter">
+<meta name="twitter:description" content="Catches the structural drift and AI-generated slop that dart analyze never sees — semantic, project-wide, behind a baseline/ratchet CI gate.">
+<meta name="twitter:image" content="https://getloam.dev/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spline+Sans+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -86,6 +96,9 @@
   .links a{ color:var(--ink); text-decoration:none; border-bottom:1px solid rgba(236,233,225,.22); padding-bottom:2px; transition:.18s; }
   .links a:hover{ color:var(--green); border-color:var(--green); }
   .links .sep{ width:4px; height:4px; border-radius:50%; background:var(--line); }
+  .links .sharelink{ font:inherit; color:var(--ink); background:transparent; border:none;
+    border-bottom:1px solid rgba(236,233,225,.22); padding:0 0 2px; cursor:pointer; transition:.18s; }
+  .links .sharelink:hover,.links .sharelink.ok{ color:var(--green); border-color:var(--green); }
 
   .strata{ position:fixed; left:0; right:0; bottom:0; height:34vh; z-index:1; pointer-events:none;
     background:linear-gradient(180deg, transparent 0%, rgba(86,79,71,.0) 30%, rgba(86,79,71,.30) 72%, rgba(86,79,71,.55) 100%);
@@ -132,6 +145,8 @@
     <a href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md">docs</a>
     <span class="sep"></span>
     <a href="mailto:silvio-lindstedt@outlook.com">contact</a>
+    <span class="sep"></span>
+    <button class="sharelink" id="share" type="button">share</button>
   </nav>
 </main>
 
@@ -143,6 +158,16 @@
   b?.addEventListener('click',async()=>{ try{
     await navigator.clipboard.writeText(document.getElementById('cmd').textContent.trim());
     b.textContent='copied'; b.classList.add('ok'); setTimeout(()=>{b.textContent='copy';b.classList.remove('ok');},1600);
+  }catch(e){} });
+
+  // Teilen: nativer Share-Dialog (Web Share API, v. a. Mobile/Chrome);
+  // Fallback = URL in die Zwischenablage. Kein Third-Party-JS, kein Tracking.
+  const s=document.getElementById('share');
+  const shareData={ title:'loam.dev', text:'Codebase intelligence & anti-AI-slop for Dart & Flutter.', url:'https://getloam.dev/' };
+  s?.addEventListener('click',async()=>{ try{
+    if(navigator.share){ await navigator.share(shareData); return; }
+    await navigator.clipboard.writeText(shareData.url);
+    s.textContent='link copied'; s.classList.add('ok'); setTimeout(()=>{s.textContent='share';s.classList.remove('ok');},1600);
   }catch(e){} });
 </script>
 </body>
