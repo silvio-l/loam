@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:loam/src/baseline/baseline_engine.dart';
 import 'package:loam/src/command/loam_command.dart';
@@ -66,20 +67,21 @@ Future<int> run(List<String> args) async {
           'update_check: false in loam.yaml.',
     );
 
-  // Peek at the global --no-update-check flag before running the command so
-  // the parsed value is available for the post-command update-notice step.
-  // runner.run() will re-parse args internally — this peek is read-only.
-  // Errors here are silently ignored; runner.run() will surface them below.
-  var noUpdateCheckFlag = false;
+  // Parse args once and reuse the result for both command dispatch and the
+  // global --no-update-check peek — no double-parse. A parse error surfaces as
+  // a UsageException → exit 64, exactly as CommandRunner.run would map it.
+  final ArgResults topLevelResults;
   try {
-    noUpdateCheckFlag = runner.argParser.parse(args).flag('no-update-check');
-  } catch (_) {
-    // Ignore — runner.run() will handle parse errors.
+    topLevelResults = runner.parse(args);
+  } on UsageException catch (e) {
+    stderr.writeln(e);
+    return 64;
   }
+  final noUpdateCheckFlag = topLevelResults.flag('no-update-check');
 
   int code;
   try {
-    code = await runner.run(args) ?? 0;
+    code = await runner.runCommand(topLevelResults) ?? 0;
   } on UsageException catch (e) {
     stderr.writeln(e);
     return 64;
