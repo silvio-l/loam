@@ -89,6 +89,35 @@ check_web() {
     if [ -n "$hits" ]; then note "Anti-Vokabular in ${f#$ROOT/}:"; echo "$hits"; fi
   done < <(find "$WEB" \( -path '*/node_modules/*' -o -path '*/dist/*' -o -path '*/.astro/*' \) -prune \
                  -o \( -name '*.astro' -o -name '*.md' -o -name '*.html' -o -name '*.css' \) -type f -print 2>/dev/null)
+
+  # Regression-Guard (Slice 3): nur ausführen wenn dist/ vorhanden (Build-Output).
+  local dist="$WEB/dist"
+  if [ -d "$dist" ]; then
+    # Assertion A: kein rohes ':global(' in gebauten HTML-Seiten.
+    # ':global(' ist Astro-internes CSS-Syntax, das der Vite/Astro-Build vollständig
+    # auflösen muss. Taucht es im Output auf, ist ein :global()-Block unverarbeitet
+    # ausgeliefert worden (genau die in Slice 2 behobene Bug-Klasse).
+    while IFS= read -r f; do
+      note "web/dist: rohes ':global(' in gebauter HTML-Datei (unverarbeitetes Astro-CSS): ${f#$ROOT/}"
+    done < <(grep -rlF ':global(' "$dist" --include='*.html' 2>/dev/null || true)
+
+    # Assertion B: Guide-Seiten (EN + DE) tragen den geteilten Content-Wrapper-Marker.
+    # '.prose-page' wird vom Layout der Guide-Seite gesetzt (Shared-Source aus
+    # web/src/layouts/ProsePageLayout.astro). Fehlt der Marker, ist die Seite
+    # ungestylt ausgeliefert worden.
+    local guide_dist_en="$dist/developer-guide/index.html"
+    local guide_dist_de="$dist/de/developer-guide/index.html"
+    [ -f "$guide_dist_en" ] || note "web/dist: EN Developer-Guide-Seite nicht gebaut: dist/developer-guide/index.html"
+    [ -f "$guide_dist_de" ] || note "web/dist: DE Developer-Guide-Seite nicht gebaut: dist/de/developer-guide/index.html"
+    if [ -f "$guide_dist_en" ]; then
+      grep -qF 'prose-page' "$guide_dist_en" \
+        || note "web/dist: EN Developer-Guide (dist/developer-guide/index.html) trägt nicht den .prose-page-Marker (ungestylter Guide)"
+    fi
+    if [ -f "$guide_dist_de" ]; then
+      grep -qF 'prose-page' "$guide_dist_de" \
+        || note "web/dist: DE Developer-Guide (dist/de/developer-guide/index.html) trägt nicht den .prose-page-Marker (ungestylter Guide)"
+    fi
+  fi
   return 0
 }
 
@@ -331,7 +360,7 @@ cmd_check() {
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
   check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs; check_i18n; check_privacy_footer
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points · i18n · privacy-footer)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points · i18n · privacy-footer · dist-regression-guard)"
 }
 
 cmd_attest() {
