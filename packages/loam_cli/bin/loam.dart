@@ -4,6 +4,7 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:loam/src/baseline/baseline_engine.dart';
 import 'package:loam/src/command/loam_command.dart';
+import 'package:loam/src/command/target_root_resolver.dart';
 import 'package:loam/src/config/config_loader.dart';
 import 'package:loam/src/config/config_scaffold.dart';
 import 'package:loam/src/config/loam_config.dart';
@@ -155,8 +156,13 @@ class ScanCommand extends LoamCommand {
 
   @override
   Future<int> run() async {
-    final projectRoot =
-        argResults?['project-root'] as String? ?? Directory.current.path;
+    // Resolve project root via shared resolver (positional or --project-root).
+    final rootResult = TargetRootResolver.resolve(argResults);
+    if (rootResult is RootUsageError) {
+      stderr.writeln(rootResult.message);
+      return 64; // EX_USAGE
+    }
+    final projectRoot = (rootResult as ResolvedRoot).root;
 
     // Resolve the format from the global --format option.
     final format = (globalResults?['format'] as String?) ?? 'human';
@@ -248,8 +254,13 @@ class _GateCommand extends LoamCommand {
 
   @override
   Future<int> run() async {
-    final projectRoot =
-        argResults?['project-root'] as String? ?? Directory.current.path;
+    // Resolve project root via shared resolver (positional or --project-root).
+    final rootResult = TargetRootResolver.resolve(argResults);
+    if (rootResult is RootUsageError) {
+      stderr.writeln(rootResult.message);
+      return 64; // EX_USAGE
+    }
+    final projectRoot = (rootResult as ResolvedRoot).root;
     final absoluteMode = argResults?.flag('absolute') ?? false;
 
     // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
@@ -410,8 +421,13 @@ class _InitCommand extends LoamCommand {
 
   @override
   Future<int> run() async {
-    final projectRoot =
-        argResults?['project-root'] as String? ?? Directory.current.path;
+    // Resolve project root via shared resolver (positional or --project-root).
+    final rootResult = TargetRootResolver.resolve(argResults);
+    if (rootResult is RootUsageError) {
+      stderr.writeln(rootResult.message);
+      return 64; // EX_USAGE
+    }
+    final projectRoot = (rootResult as ResolvedRoot).root;
     final target = File(p.join(projectRoot, ConfigLoader.fileName));
 
     if (target.existsSync()) {
@@ -485,8 +501,14 @@ class _BaselineCommand extends LoamCommand {
   Future<int> run() async {
     final write = argResults?.flag('write') ?? false;
     final update = argResults?.flag('update') ?? false;
-    final projectRoot =
-        argResults?['project-root'] as String? ?? Directory.current.path;
+
+    // Resolve project root via shared resolver (positional or --project-root).
+    final rootResult = TargetRootResolver.resolve(argResults);
+    if (rootResult is RootUsageError) {
+      stderr.writeln(rootResult.message);
+      return 64; // EX_USAGE
+    }
+    final projectRoot = (rootResult as ResolvedRoot).root;
 
     final engine = BaselineEngine(projectRoot: projectRoot);
 
