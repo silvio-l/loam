@@ -15,11 +15,21 @@ import 'generated_file.dart';
 ///
 /// - **Nodes:** every resolved, non-`part`, non-generated library file under
 ///   `lib/` (`LoadedFile.isUnderLib == true`).
-/// - **Edges:** `import` *and* `export` directives whose resolved target is
-///   another first-party `lib/` library in the same package.
+/// - **Edges:** `import` directives **only**, whose resolved target is another
+///   first-party `lib/` library in the same package. This is a *functional
+///   dependency* graph: an edge `A → B` means "A's code needs B's code".
+/// - **`export` directives are deliberately NOT edges.** An `export` is a
+///   *re-export* — it republishes another library's symbols to A's consumers
+///   but creates no functional dependency of A on the exported library. Folding
+///   exports into the graph turns the idiomatic platform-split / barrel pattern
+///   (an interface library re-exports its implementation, the implementation
+///   imports the interface back) into a phantom "circular dependency" — a false
+///   positive on intentional, recommended Dart code. The harm a dependency
+///   cycle describes (init order, tight coupling, untestable in isolation)
+///   stems from `import`, not `export`; the cycle rule must reflect that.
 /// - **Never nodes/edges:** external packages (`package:flutter/…`), `dart:…`
 ///   libraries, `part of` files, generated files (`*.g.dart`,
-///   `*.freezed.dart`, `*.mocks.dart`), and self-edges.
+///   `*.freezed.dart`, `*.mocks.dart`), `export` directives, and self-edges.
 ///
 /// ## Robustness
 ///
@@ -81,27 +91,19 @@ class ImportGraph {
       final fromKey = _toRelativePosix(file.path, root);
       final library = file.result.libraryElement;
 
-      // Iterate only the first fragment's imports/exports.  A Dart library can
-      // have multiple fragments (augmentations), but import/export directives
-      // live in the primary fragment (fragment 0).
+      // Iterate only the first fragment's imports.  A Dart library can have
+      // multiple fragments (augmentations), but import directives live in the
+      // primary fragment (fragment 0).
       final fragment = library.fragments.first;
 
-      // --- import directives ---
+      // --- import directives only ---
+      // `export` directives are intentionally NOT collected: an export is a
+      // re-export, not a functional dependency, and counting it produces false
+      // positives on the idiomatic barrel / platform-split pattern (see the
+      // class-level "Edges" docs).
       for (final imp in fragment.libraryImports) {
         if (imp.isSynthetic) continue; // skip implicit dart:core
         final uri = imp.uri;
-        if (uri is! DirectiveUriWithLibrary) continue;
-        final targetPath = _libraryAbsolutePath(uri.library);
-        if (targetPath == null) continue;
-        if (!libNodePaths.contains(targetPath)) continue;
-        final toKey = _toRelativePosix(targetPath, root);
-        if (toKey == fromKey) continue; // no self-edges
-        edgeMap[fromKey]!.add(toKey);
-      }
-
-      // --- export directives ---
-      for (final exp in fragment.libraryExports) {
-        final uri = exp.uri;
         if (uri is! DirectiveUriWithLibrary) continue;
         final targetPath = _libraryAbsolutePath(uri.library);
         if (targetPath == null) continue;

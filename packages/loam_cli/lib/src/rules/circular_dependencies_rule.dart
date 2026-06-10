@@ -9,10 +9,11 @@ import 'rule.dart';
 ///
 /// Rule ID: `circular-dependencies`
 ///
-/// The rule builds a directed library-to-library [ImportGraph] (both `import`
-/// and `export` directives), runs [CycleDetector.findCycles] to find all
-/// non-trivial strongly connected components (SCCs), and emits exactly one
-/// [Finding] per SCC cluster.
+/// The rule builds a directed library-to-library [ImportGraph] from `import`
+/// directives only (a *functional dependency* graph — `export` re-exports are
+/// deliberately excluded, see [ImportGraph]), runs [CycleDetector.findCycles]
+/// to find all non-trivial strongly connected components (SCCs), and emits
+/// exactly one [Finding] per SCC cluster.
 ///
 /// Finding semantics:
 /// - **Location:** the lexicographically smallest member of the cluster,
@@ -43,8 +44,9 @@ class CircularDependenciesRule implements Rule {
 
   @override
   List<Finding> run(ProjectLoadResult result) {
-    // Build the directed library graph (import + export edges, first-party
-    // lib/ only, no generated files, no part files).
+    // Build the directed library graph (import edges only — exports are
+    // re-exports, not functional dependencies; first-party lib/ only, no
+    // generated files, no part files).
     final graph = ImportGraph.build(result, projectRoot);
 
     // Find all non-trivial SCCs (cycles) using Tarjan's algorithm.

@@ -124,14 +124,45 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // AC2 — export edges on own lib/ libraries
+  // AC2 — export directives are NOT edges (import-only dependency graph)
+  //
+  // An `export` is a re-export, not a functional dependency. Folding exports
+  // into the graph turns the idiomatic barrel / platform-split pattern into a
+  // phantom circular dependency (false positive). The graph therefore models
+  // import edges only.
   // ---------------------------------------------------------------------------
-  group('export edges', () {
-    test('gamma→delta edge exists (export directive)', () {
+  group('export directives produce no edges', () {
+    test('gamma→delta edge does NOT exist (export is not a dependency)', () {
       expect(
         graph.edges['lib/gamma.dart'],
-        contains('lib/delta.dart'),
-        reason: 'gamma.dart re-exports delta.dart',
+        isNot(contains('lib/delta.dart')),
+        reason: 'gamma.dart re-exports delta.dart — an export is not an edge',
+      );
+    });
+
+    test('gamma has no outgoing edges at all (its only directive is an export)', () {
+      expect(
+        graph.edges['lib/gamma.dart'],
+        isEmpty,
+        reason: 'gamma.dart has only an export directive → no import edges',
+      );
+    });
+
+    test('pure export cycle eta↔zeta forms no edges', () {
+      expect(graph.edges['lib/eta.dart'], isEmpty);
+      expect(graph.edges['lib/zeta.dart'], isEmpty);
+    });
+
+    test('barrel: impl→iface import edge exists, iface→impl export does not', () {
+      expect(
+        graph.edges['lib/barrel_impl.dart'],
+        contains('lib/barrel_iface.dart'),
+        reason: 'barrel_impl imports barrel_iface — a real import edge',
+      );
+      expect(
+        graph.edges['lib/barrel_iface.dart'],
+        isNot(contains('lib/barrel_impl.dart')),
+        reason: 'barrel_iface only re-exports barrel_impl — export is no edge',
       );
     });
   });

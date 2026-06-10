@@ -60,25 +60,59 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // AC3: Export cycle (zeta ↔ eta) produces exactly one Finding
+  // AC3: A pure export cycle (zeta ↔ eta) is NOT reported.
+  //
+  // Design decision: the dependency graph is import-only. An `export` is a
+  // re-export, not a functional dependency, so a cycle closed solely by export
+  // directives is not a circular *dependency*. (Reverses the earlier behaviour
+  // where export edges counted — see import_graph.dart "Edges" rationale.)
   // ---------------------------------------------------------------------------
-  test('export cycle zeta↔eta produces exactly one finding', () {
+  test('pure export cycle eta↔zeta is NOT reported', () {
     final findings = makeRule().run(loadResult);
     final cycleFinding = findings.where(
       (f) =>
-          f.message.contains('lib/eta.dart') &&
+          f.message.contains('lib/eta.dart') ||
           f.message.contains('lib/zeta.dart'),
     );
     expect(
       cycleFinding,
-      hasLength(1),
-      reason: 'Exactly one finding for the eta↔zeta export cycle',
+      isEmpty,
+      reason:
+          'eta↔zeta is closed only by export (re-export) directives — not a '
+          'functional dependency cycle, must not be reported',
     );
   });
 
   // ---------------------------------------------------------------------------
-  // AC4: Acyclic control set (delta, gamma, epsilon, external_user,
-  //       relative_importer, codegen_host) produces NO findings
+  // AC3b: The idiomatic barrel / platform-split pattern is NOT reported.
+  //
+  // barrel_iface.dart re-EXPORTS barrel_impl.dart; barrel_impl.dart IMPORTS
+  // barrel_iface.dart to implement it. The loop is closed only by the export,
+  // so it is not an import (functional dependency) cycle. This mirrors the real
+  // WhisPaste paster.dart ↔ desktop_paster.dart false positive that motivated
+  // the import-only graph.
+  // ---------------------------------------------------------------------------
+  test('barrel re-export (export+import) is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    final barrel = findings.where(
+      (f) =>
+          f.message.contains('lib/barrel_iface.dart') ||
+          f.message.contains('lib/barrel_impl.dart'),
+    );
+    expect(
+      barrel,
+      isEmpty,
+      reason:
+          'interface re-exports impl + impl imports interface is the idiomatic '
+          'platform-split pattern — the cycle-closing edge is an export, so it '
+          'must not be reported as a circular dependency',
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // AC4: Acyclic control set produces NO findings. eta/zeta (pure export
+  //       cycle) and barrel_iface/barrel_impl (export-closed barrel) now count
+  //       as acyclic under the import-only graph.
   // ---------------------------------------------------------------------------
   test('acyclic files do not appear as cycle members', () {
     final findings = makeRule().run(loadResult);
@@ -89,6 +123,10 @@ void main() {
       'lib/external_user.dart',
       'lib/relative_importer.dart',
       'lib/codegen_host.dart',
+      'lib/eta.dart',
+      'lib/zeta.dart',
+      'lib/barrel_iface.dart',
+      'lib/barrel_impl.dart',
     ];
     for (final file in acyclic) {
       expect(
@@ -206,22 +244,6 @@ void main() {
       semanticAnchor: 'lib/alpha.dart\nlib/beta.dart',
     );
     expect(alphaBeta.fingerprint, equals(expectedFingerprint));
-  });
-
-  test('eta↔zeta fingerprint matches specification', () {
-    final findings = makeRule().run(loadResult);
-    final etaZeta = findings.firstWhere(
-      (f) =>
-          f.message.contains('lib/eta.dart') &&
-          f.message.contains('lib/zeta.dart'),
-    );
-    // Cluster members sorted: [lib/eta.dart, lib/zeta.dart]
-    final expectedFingerprint = computeFingerprint(
-      ruleId: 'circular-dependencies',
-      relativePath: 'lib/eta.dart',
-      semanticAnchor: 'lib/eta.dart\nlib/zeta.dart',
-    );
-    expect(etaZeta.fingerprint, equals(expectedFingerprint));
   });
 
   // ---------------------------------------------------------------------------
