@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:path/path.dart' as p;
 
+import '../complexity/health_report.dart';
 import '../model/finding.dart';
 import 'fix_prompt_template.dart';
 import 'reporter.dart';
@@ -33,12 +34,35 @@ import 'reporter.dart';
 /// - Copy-to-Clipboard button (AC5).
 /// - No logic/thresholds/LLM-calls added (Invariante 4 / D9) (AC6).
 ///
+/// Issue 08 extensions (sidecar wiring, additive):
+/// - Accepts an optional [HealthReport] sidecar. When present, renders a
+///   Health-Score + Grade badge in the HTML header (additive — does NOT replace
+///   any existing section). Without the sidecar the HTML stays valid and
+///   byte-identical to a sidecar-less run.
+/// - [ReportPayload] is NOT modified; the [Reporter] interface is NOT changed.
+///   The sidecar is an optional named constructor parameter, not a payload field.
+///
+/// Vocabulary in the score block: "Health-Score", "Grade", "Hotspot" — no
+/// anti-vocabulary ("Smell", "Bad code", "Dashboard", "GUI").
+///
 /// Invariant 4 (pure renderer): no I/O, no exit-code logic, no thresholds.
 /// Invariant 5 (reproducible): no timestamps, no absolute paths in content;
 /// same input always produces a byte-identical string.
 class HtmlReporter implements Reporter {
   /// Creates a [HtmlReporter].
-  const HtmlReporter();
+  ///
+  /// [healthSidecar] is an optional [HealthReport] that, when provided,
+  /// causes [render] to embed a Health-Score + Grade badge in the HTML header.
+  /// Omitting it (or passing `null`) leaves the HTML fully valid — the badge
+  /// section is simply absent. The [ReportPayload] and [Reporter] interface
+  /// are NOT affected by this parameter.
+  const HtmlReporter({this.healthSidecar});
+
+  /// Optional Health-Score sidecar.
+  ///
+  /// When non-null, [render] inserts a score/grade badge in the HTML header.
+  /// No other output is modified. [ReportPayload] is never touched.
+  final HealthReport? healthSidecar;
 
   @override
   String render(ReportPayload payload) {
@@ -84,6 +108,10 @@ class HtmlReporter implements Reporter {
 
     final title = 'loam.dev HTML-Report';
 
+    // Health-Score badge block — only rendered when the sidecar is present.
+    // Uses allowed vocabulary only: "Health-Score", "Grade", "Hotspot".
+    final healthBadge = _buildHealthBadge(healthSidecar);
+
     return '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -115,6 +143,7 @@ ${_css()}
       </div>
     </div>
   </header>
+$healthBadge
 
   <div class="layout">
     <main class="main">
@@ -209,6 +238,36 @@ ${_js()}
 </script>
 </body>
 </html>''';
+  }
+
+  /// Builds the Health-Score badge HTML block.
+  ///
+  /// Returns an empty string when [sidecar] is null (no badge; HTML stays
+  /// valid). The badge uses allowed vocabulary only: "Health-Score", "Grade".
+  /// Anti-vocabulary ("Smell", "Bad code", "Dashboard", "GUI") is never used.
+  String _buildHealthBadge(HealthReport? sidecar) {
+    if (sidecar == null) return '';
+    final grade = sidecar.grade;
+    final score = sidecar.score;
+    final gradeCssClass = _gradeClass(grade);
+    return '''  <div class="health-badge-bar" aria-label="Health-Score">
+    <div class="health-badge">
+      <span class="health-label">Health-Score</span>
+      <span class="health-score">$score<span class="health-max"> / 100</span></span>
+      <span class="health-grade $gradeCssClass" aria-label="Grade $grade">$grade</span>
+    </div>
+  </div>''';
+  }
+
+  /// Maps a grade letter to a CSS class for colour coding.
+  static String _gradeClass(String grade) {
+    return switch (grade) {
+      'A' => 'grade-a',
+      'B' => 'grade-b',
+      'C' => 'grade-c',
+      'D' => 'grade-d',
+      _ => 'grade-f',
+    };
   }
 
   Map<String, dynamic> _buildFindingMap(Finding f, String projectRoot) {
@@ -508,6 +567,38 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
 .appfoot a:hover { color: var(--green); border-bottom-color: rgba(136,200,64,0.4); }
 .foot-tag a { color: var(--ink); }
 .foot-links { display: flex; gap: 1.2rem; flex-wrap: wrap; }
+
+/* ---- health-score badge ------------------------------------------------ */
+.health-badge-bar {
+  max-width: 1440px; margin: 0 auto;
+  padding: 0.6rem 1.75rem 0;
+  animation: rise .4s ease both;
+}
+.health-badge {
+  display: inline-flex; align-items: center; gap: 0.75rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 0.55rem 1rem;
+}
+.health-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--dim); font-weight: 600;
+}
+.health-score {
+  font-size: 1.25rem; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.health-max { font-size: 0.82rem; color: var(--dim); font-weight: 400; }
+.health-grade {
+  font-size: 1.1rem; font-weight: 700;
+  width: 2rem; height: 2rem; border-radius: 6px;
+  display: grid; place-items: center;
+  border: 1px solid currentColor;
+}
+.grade-a { color: #88C840; background: rgba(136,200,64,0.12); }
+.grade-b { color: #60c060; background: rgba(96,192,96,0.12); }
+.grade-c { color: var(--warning); background: rgba(255,194,75,0.12); }
+.grade-d { color: #ff9944; background: rgba(255,153,68,0.12); }
+.grade-f { color: var(--error); background: rgba(255,107,107,0.12); }
 
 /* ---- responsive -------------------------------------------------------- */
 @media (max-width: 920px) {

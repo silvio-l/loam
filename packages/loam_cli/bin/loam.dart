@@ -14,6 +14,7 @@ import 'package:loam/src/gate/gate_engine.dart';
 import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/report/browser_launcher.dart';
+import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
@@ -195,19 +196,49 @@ class ScanCommand extends LoamCommand {
     // Resolve the format from the global --format option.
     final format = (globalResults?['format'] as String?) ?? 'human';
 
-    // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
-    final Reporter reporter;
-    try {
-      reporter = reporterFor(format);
-    } on FormatNotImplementedError catch (e) {
-      stderr.writeln(e.toString());
-      return 64; // EX_USAGE
-    }
-
     // Load project config (loam.yaml) — missing file returns defaults.
     final config = await _loadConfig(projectRoot);
 
-    final findings = await AnalysisRunner(config: config).run(projectRoot);
+    // For HTML format: load the project once and share it between the
+    // AnalysisRunner (findings) and FunctionComplexityCollector (health sidecar).
+    // This guarantees the badge value matches `loam health` for the same project
+    // (same collector path, no second load, no drift — AC3).
+    //
+    // For all other formats: delegate to AnalysisRunner.run() as before (no
+    // change to their code path → byte-identical output guaranteed — AC2).
+    final List<Finding> findings;
+    final Reporter reporter;
+
+    if (format == 'html') {
+      // Single project load shared by both consumers.
+      final root = p.normalize(p.absolute(projectRoot));
+      final loadResult = await const ProjectLoader().load(root);
+
+      // Findings via shared load result — same as before, just no second load.
+      findings = AnalysisRunner(
+        config: config,
+      ).runWithLoadResult(root, loadResult);
+
+      // Health-Score sidecar: same collector as `loam health` (AC3 — no drift).
+      final functions = const FunctionComplexityCollector().collect(
+        loadResult,
+        root,
+      );
+      final healthReport = const HealthScore().compute(functions);
+
+      // HtmlReporter with the sidecar — only this format receives health data.
+      // ReportPayload is NOT modified (AC2).
+      reporter = HtmlReporter(healthSidecar: healthReport);
+    } else {
+      findings = await AnalysisRunner(config: config).run(projectRoot);
+      // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
+      try {
+        reporter = reporterFor(format);
+      } on FormatNotImplementedError catch (e) {
+        stderr.writeln(e.toString());
+        return 64; // EX_USAGE
+      }
+    }
 
     final payload = ReportPayload(
       findings: findings,

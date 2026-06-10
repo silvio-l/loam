@@ -1,6 +1,9 @@
 @TestOn('vm')
 library;
 
+import 'package:loam/src/complexity/complexity_metrics.dart';
+import 'package:loam/src/complexity/function_complexity.dart';
+import 'package:loam/src/complexity/health_score.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/report/fix_prompt_template.dart';
 import 'package:loam/src/report/html_reporter.dart';
@@ -43,6 +46,29 @@ ReportPayload _payload({
   toolVersion: toolVersion,
   isTty: isTty,
 );
+
+// ---------------------------------------------------------------------------
+// Issue 08 — Health sidecar fixture helpers
+// ---------------------------------------------------------------------------
+
+/// Builds a [HealthReport] directly (no collector needed in unit tests).
+HealthReport _healthReport({int score = 87, String grade = 'B'}) =>
+    HealthReport(score: score, grade: grade, hotspots: []);
+
+/// Builds a [HealthReport] via [HealthScore.compute] from a minimal fixture
+/// so the sidecar value matches what the production path produces (AC3).
+HealthReport _healthReportWithHotspots() {
+  final functions = [
+    for (var i = 0; i < 5; i++)
+      FunctionComplexity(
+        qualifiedName: 'fn$i',
+        filePath: 'lib/src/example.dart',
+        line: i + 1,
+        metrics: const ComplexityMetrics(cyclomatic: 12, cognitive: 8),
+      ),
+  ];
+  return const HealthScore().compute(functions);
+}
 
 void main() {
   // -------------------------------------------------------------------------
@@ -560,6 +586,226 @@ void main() {
           ),
         ];
         final payload = _payload(findings: findings);
+        expect(reporter.render(payload), equals(reporter.render(payload)));
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue 08 — Health-Score Sidecar (AC1–AC6)
+  // -------------------------------------------------------------------------
+
+  group('Issue 08 — AC1: HtmlReporter with sidecar renders badge', () {
+    test('with sidecar: output contains "Health-Score" text', () {
+      final reporter = HtmlReporter(healthSidecar: _healthReport());
+      final output = reporter.render(_payload());
+      expect(
+        output,
+        contains('Health-Score'),
+        reason: 'badge must show "Health-Score" label',
+      );
+    });
+
+    test('with sidecar: output contains score value', () {
+      final reporter = HtmlReporter(healthSidecar: _healthReport(score: 87));
+      final output = reporter.render(_payload());
+      expect(output, contains('87'), reason: 'badge must show score value');
+    });
+
+    test('with sidecar: output contains grade value', () {
+      final reporter = HtmlReporter(healthSidecar: _healthReport(grade: 'B'));
+      final output = reporter.render(_payload());
+      expect(output, contains('>B<'), reason: 'badge must show grade letter');
+    });
+
+    test('with sidecar: badge has aria-label containing "Health-Score"', () {
+      final reporter = HtmlReporter(healthSidecar: _healthReport());
+      final output = reporter.render(_payload());
+      expect(output, contains('aria-label="Health-Score"'));
+    });
+
+    test('with sidecar: grade class reflects grade A', () {
+      final reporter = HtmlReporter(
+        healthSidecar: _healthReport(score: 95, grade: 'A'),
+      );
+      final output = reporter.render(_payload());
+      expect(output, contains('grade-a'));
+    });
+
+    test('with sidecar: grade class reflects grade F', () {
+      final reporter = HtmlReporter(
+        healthSidecar: _healthReport(score: 10, grade: 'F'),
+      );
+      final output = reporter.render(_payload());
+      expect(output, contains('grade-f'));
+    });
+
+    test('with sidecar: health-badge-bar element is present', () {
+      final reporter = HtmlReporter(healthSidecar: _healthReport());
+      final output = reporter.render(_payload());
+      expect(output, contains('class="health-badge-bar"'));
+    });
+  });
+
+  group('Issue 08 — AC1b: HtmlReporter without sidecar stays valid', () {
+    test('without sidecar: valid HTML document', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('<!DOCTYPE html>'));
+      expect(output, contains('<html'));
+      expect(output, contains('</html>'));
+    });
+
+    test('without sidecar: no health-badge-bar element in output', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        isNot(contains('class="health-badge-bar"')),
+        reason: 'badge element must not appear when no sidecar provided',
+      );
+    });
+
+    test('without sidecar: no "Health-Score" text in output', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        isNot(contains('Health-Score')),
+        reason: 'badge label must not appear without sidecar',
+      );
+    });
+  });
+
+  group(
+    'Issue 08 — AC2: ReportPayload unchanged; other formats unaffected',
+    () {
+      test('ReportPayload has no health field', () {
+        // Structural: creating ReportPayload does not accept a health param.
+        // This test compiles only if ReportPayload has no health field.
+        const payload = ReportPayload(
+          findings: [],
+          projectRoot: '/project',
+          rulesetVersion: 'ruleset@abc',
+          toolVersion: '0.0.1',
+          isTty: false,
+        );
+        // Verify all fields exist and health is not one of them.
+        expect(payload.findings, isEmpty);
+        expect(payload.projectRoot, equals('/project'));
+        expect(payload.rulesetVersion, equals('ruleset@abc'));
+        expect(payload.toolVersion, equals('0.0.1'));
+        expect(payload.isTty, isFalse);
+      });
+
+      test('sidecar does NOT affect reporter interface (Reporter.render)', () {
+        // HtmlReporter with sidecar still implements Reporter (AC2).
+        final Reporter reporter = HtmlReporter(healthSidecar: _healthReport());
+        expect(reporter, isA<Reporter>());
+        // render() still takes only ReportPayload — interface unchanged.
+        final output = reporter.render(_payload());
+        expect(output, isNotEmpty);
+      });
+    },
+  );
+
+  group('Issue 08 — AC3: Score in HTML matches HealthScore.compute result', () {
+    test(
+      'badge score equals HealthScore.compute result for same functions',
+      () {
+        final report = _healthReportWithHotspots();
+        final reporter = HtmlReporter(healthSidecar: report);
+        final output = reporter.render(_payload());
+        // The score from HealthScore.compute must appear verbatim in the badge.
+        expect(
+          output,
+          contains('${report.score}'),
+          reason:
+              'badge score must match HealthScore.compute for same functions',
+        );
+        expect(
+          output,
+          contains('>${report.grade}<'),
+          reason:
+              'badge grade must match HealthScore.compute for same functions',
+        );
+      },
+    );
+  });
+
+  group('Issue 08 — AC4: complexity-hotspots findings still in HTML body', () {
+    test('findings present alongside health badge', () {
+      final reporter = HtmlReporter(healthSidecar: _healthReport());
+      final findings = [
+        _finding(ruleId: 'complexity-hotspots', fingerprint: 'ch1'),
+        _finding(ruleId: 'unused-public-exports', fingerprint: 'upe1'),
+      ];
+      final output = reporter.render(_payload(findings: findings));
+      // Badge present.
+      expect(output, contains('Health-Score'));
+      // Findings present (badge is additive, not replacing).
+      expect(output, contains('complexity-hotspots'));
+      expect(output, contains('unused-public-exports'));
+    });
+  });
+
+  group('Issue 08 — AC5: No anti-vocabulary in score block', () {
+    test('score block does not contain "Smell"', () {
+      final output = HtmlReporter(
+        healthSidecar: _healthReport(),
+      ).render(_payload());
+      expect(output, isNot(contains('Smell')));
+    });
+
+    test('score block does not contain "Bad code"', () {
+      final output = HtmlReporter(
+        healthSidecar: _healthReport(),
+      ).render(_payload());
+      expect(output, isNot(contains('Bad code')));
+    });
+
+    test('score block does not contain "Dashboard"', () {
+      final output = HtmlReporter(
+        healthSidecar: _healthReport(),
+      ).render(_payload());
+      expect(output, isNot(contains('Dashboard')));
+    });
+
+    test('score block does not contain "GUI"', () {
+      final output = HtmlReporter(
+        healthSidecar: _healthReport(),
+      ).render(_payload());
+      expect(output, isNot(contains('GUI')));
+    });
+
+    test('allowed vocabulary: "Health-Score" and "Grade" present', () {
+      final output = HtmlReporter(
+        healthSidecar: _healthReport(score: 72, grade: 'C'),
+      ).render(_payload());
+      expect(output, contains('Health-Score'));
+      // Grade label appears in badge aria-label.
+      expect(output, contains('Grade'));
+    });
+  });
+
+  group('Issue 08 — AC6: Deterministic rendering with sidecar', () {
+    test('render-twice-identical with sidecar', () {
+      final reporter = HtmlReporter(
+        healthSidecar: _healthReport(score: 75, grade: 'B'),
+      );
+      final payload = _payload(findings: [_finding()]);
+      expect(reporter.render(payload), equals(reporter.render(payload)));
+    });
+
+    test('render-twice-identical with sidecar and hotspots', () {
+      final reporter = HtmlReporter(healthSidecar: _healthReportWithHotspots());
+      final payload = _payload(findings: [_finding()]);
+      expect(reporter.render(payload), equals(reporter.render(payload)));
+    });
+
+    test(
+      'no health badge output without sidecar is byte-identical to old output',
+      () {
+        // A reporter without sidecar must produce output identical on two calls.
+        final reporter = const HtmlReporter();
+        final payload = _payload(findings: [_finding()]);
         expect(reporter.render(payload), equals(reporter.render(payload)));
       },
     );

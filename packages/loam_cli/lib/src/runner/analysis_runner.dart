@@ -108,8 +108,27 @@ class AnalysisRunner {
   /// (`filePath`, `line`, `fingerprint`). Never throws in normal operation.
   Future<List<Finding>> run(String projectRoot) async {
     final root = p.normalize(p.absolute(projectRoot));
-
     final loadResult = await ProjectLoader().load(root);
+    return runWithLoadResult(root, loadResult);
+  }
+
+  /// Runs the active rule registry on an already-loaded [ProjectLoadResult].
+  ///
+  /// This is the shared inner path used by [run] and by callers that have
+  /// already loaded the project (e.g. `ScanCommand` when it needs to share the
+  /// [ProjectLoadResult] with [FunctionComplexityCollector] for the HTML
+  /// health-score sidecar — no second load, no drift).
+  ///
+  /// [projectRoot] must be the normalised absolute path that was used when
+  /// loading [loadResult].
+  ///
+  /// Returns all findings deterministically sorted by
+  /// (`filePath`, `line`, `fingerprint`). Never throws in normal operation.
+  List<Finding> runWithLoadResult(
+    String projectRoot,
+    ProjectLoadResult loadResult,
+  ) {
+    final root = p.normalize(p.absolute(projectRoot));
 
     // Build the registry for this run: full registry minus disabled rules.
     final effectiveIds = activeRuleIdsForConfig(config);
