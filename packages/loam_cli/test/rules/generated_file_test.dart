@@ -25,6 +25,29 @@ void main() {
       );
     });
 
+    // Flutter gen-l10n output (default naming convention).
+    test('returns true for the gen-l10n umbrella app_localizations.dart', () {
+      expect(
+        isGeneratedDartFile('lib/core/l10n/app_localizations.dart'),
+        isTrue,
+      );
+    });
+
+    test('returns true for per-locale app_localizations_<locale>.dart', () {
+      expect(isGeneratedDartFile('lib/l10n/app_localizations_de.dart'), isTrue);
+      expect(isGeneratedDartFile('lib/l10n/app_localizations_en.dart'), isTrue);
+      expect(
+        isGeneratedDartFile('lib/l10n/app_localizations_pt_BR.dart'),
+        isTrue,
+      );
+    });
+
+    // Guard against over-matching: a file that merely starts similarly but is
+    // not the gen-l10n convention must stay un-excluded.
+    test('returns false for a hand-written file sharing a prefix', () {
+      expect(isGeneratedDartFile('lib/app_localization_helper.dart'), isFalse);
+    });
+
     // Negative cases — plain Dart and non-Dart paths.
     test('returns false for a regular .dart file', () {
       expect(isGeneratedDartFile('lib/src/model.dart'), isFalse);
