@@ -148,14 +148,20 @@ loam init                          # scaffold loam.yaml config in the project
 loam init /path/to/project         # same, positional path to project root
 ```
 
-All four commands (`scan`, `gate`, `init`, `baseline`) accept an optional positional
-`[path]` as the project root. The explicit `-p`/`--project-root` option overrides the
-positional path when both are given.
+Complexity health score:
+
+```bash
+loam health                        # cyclomatic/cognitive complexity distribution view
+loam health /path/to/project       # same, positional path to project root
+```
+
+All five commands (`scan`, `gate`, `health`, `init`, `baseline`) accept an optional
+positional `[path]` as the project root. The explicit `-p`/`--project-root` option
+overrides the positional path when both are given.
 
 Coming soon (wired in `loam --help`, not yet implemented):
 
 ```bash
-loam health                        # project health score: complexity, drift, slop
 loam slop                          # AI-slop audit: slop-focused rules only
 loam fix --safe                    # apply mechanical fixes
 ```

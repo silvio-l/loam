@@ -5,10 +5,13 @@ import 'package:args/command_runner.dart';
 import 'package:loam/src/baseline/baseline_engine.dart';
 import 'package:loam/src/command/loam_command.dart';
 import 'package:loam/src/command/target_root_resolver.dart';
+import 'package:loam/src/complexity/function_complexity_collector.dart';
+import 'package:loam/src/complexity/health_score.dart';
 import 'package:loam/src/config/config_loader.dart';
 import 'package:loam/src/config/config_scaffold.dart';
 import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/gate/gate_engine.dart';
+import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/reporter.dart';
@@ -226,18 +229,72 @@ class ScanCommand extends LoamCommand {
   }
 }
 
-/// Project health score: aggregates active rules into a single health metric.
+/// Project health score: cyclomatic/cognitive complexity distribution view.
+///
+/// Loads the project via [ProjectLoader], measures every named executable in
+/// `lib/` with [FunctionComplexityCollector], aggregates via [HealthScore],
+/// and renders Score + Grade + Hotspot table via a command-own terminal
+/// renderer — **not** the [Reporter] pipeline.
+///
+/// Exit-code semantics: this is a REPORT command, not a gate.
+/// - Exit 0 on success (even when the score is low — gating stays `loam gate`).
+/// - Exit 64 (EX_USAGE) on a usage error (broken `--project-root`).
+///
+/// Toggle note: a `loam.yaml`-disabled `complexity-hotspots` toggle does NOT
+/// affect this command — `health` always measures, regardless of the rule
+/// registry. The codegen exclusion is applied by the collector itself.
 class _HealthCommand extends LoamCommand {
+  _HealthCommand() {
+    argParser.addOption(
+      'project-root',
+      abbr: 'p',
+      help:
+          'Root directory of the Dart project to analyse. '
+          'Overrides the positional [path] argument when both are given. '
+          'Defaults to the current working directory.',
+      defaultsTo: null,
+    );
+  }
+
   @override
   final String name = 'health';
   @override
+  String get invocation => 'loam health [path] [options]';
+  @override
   final String description =
-      'Show project health score: aggregates complexity, drift, and slop metrics. '
-      '(coming soon)';
+      'Project health score: cyclomatic/cognitive complexity distribution view.\n\n'
+      '[path] — optional positional path to the project root '
+      '(defaults to the current directory). '
+      '-p/--project-root overrides [path] when both are given.';
 
   @override
-  Future<int> run() =>
-      notImplemented('aggregate complexity/drift/slop into health score');
+  Future<int> run() async {
+    // Resolve project root via shared resolver (positional or --project-root).
+    final rootResult = TargetRootResolver.resolve(argResults);
+    if (rootResult is RootUsageError) {
+      stderr.writeln(rootResult.message);
+      return 64; // EX_USAGE
+    }
+    final projectRoot = (rootResult as ResolvedRoot).root;
+
+    // Load the project — ProjectLoader never throws.
+    final loadResult = await const ProjectLoader().load(projectRoot);
+
+    // Collect complexity measurements from lib/ (codegen exclusion is inside
+    // the collector — no toggle check needed here).
+    final functions = const FunctionComplexityCollector().collect(
+      loadResult,
+      projectRoot,
+    );
+
+    // Aggregate into a health report.
+    final report = const HealthScore().compute(functions);
+
+    // Render via command-own terminal renderer (not the Reporter pipeline).
+    _renderHealthReport(report, projectRoot, stdout);
+
+    return 0; // Health is a report command — exit 0 even on low score.
+  }
 }
 
 /// CI gate: evaluates the current findings against the baseline.
@@ -786,4 +843,82 @@ Future<LoamConfig> _loadConfig(String projectRoot) async {
     projectRoot,
     knownRuleIds: AnalysisRunner.fullRegistryIds.toSet(),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Health-command terminal renderer.
+//
+// Renders Score + Grade + descending-sorted Hotspot table to [sink].
+// This renderer is ONLY used by _HealthCommand — it deliberately does NOT
+// route through Reporter/ReportPayload/Finding.
+// ---------------------------------------------------------------------------
+
+/// Renders [report] to [sink] in a human-readable terminal format.
+///
+/// Output:
+/// ```
+/// loam health  Health-Score: 87 / 100  Grade: B
+///
+/// Hotspots (cyclomatic/cognitive complexity — top N, descending):
+///
+///   FILE:LINE                          SYMBOL                     CYC  COG
+///   lib/src/example.dart:42            MyClass.compute             21    8
+///   ...
+///
+/// (N hotspots)
+/// ```
+///
+/// When the hotspot list is empty, shows a "No hotspots detected." line
+/// instead of the table.
+void _renderHealthReport(
+  HealthReport report,
+  String projectRoot,
+  StringSink sink,
+) {
+  sink.writeln(
+    'loam health  '
+    'Health-Score: ${report.score} / 100  '
+    'Grade: ${report.grade}',
+  );
+
+  final hotspots = report.hotspots;
+
+  if (hotspots.isEmpty) {
+    sink.writeln();
+    sink.writeln('No hotspots detected.');
+    return;
+  }
+
+  sink.writeln();
+  sink.writeln(
+    'Hotspots (cyclomatic/cognitive complexity — '
+    'top ${hotspots.length}, descending):',
+  );
+  sink.writeln();
+
+  // Column widths: FILE:LINE = 38, SYMBOL = 30, CYC = 5, COG = 5.
+  // These are minimum widths; values that exceed them push right naturally.
+  const fileColW = 38;
+  const symColW = 30;
+
+  sink.writeln(
+    '${'FILE:LINE'.padRight(fileColW)}  '
+    '${'SYMBOL'.padRight(symColW)}  '
+    '${'CYC'.padLeft(5)}  '
+    '${'COG'.padLeft(5)}',
+  );
+
+  for (final h in hotspots) {
+    final fileRef = '${h.filePath}:${h.line}';
+    sink.writeln(
+      '${fileRef.padRight(fileColW)}  '
+      '${h.qualifiedName.padRight(symColW)}  '
+      '${h.metrics.cyclomatic.toString().padLeft(5)}  '
+      '${h.metrics.cognitive.toString().padLeft(5)}',
+    );
+  }
+
+  sink.writeln();
+  final n = hotspots.length;
+  sink.writeln('($n hotspot${n == 1 ? '' : 's'})');
 }

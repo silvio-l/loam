@@ -183,10 +183,24 @@ Prints a terse summary line:
 loam gate: N neu, M eingefroren, K gefixt — grün.
 ```
 
-### `loam health` *(coming soon)*
+### `loam health`
 
-Project health score: aggregates complexity, drift, and slop metrics into a single
-score. Not yet implemented.
+Cyclomatic/cognitive complexity distribution view — shows Health-Score (0–100),
+Grade (A–F), and a descending Hotspot table (file:line, symbol, cyclomatic,
+cognitive).
+
+```bash
+loam health                    # analyse current directory
+loam health /path/to/project   # positional project root
+loam health -p /path/to/proj   # --project-root override
+```
+
+Exit code: always 0 on a successful run (even with a low score — gating stays
+`loam gate`). Exit 64 on a usage error (e.g. two positional arguments).
+
+The health score is a diagnostic view: it always measures, regardless of whether
+`complexity-hotspots` is disabled in `loam.yaml`. The codegen exclusion (generated
+files excluded by the collector) stays active.
 
 ### `loam slop` *(coming soon)*
 

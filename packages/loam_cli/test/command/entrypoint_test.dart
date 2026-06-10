@@ -54,7 +54,9 @@ void main() {
       }
     });
 
-    test('health subcommand → exit 0 (stub)', () async {
+    test('health subcommand on CWD → exit 0', () async {
+      // health is now implemented: runs on CWD (the loam_cli package itself).
+      // loam_cli has lib/ with non-trivial code → exit 0 (report command).
       final code = await cli.run(['health']);
       expect(code, equals(0));
     });
@@ -150,8 +152,8 @@ void main() {
       'fix',
     ];
 
-    // Stub commands (everything except scan, baseline, gate, and init which are now implemented).
-    const stubCommands = ['health', 'slop', 'fix'];
+    // Stub commands (everything except scan, baseline, gate, init, and health which are now implemented).
+    const stubCommands = ['slop', 'fix'];
 
     test('all seven commands are registered (--help lists them)', () {
       final entrypoint = '${Directory.current.path}/bin/loam.dart';
