@@ -1,8 +1,8 @@
 @TestOn('vm')
 library;
 
-/// Self-dogfooding test: runs UnusedPublicExportsRule and
-/// CircularDependenciesRule over the loam_cli package itself
+/// Self-dogfooding test: runs UnusedPublicExportsRule, CircularDependenciesRule,
+/// and ComplexityHotspotsRule over the loam_cli package itself
 /// (packages/loam_cli/) and asserts zero findings for each.
 ///
 /// This is the Slice A acceptance criterion (AC5): each rule must be
@@ -14,7 +14,9 @@ import 'dart:io';
 
 import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/rules/circular_dependencies_rule.dart';
+import 'package:loam/src/rules/complexity_hotspots_rule.dart';
 import 'package:loam/src/rules/unused_public_exports_rule.dart';
+import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -117,6 +119,49 @@ void main() {
           'circular-dependency finding(s) on loam_cli/. Per PRD §12, break the '
           'cycle in production code rather than suppressing it. Involved files '
           'per cycle are listed in each message:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // The complexity-hotspots rule reports zero *unsuppressed* findings on the
+  // loam_cli codebase.
+  //
+  // The test runs via [AnalysisRunner] (not the Rule directly) so that inline
+  // `// loam-ignore: complexity-hotspots` directives on genuinely-complex
+  // internal dispatch functions are respected. These suppressions are
+  // intentional, reviewed, and carry documented reasons — they are NOT a
+  // blanket disable.
+  //
+  // Per PRD §12: new unsuppressed findings must be resolved by either
+  // (a) refactoring the complex function, or (b) adding a targeted
+  // `// loam-ignore: complexity-hotspots – <reason>` on the declaration.
+  // Do NOT disable the rule in loam.yaml (blanket bypass is forbidden).
+  // ---------------------------------------------------------------------------
+
+  test(
+    'dogfooding: complexity-hotspots reports 0 unsuppressed findings on loam_cli/',
+    () async {
+      // Use AnalysisRunner so that inline suppressions are honoured.
+      final runner = AnalysisRunner();
+      final allFindings = await runner.run(loamCliRoot);
+      final findings = allFindings
+          .where((f) => f.ruleId == ComplexityHotspotsRule.ruleIdStatic)
+          .toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: rule reported ${findings.length} unsuppressed '
+          'complexity-hotspots finding(s) on loam_cli/. Per PRD §12, either '
+          'refactor the production function or add a targeted '
+          '// loam-ignore: complexity-hotspots – <reason> on the declaration.\n'
+          'Details:\n$details',
         );
       }
 

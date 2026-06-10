@@ -115,17 +115,29 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
-  // AC1: All findings carry ruleId = unused-public-exports (MVP rule)
+  // AC1: findings include unused-public-exports entries (fixture-based check)
+  //
+  // Note: AnalysisRunner now runs all registered rules. The unused_exports_fixture
+  // is designed to trigger unused-public-exports findings. Complexity-hotspots
+  // findings may also appear for any function in the fixture that exceeds the
+  // default thresholds — but the fixture contains only trivial functions, so
+  // only unused-public-exports findings are expected here.
   // ---------------------------------------------------------------------------
 
   test(
-    'all findings carry ruleId unused-public-exports (MVP registry)',
+    'findings include unused-public-exports entries (fixture has unused symbols)',
     () async {
       final runner = AnalysisRunner();
       final findings = await runner.run(fixturePath);
-      for (final f in findings) {
-        expect(f.ruleId, equals('unused-public-exports'));
-      }
+      final unusedExportFindings = findings
+          .where((f) => f.ruleId == 'unused-public-exports')
+          .toList();
+      expect(
+        unusedExportFindings,
+        isNotEmpty,
+        reason:
+            'unused_exports_fixture must produce at least one unused-public-exports finding',
+      );
     },
   );
 

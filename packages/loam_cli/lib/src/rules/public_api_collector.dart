@@ -127,6 +127,7 @@ class PublicApiCollector {
   // Fragment traversal
   // ---------------------------------------------------------------------------
 
+  // loam-ignore: complexity-hotspots – large dispatch function covering all Dart declaration kinds; extracting per-kind helpers would scatter more than it would simplify
   void _visitFragmentDeclarations({
     required LibraryFragment fragment,
     required String relPath,
@@ -343,6 +344,7 @@ class PublicApiCollector {
   /// - **Member getters/setters**: only explicit declarations
   ///   ([PropertyAccessorElement.isOriginDeclaration]) are collected; synthetic
   ///   field-induced getters/setters are excluded.
+  // loam-ignore: complexity-hotspots – comprehensive member-kind dispatch covering constructors, fields, accessors, methods across all Dart declaration kinds; each case is independent and extraction would not reduce complexity
   void _visitInstanceMemberFragments({
     required InstanceFragment instanceFragment,
     required String enclosingName,

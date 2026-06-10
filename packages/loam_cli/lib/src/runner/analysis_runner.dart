@@ -7,6 +7,7 @@ import '../config/loam_config.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../rules/circular_dependencies_rule.dart';
+import '../rules/complexity_hotspots_rule.dart';
 import '../rules/unused_public_exports_rule.dart';
 import '../suppression/inline_suppression_scanner.dart';
 import '../suppression/suppression_engine.dart';
@@ -17,7 +18,8 @@ import '../suppression/suppression_engine.dart';
 /// the active rule registry → collect all findings → return deterministically
 /// sorted results.
 ///
-/// Active registry: [CircularDependenciesRule], [UnusedPublicExportsRule].
+/// Active registry: [CircularDependenciesRule], [ComplexityHotspotsRule],
+/// [UnusedPublicExportsRule].
 ///
 /// Sort key (stable, in order): [Finding.filePath], [Finding.line],
 /// [Finding.fingerprint] — guarantees Invariant 5 (reproducibility).
@@ -43,6 +45,7 @@ class AnalysisRunner {
   /// [activeRuleIds] is derived from this by removing disabled rules.
   static const List<String> fullRegistryIds = [
     'circular-dependencies',
+    'complexity-hotspots',
     'unused-public-exports',
   ];
 
@@ -114,6 +117,8 @@ class AnalysisRunner {
     final rules = [
       if (effectiveIds.contains('circular-dependencies'))
         CircularDependenciesRule(projectRoot: root),
+      if (effectiveIds.contains('complexity-hotspots'))
+        ComplexityHotspotsRule(projectRoot: root),
       if (effectiveIds.contains('unused-public-exports'))
         UnusedPublicExportsRule(projectRoot: root),
     ];
