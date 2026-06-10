@@ -140,31 +140,38 @@ void main() {
       );
     });
 
-    test('gamma has no outgoing edges at all (its only directive is an export)', () {
-      expect(
-        graph.edges['lib/gamma.dart'],
-        isEmpty,
-        reason: 'gamma.dart has only an export directive → no import edges',
-      );
-    });
+    test(
+      'gamma has no outgoing edges at all (its only directive is an export)',
+      () {
+        expect(
+          graph.edges['lib/gamma.dart'],
+          isEmpty,
+          reason: 'gamma.dart has only an export directive → no import edges',
+        );
+      },
+    );
 
     test('pure export cycle eta↔zeta forms no edges', () {
       expect(graph.edges['lib/eta.dart'], isEmpty);
       expect(graph.edges['lib/zeta.dart'], isEmpty);
     });
 
-    test('barrel: impl→iface import edge exists, iface→impl export does not', () {
-      expect(
-        graph.edges['lib/barrel_impl.dart'],
-        contains('lib/barrel_iface.dart'),
-        reason: 'barrel_impl imports barrel_iface — a real import edge',
-      );
-      expect(
-        graph.edges['lib/barrel_iface.dart'],
-        isNot(contains('lib/barrel_impl.dart')),
-        reason: 'barrel_iface only re-exports barrel_impl — export is no edge',
-      );
-    });
+    test(
+      'barrel: impl→iface import edge exists, iface→impl export does not',
+      () {
+        expect(
+          graph.edges['lib/barrel_impl.dart'],
+          contains('lib/barrel_iface.dart'),
+          reason: 'barrel_impl imports barrel_iface — a real import edge',
+        );
+        expect(
+          graph.edges['lib/barrel_iface.dart'],
+          isNot(contains('lib/barrel_impl.dart')),
+          reason:
+              'barrel_iface only re-exports barrel_impl — export is no edge',
+        );
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
