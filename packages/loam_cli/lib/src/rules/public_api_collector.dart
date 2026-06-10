@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
 import 'codegen_input_classifier.dart';
+import 'generated_file.dart';
 
 /// A candidate public top-level symbol for the `unused-public-exports` rule.
 class PublicApiCandidate {
@@ -102,7 +103,7 @@ class PublicApiCollector {
         final fragmentPath = fragment.source.fullName;
 
         // Skip generated part files (e.g. *.g.dart included via `part`).
-        if (_isGeneratedFile(fragmentPath)) continue;
+        if (isGeneratedDartFile(fragmentPath)) continue;
 
         final relPath = _toRelativePosix(fragmentPath, projectRoot);
         final lineInfo = fragment.lineInfo;
@@ -572,14 +573,6 @@ class PublicApiCollector {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-
-  /// Returns true for `*.g.dart`, `*.freezed.dart`, `*.mocks.dart`.
-  static bool _isGeneratedFile(String path) {
-    final basename = p.basename(path);
-    return basename.endsWith('.g.dart') ||
-        basename.endsWith('.freezed.dart') ||
-        basename.endsWith('.mocks.dart');
-  }
 
   /// Returns true when [element] carries a conservative annotation that marks
   /// intentional public exposure: `@visibleForTesting` or `@pragma`.

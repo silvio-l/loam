@@ -2,6 +2,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import 'generated_file.dart';
 
 /// A directed Library→Library graph over the first-party `lib/` libraries of a
 /// Dart package.
@@ -56,7 +57,7 @@ class ImportGraph {
     final libNodePaths = <String>{};
     for (final file in loadResult.resolved) {
       if (!file.isUnderLib) continue;
-      if (_isGeneratedFile(file.path)) continue;
+      if (isGeneratedDartFile(file.path)) continue;
       // part-of files are excluded by ProjectLoader — resolved entries are
       // never `isPart`; the loader routes those to partUnits.
       libNodePaths.add(file.path);
@@ -143,15 +144,6 @@ class ImportGraph {
     final uri = source.uri;
     if (uri.scheme == 'dart') return null;
     return p.normalize(fullName);
-  }
-
-  /// Returns `true` for generated file suffixes (`*.g.dart`, `*.freezed.dart`,
-  /// `*.mocks.dart`).
-  static bool _isGeneratedFile(String path) {
-    final basename = p.basename(path);
-    return basename.endsWith('.g.dart') ||
-        basename.endsWith('.freezed.dart') ||
-        basename.endsWith('.mocks.dart');
   }
 
   /// Converts an absolute path to a POSIX-relative path from [projectRoot].
