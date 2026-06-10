@@ -75,20 +75,28 @@ void main() {
       );
     });
 
-    test('output contains no https:// links', () {
+    test('output loads no external resources via src or <link href>', () {
       final output = const HtmlReporter().render(
         _payload(findings: [_finding()]),
       );
-      // The only permitted https:// would be in the data payload itself (message
-      // text), not in HTML structure. We check the structural parts (src/href).
-      final srcHref = RegExp(
-        r'(src|href)\s*=\s*"https?://[^"]+"',
+      // Navigation anchors (<a href="https://...">) to the website / repo /
+      // sponsor are allowed — they don't make the report depend on the network
+      // to *render*. Only resource loading is forbidden: script/img/iframe
+      // src and external stylesheet <link href>.
+      final externalSrc = RegExp(r'src\s*=\s*"https?://', caseSensitive: false);
+      final externalLink = RegExp(
+        r'<link[^>]+href\s*=\s*"https?://',
         caseSensitive: false,
       );
       expect(
         output,
-        isNot(matches(srcHref)),
-        reason: 'HTML must not load external resources via src/href',
+        isNot(matches(externalSrc)),
+        reason: 'HTML must not load external resources via src=',
+      );
+      expect(
+        output,
+        isNot(matches(externalLink)),
+        reason: 'HTML must not load an external stylesheet via <link href>',
       );
     });
 
@@ -318,6 +326,41 @@ void main() {
         _payload(findings: [_finding()]),
       );
       expect(output, isNot(contains('GUI')));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Marketing & rule-reference links (self-contained: navigation only)
+  // -------------------------------------------------------------------------
+  group('Marketing & rule-reference links', () {
+    test('footer links to the website, the repo and the sponsor page', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('href="https://getloam.dev"'));
+      expect(output, contains('href="https://github.com/silvio-l/loam"'));
+      expect(output, contains('href="https://github.com/sponsors/silvio-l"'));
+    });
+
+    test('masthead brand links to the website', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('class="brand" href="https://getloam.dev"'));
+    });
+
+    test('masthead shows a sponsor link, not only the footer', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('class="sponsor-link"'));
+      // Sponsor URL appears in both the masthead pill and the footer.
+      final hits = 'https://github.com/sponsors/silvio-l'
+          .allMatches(output)
+          .length;
+      expect(hits, greaterThanOrEqualTo(2));
+    });
+
+    test('finding rule ids deep-link to the rule reference on the website', () {
+      final output = const HtmlReporter().render(
+        _payload(findings: [_finding()]),
+      );
+      // The per-finding link is assembled in JS; the base URL is embedded.
+      expect(output, contains('https://getloam.dev/rules#'));
     });
   });
 

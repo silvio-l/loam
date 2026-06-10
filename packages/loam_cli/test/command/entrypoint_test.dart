@@ -270,9 +270,11 @@ void main() {
     );
 
     // html is now implemented: scan --format html exits 0 on clean project.
+    // --output keeps the report file inside the temp project (no CWD pollution).
     test('--format=html → exit 0 on clean project (now implemented)', () async {
       final code = await cli.run([
         '--format=html',
+        '--output=${p.join(cleanDir.path, 'report.html')}',
         'scan',
         '--project-root',
         cleanDir.path,

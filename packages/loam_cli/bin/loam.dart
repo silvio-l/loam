@@ -10,6 +10,7 @@ import 'package:loam/src/config/config_scaffold.dart';
 import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/gate/gate_engine.dart';
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
@@ -56,8 +57,26 @@ Future<int> run(List<String> args) async {
         'json': 'Machine-readable JSON (agent/tooling integration).',
         'markdown': 'Markdown report (PR/docs embedding, agent/LLM pipelines).',
         'html':
-            'Self-contained HTML report (stdout; redirect to loam-report.html).',
+            'Self-contained HTML report. Written to a file '
+            '(default loam-report.html, override with --output) and opened '
+            'in the default browser when run interactively.',
       },
+    )
+    ..addOption(
+      'output',
+      abbr: 'o',
+      help:
+          'Write the report to this file instead of stdout. '
+          'For --format html the report is always written to a file '
+          '(default loam-report.html) — this overrides the path.',
+      defaultsTo: null,
+    )
+    ..addFlag(
+      'no-open',
+      negatable: false,
+      help:
+          'Do not open the HTML report in the browser. '
+          'Auto-open is already suppressed for piped output and under CI.',
     )
     ..addFlag(
       'no-update-check',
@@ -195,7 +214,13 @@ class ScanCommand extends LoamCommand {
       isTty: stdout.hasTerminal,
     );
 
-    stdout.write(reporter.render(payload));
+    await _emitReport(
+      rendered: reporter.render(payload),
+      format: format,
+      commandName: name,
+      outputOption: outputPath,
+      noOpen: noOpen,
+    );
 
     return findings.isNotEmpty ? 1 : 0;
   }
@@ -314,7 +339,13 @@ class _GateCommand extends LoamCommand {
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
       );
-      stdout.write(reporter.render(payload));
+      await _emitReport(
+        rendered: reporter.render(payload),
+        format: format,
+        commandName: name,
+        outputOption: outputPath,
+        noOpen: noOpen,
+      );
     }
 
     // Gate-summary line comes exclusively from GateEngine (Invariant 4).
@@ -376,7 +407,13 @@ class _GateCommand extends LoamCommand {
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
       );
-      stdout.write(reporter.render(payload));
+      await _emitReport(
+        rendered: reporter.render(payload),
+        format: format,
+        commandName: name,
+        outputOption: outputPath,
+        noOpen: noOpen,
+      );
     }
 
     // AC3: Terse summary line to stdout (neu/eingefroren/gefixt).
@@ -603,7 +640,11 @@ class _BaselineCommand extends LoamCommand {
     return 0;
   }
 
-  int _runShow(BaselineEngine engine, String projectRoot, Reporter reporter) {
+  Future<int> _runShow(
+    BaselineEngine engine,
+    String projectRoot,
+    Reporter reporter,
+  ) async {
     try {
       final baseline = engine.read();
 
@@ -651,12 +692,84 @@ class _BaselineCommand extends LoamCommand {
       );
 
       // Render the frozen findings via the reporter (same rendering path as scan).
-      stdout.write(reporter.render(payload));
+      await _emitReport(
+        rendered: reporter.render(payload),
+        format: format,
+        commandName: name,
+        outputOption: outputPath,
+        noOpen: noOpen,
+      );
     } on BaselineException catch (e) {
       stderr.writeln('loam baseline: ${e.message}');
       return 1;
     }
     return 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared helper: emit a rendered report.
+//
+// Streaming formats (human/sarif/json/markdown) go to stdout unchanged. HTML
+// is a self-contained document meant to be viewed, so it is written to a file
+// (default loam-report.html, override via --output) and — when run
+// interactively — opened in the default browser. A non-HTML format also writes
+// to a file when --output is given.
+//
+// The reporter stays a pure renderer (Invariant 4 / reporter.dart); all I/O
+// lives here in the CLI layer.
+// ---------------------------------------------------------------------------
+
+Future<void> _emitReport({
+  required String rendered,
+  required String format,
+  required String commandName,
+  required String? outputOption,
+  required bool noOpen,
+}) async {
+  final isHtml = format == 'html';
+  // Target file: HTML always writes a file; other formats only with --output.
+  final targetPath =
+      outputOption ?? (isHtml ? defaultHtmlReportFileName : null);
+
+  if (targetPath == null) {
+    stdout.write(rendered);
+    return;
+  }
+
+  final file = File(targetPath)..writeAsStringSync(rendered);
+  final absPath = p.absolute(file.path);
+
+  var opened = false;
+  if (isHtml &&
+      shouldOpenBrowser(
+        isTty: stdout.hasTerminal,
+        noOpenFlag: noOpen,
+        environment: Platform.environment,
+      )) {
+    opened = await _openInBrowser(absPath);
+  }
+
+  stdout.writeln(
+    'loam $commandName: HTML-Report → $absPath'
+    '${opened ? ' (im Browser geöffnet)' : ''}',
+  );
+}
+
+/// Best-effort: opens [absPath] in the default browser. Returns whether the
+/// launch was attempted successfully. Never throws — failing to open a browser
+/// must not change the command's exit code (the file is already written).
+Future<bool> _openInBrowser(String absPath) async {
+  final command = browserOpenCommand(
+    absPath,
+    operatingSystem: Platform.operatingSystem,
+  );
+  if (command == null) return false;
+  try {
+    final result = await Process.run(command.first, command.sublist(1));
+    return result.exitCode == 0;
+  } catch (_) {
+    return false;
   }
 }
 

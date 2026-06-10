@@ -29,7 +29,7 @@ interface Props {
 const { ruleId, title, status, badgeLabel, slopLabel, cleanLabel, description, slopCode, cleanCode } = Astro.props;
 ---
 
-<div class={`rule-card rule-card--${status}`}>
+<div id={ruleId} class={`rule-card rule-card--${status}`}>
   <div class="rule-card__header">
     <span class="rule-card__id">{ruleId}</span>
     <span class={`rule-card__badge rule-card__badge--${status}`}>{badgeLabel}</span>
@@ -55,6 +55,13 @@ const { ruleId, title, status, badgeLabel, slopLabel, cleanLabel, description, s
     border-radius: 8px;
     padding: 1.2rem 1.4rem 1.1rem;
     margin-bottom: 1.4rem;
+    /* Deep-link target (e.g. /rules#unused-public-exports from the HTML report):
+       keep the anchored card clear of the top edge when scrolled into view. */
+    scroll-margin-top: 1.5rem;
+  }
+  .rule-card:target {
+    border-color: rgba(136,200,64,.55);
+    box-shadow: 0 0 0 1px rgba(136,200,64,.25);
   }
   .rule-card--live {
     border-color: rgba(136,200,64,.32);

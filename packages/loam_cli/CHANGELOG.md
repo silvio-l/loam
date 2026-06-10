@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.5
+
+- **`--format html` now writes a file and opens it.** Instead of streaming to
+  stdout, the HTML report is written to `loam-report.html` (override with
+  `--output <file>`) and opened in the default browser on interactive runs.
+  Auto-open is suppressed for piped/redirected output and under CI; `--no-open`
+  skips it explicitly. The other formats (`human`/`sarif`/`json`/`markdown`)
+  still stream to stdout unchanged.
+- **Redesigned HTML report.** Two-column layout with a sticky side panel that
+  keeps the severity summary, the toolchain facts and the always-visible
+  Fix-Prompt in view — no more scrolling to the page foot. Adds an inline brand
+  mark, a terminal-styled masthead, a live search/filter across file, rule and
+  message, and per-finding rule IDs that deep-link to the matching rule on
+  getloam.dev. Footer and masthead link to the website, the repository and the
+  sponsor page. The reporter stays a pure, byte-identical renderer.
+
+
 ## 0.1.4
 
 - **Documentation release** (no functional changes). Adds an `example/` so the

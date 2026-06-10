@@ -72,8 +72,10 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
   cached by `sha(code)+prompt@ver` → fixed thresholds decide. Same code = cache
   hit = stable verdict = zero token cost. No flaky gate. *(🚧 planned)*
 - **📄 Self-contained HTML report.** A single offline `.html` artifact: browse
-  findings by rule, severity, or file — no server, no hosting. Redirect stdout
-  with `loam scan --format html > loam-report.html`. *(live in 0.1.3)*
+  findings by rule, severity, or file — no server, no hosting. `loam scan
+  --format html` writes `loam-report.html` and opens it in your browser; use
+  `--output <file>` to pick the path, `--no-open` to skip the browser (auto-open
+  is suppressed for piped output and under CI). *(live in 0.1.3)*
 
 ## Quick start
 
@@ -182,6 +184,10 @@ Machine-readable output for CI and agents, a human-readable report for you:
 --format json         # agent / tooling integration             (available)
 --format markdown     # PR / docs embedding                     (available)
 --format html         # interactive, self-contained report      (available)
+
+# human/sarif/json/markdown stream to stdout; html writes a file and opens it.
+--output <file>       # write the report to <file> (html: overrides loam-report.html)
+--no-open             # html only: don't open the browser (auto-off when piped/CI)
 ```
 
 ## Status & roadmap

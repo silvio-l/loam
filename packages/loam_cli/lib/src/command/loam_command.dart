@@ -20,6 +20,17 @@ abstract class LoamCommand extends Command<int> {
   /// practice, as a default is registered at runner level).
   String get format => globalResults?['format'] as String? ?? 'human';
 
+  /// Explicit report file path from the global `--output` option, or `null`.
+  ///
+  /// When set, the rendered report is written to this file instead of stdout.
+  /// For `--format html` the report is always written to a file (defaulting to
+  /// `loam-report.html`) regardless of this option.
+  String? get outputPath => globalResults?['output'] as String?;
+
+  /// Whether the user passed the global `--no-open` flag to suppress the
+  /// browser auto-open for `--format html`.
+  bool get noOpen => globalResults?['no-open'] as bool? ?? false;
+
   /// Writes a uniform "not yet implemented" line and returns exit code 0.
   ///
   /// [hint] is a short free-text note (e.g. the planned tracer rule).
