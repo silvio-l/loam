@@ -1,0 +1,6 @@
+name: complexity_collector_fixture
+description: "Test fixture for FunctionComplexityCollector tests."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0
