@@ -454,6 +454,27 @@ void main() {
       );
     });
 
+    test('embedded template names the analysed project (prompt@v2)', () {
+      // _payload() uses projectRoot '/project' → target identifier 'project'.
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        contains('Target project: `project`'),
+        reason:
+            'the embedded Fix-Prompt must document which project it refers to; '
+            'the {{TARGET}} placeholder is filled server-side at embed time',
+      );
+    });
+
+    test('no {{TARGET}} placeholder survives in the embedded template', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(
+        output,
+        isNot(contains('{{TARGET}}')),
+        reason: '{{TARGET}} must be substituted before embedding',
+      );
+    });
+
     test('output contains the loam-fix-hints JSON block', () {
       final output = const HtmlReporter().render(_payload());
       expect(

@@ -4,6 +4,9 @@ library;
 import 'package:loam/src/report/fix_prompt_template.dart';
 import 'package:test/test.dart';
 
+/// Fixer Ziel-Identifier für die Golden-/Determinismus-Tests.
+const kTestTarget = 'demo_project';
+
 /// Unit-Tests für FixPromptTemplate (issue 07).
 ///
 /// Abgedeckt:
@@ -65,16 +68,19 @@ void main() {
       '  Fix hint: Remove or internalize the unused public declaration, or add it to a '
       'library export if it is intentionally public.';
 
-  final goldenPrompt = kFixPromptTemplate.replaceAll(
-    '{{FINDINGS}}',
-    goldenFindingsBlock,
-  );
+  final goldenPrompt = fillPromptTarget(
+    kFixPromptTemplate,
+    kTestTarget,
+  ).replaceAll('{{FINDINGS}}', goldenFindingsBlock);
 
   group('Golden-Prompt', () {
     test(
       'assembleFixPrompt returns exact expected string for fixed selection',
       () {
-        final result = assembleFixPrompt(selectedFindings: fixedSelection);
+        final result = assembleFixPrompt(
+          selectedFindings: fixedSelection,
+          target: kTestTarget,
+        );
         expect(
           result,
           equals(goldenPrompt),
@@ -85,24 +91,36 @@ void main() {
     );
 
     test('result contains ruleId for each finding', () {
-      final result = assembleFixPrompt(selectedFindings: fixedSelection);
+      final result = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
       expect(result, contains('unused-public-exports'));
     });
 
     test('result contains file:line for each finding', () {
-      final result = assembleFixPrompt(selectedFindings: fixedSelection);
+      final result = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
       expect(result, contains('lib/src/foo.dart:10'));
       expect(result, contains('lib/src/bar.dart:42'));
     });
 
     test('result contains message for each finding', () {
-      final result = assembleFixPrompt(selectedFindings: fixedSelection);
+      final result = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
       expect(result, contains('Unused export: Foo'));
       expect(result, contains('Unused export: Bar'));
     });
 
     test('result contains fix hint for each finding', () {
-      final result = assembleFixPrompt(selectedFindings: fixedSelection);
+      final result = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
       // The fix hint for 'unused-public-exports' must appear
       expect(
         result,
@@ -116,8 +134,14 @@ void main() {
   // -------------------------------------------------------------------------
   group('Determinism', () {
     test('two calls with same selection produce identical strings', () {
-      final first = assembleFixPrompt(selectedFindings: fixedSelection);
-      final second = assembleFixPrompt(selectedFindings: fixedSelection);
+      final first = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
+      final second = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
       expect(
         first,
         equals(second),
@@ -135,8 +159,8 @@ void main() {
         },
       ];
       expect(
-        assembleFixPrompt(selectedFindings: sel),
-        equals(assembleFixPrompt(selectedFindings: sel)),
+        assembleFixPrompt(selectedFindings: sel, target: kTestTarget),
+        equals(assembleFixPrompt(selectedFindings: sel, target: kTestTarget)),
       );
     });
   });
@@ -147,6 +171,7 @@ void main() {
   group('Per-finding fields', () {
     test('single finding includes ruleId, file:line, message, fix hint', () {
       final result = assembleFixPrompt(
+        target: kTestTarget,
         selectedFindings: [
           {
             'ruleId': 'unused-public-exports',
@@ -164,6 +189,7 @@ void main() {
 
     test('unknown ruleId uses generic fix hint', () {
       final result = assembleFixPrompt(
+        target: kTestTarget,
         selectedFindings: [
           {
             'ruleId': 'some-future-rule',
@@ -182,16 +208,22 @@ void main() {
   // -------------------------------------------------------------------------
   group('Empty selection', () {
     test('empty selection does not throw', () {
-      expect(() => assembleFixPrompt(selectedFindings: []), returnsNormally);
+      expect(
+        () => assembleFixPrompt(selectedFindings: [], target: kTestTarget),
+        returnsNormally,
+      );
     });
 
     test('empty selection returns a non-empty string', () {
-      expect(assembleFixPrompt(selectedFindings: []), isNotEmpty);
+      expect(
+        assembleFixPrompt(selectedFindings: [], target: kTestTarget),
+        isNotEmpty,
+      );
     });
 
     test('empty selection result contains "no findings selected"', () {
       expect(
-        assembleFixPrompt(selectedFindings: []),
+        assembleFixPrompt(selectedFindings: [], target: kTestTarget),
         contains('no findings selected'),
       );
     });
@@ -214,6 +246,52 @@ void main() {
 
     test('returns kGenericFixHint for unknown ruleId', () {
       expect(fixHintFor('nonexistent-rule-xyz'), equals(kGenericFixHint));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // prompt@v2: Ziel-Identifier im Prompt-Kopf
+  // -------------------------------------------------------------------------
+  group('Target identifier (prompt@v2)', () {
+    test('assembled prompt names the target project', () {
+      final result = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
+      expect(
+        result,
+        contains('Target project: `demo_project`'),
+        reason: 'the prompt head must document which project it refers to',
+      );
+    });
+
+    test('empty selection still names the target project', () {
+      final result = assembleFixPrompt(selectedFindings: [], target: 'svc_api');
+      expect(result, contains('Target project: `svc_api`'));
+    });
+
+    test('no {{TARGET}} placeholder survives in the output', () {
+      final result = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
+      expect(result, isNot(contains('{{TARGET}}')));
+    });
+
+    test('fillPromptTarget substitutes the placeholder', () {
+      final filled = fillPromptTarget('head `{{TARGET}}` tail', 'my_pkg');
+      expect(filled, equals('head `my_pkg` tail'));
+    });
+
+    test('fillPromptTarget falls back for empty/blank target', () {
+      expect(
+        fillPromptTarget('`{{TARGET}}`', ''),
+        equals('`the analysed project`'),
+      );
+      expect(
+        fillPromptTarget('`{{TARGET}}`', '   '),
+        equals('`the analysed project`'),
+      );
     });
   });
 }

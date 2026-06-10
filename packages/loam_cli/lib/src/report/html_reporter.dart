@@ -203,7 +203,7 @@ $jsonData
 $fixHintsJson
 </script>
 <script type="text/x-loam-template" id="loam-fix-prompt-template">
-$kFixPromptTemplate</script>
+${fillPromptTarget(kFixPromptTemplate, _targetName(payload.projectRoot))}</script>
 <script>
 ${_js()}
 </script>
@@ -221,6 +221,18 @@ ${_js()}
       'message': f.message,
       'fingerprint': f.fingerprint,
     };
+  }
+
+  /// Stable, checkout-location-independent identifier of the analysed project.
+  ///
+  /// Uses the project root's directory name (never the absolute path) so the
+  /// embedded Fix-Prompt names its target without violating Invariant 5
+  /// (reproducibility: same input ⇒ byte-identical report regardless of where
+  /// the project happens to live on disk). [fillPromptTarget] handles the
+  /// degenerate empty/`.` case.
+  String _targetName(String projectRoot) {
+    final base = p.basename(p.normalize(projectRoot));
+    return (base.isEmpty || base == '.') ? '' : base;
   }
 
   /// Converts [filePath] to a forward-slash-normalised path relative to
