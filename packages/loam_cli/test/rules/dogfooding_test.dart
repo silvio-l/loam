@@ -1,16 +1,19 @@
 @TestOn('vm')
 library;
 
-/// Self-dogfooding test: runs UnusedPublicExportsRule over the loam_cli
-/// package itself (packages/loam_cli/) and asserts zero findings.
+/// Self-dogfooding test: runs UnusedPublicExportsRule and
+/// CircularDependenciesRule over the loam_cli package itself
+/// (packages/loam_cli/) and asserts zero findings for each.
 ///
-/// This is the Slice A acceptance criterion (AC5): the rule must be
+/// This is the Slice A acceptance criterion (AC5): each rule must be
 /// conservative enough that it produces no false positives on the own
-/// codebase. If this test fails, the rule must be made MORE conservative
-/// (per PRD §12), not suppressed.
+/// codebase. If a test fails, the rule must be made MORE conservative
+/// (per PRD §12), not suppressed — or, for circular-dependencies, the
+/// genuine self-cycle must be broken in production code.
 import 'dart:io';
 
 import 'package:loam/src/loader/project_loader.dart';
+import 'package:loam/src/rules/circular_dependencies_rule.dart';
 import 'package:loam/src/rules/unused_public_exports_rule.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -83,6 +86,37 @@ void main() {
           'Self-dogfooding failed: rule reported ${findings.length} unexpected '
           'finding(s) on loam_cli/. Per PRD §12, make the rule more conservative '
           'rather than adding suppression:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // The circular-dependencies rule reports zero findings on the loam_cli
+  // codebase: loam.dev's own first-party lib/ libraries must stay cycle-free.
+  //
+  // Per PRD §12: if this test fails, loam_cli genuinely has a self-cycle — a
+  // real product finding. Break the loop in production code; do NOT suppress
+  // the finding to keep the test green.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'dogfooding: CircularDependenciesRule reports no unexpected findings on loam_cli/',
+    () {
+      final rule = CircularDependenciesRule(projectRoot: loamCliRoot);
+      final findings = rule.run(loadResult);
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: rule reported ${findings.length} unexpected '
+          'circular-dependency finding(s) on loam_cli/. Per PRD §12, break the '
+          'cycle in production code rather than suppressing it. Involved files '
+          'per cycle are listed in each message:\n$details',
         );
       }
 
