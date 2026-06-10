@@ -133,15 +133,22 @@ Available now (tracer rule `unused-public-exports`):
 
 ```bash
 loam scan                          # full audit: unused public API, whole repo
+loam scan /path/to/project         # same, positional path to project root
 loam baseline --write              # freeze the remaining, accepted state
 loam gate                          # CI from now on — ratchet: only new findings fail
+loam gate /path/to/project         # same, positional path to project root
 ```
 
 Initialise configuration:
 
 ```bash
 loam init                          # scaffold loam.yaml config in the project
+loam init /path/to/project         # same, positional path to project root
 ```
+
+All four commands (`scan`, `gate`, `init`, `baseline`) accept an optional positional
+`[path]` as the project root. The explicit `-p`/`--project-root` option overrides the
+positional path when both are given.
 
 Coming soon (wired in `loam --help`, not yet implemented):
 

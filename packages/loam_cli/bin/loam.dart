@@ -142,6 +142,7 @@ class ScanCommand extends LoamCommand {
       abbr: 'p',
       help:
           'Root directory of the Dart project to analyse. '
+          'Overrides the positional [path] argument when both are given. '
           'Defaults to the current working directory.',
       defaultsTo: null,
     );
@@ -150,9 +151,14 @@ class ScanCommand extends LoamCommand {
   @override
   final String name = 'scan';
   @override
+  String get invocation => 'loam scan [path] [options]';
+  @override
   final String description =
       'Full audit: run all active rules across the whole project '
-      '(baseline-independent).';
+      '(baseline-independent).\n\n'
+      '[path] — optional positional path to the project root '
+      '(defaults to the current directory). '
+      '-p/--project-root overrides [path] when both are given.';
 
   @override
   Future<int> run() async {
@@ -241,6 +247,7 @@ class _GateCommand extends LoamCommand {
         abbr: 'p',
         help:
             'Root directory of the Dart project to analyse. '
+            'Overrides the positional [path] argument when both are given. '
             'Defaults to the current working directory.',
         defaultsTo: null,
       );
@@ -249,8 +256,13 @@ class _GateCommand extends LoamCommand {
   @override
   final String name = 'gate';
   @override
+  String get invocation => 'loam gate [path] [options]';
+  @override
   final String description =
-      'CI gate: baseline/ratchet (default) or --absolute threshold mode.';
+      'CI gate: baseline/ratchet (default) or --absolute threshold mode.\n\n'
+      '[path] — optional positional path to the project root '
+      '(defaults to the current directory). '
+      '-p/--project-root overrides [path] when both are given.';
 
   @override
   Future<int> run() async {
@@ -408,6 +420,7 @@ class _InitCommand extends LoamCommand {
       abbr: 'p',
       help:
           'Root directory of the Dart project. '
+          'Overrides the positional [path] argument when both are given. '
           'Defaults to the current working directory.',
       defaultsTo: null,
     );
@@ -416,8 +429,13 @@ class _InitCommand extends LoamCommand {
   @override
   final String name = 'init';
   @override
+  String get invocation => 'loam init [path] [options]';
+  @override
   final String description =
-      'Scaffold a loam.yaml configuration file in the current project.';
+      'Scaffold a loam.yaml configuration file in the current project.\n\n'
+      '[path] — optional positional path to the project root '
+      '(defaults to the current directory). '
+      '-p/--project-root overrides [path] when both are given.';
 
   @override
   Future<int> run() async {
@@ -486,6 +504,7 @@ class _BaselineCommand extends LoamCommand {
         abbr: 'p',
         help:
             'Root directory of the Dart project to analyse. '
+            'Overrides the positional [path] argument when both are given. '
             'Defaults to the current working directory.',
         defaultsTo: null,
       );
@@ -494,8 +513,13 @@ class _BaselineCommand extends LoamCommand {
   @override
   final String name = 'baseline';
   @override
+  String get invocation => 'loam baseline [path] [options]';
+  @override
   final String description =
-      'Show or freeze the baseline (--write / --update) for the ratchet gate.';
+      'Show or freeze the baseline (--write / --update) for the ratchet gate.\n\n'
+      '[path] — optional positional path to the project root '
+      '(defaults to the current directory). '
+      '-p/--project-root overrides [path] when both are given.';
 
   @override
   Future<int> run() async {

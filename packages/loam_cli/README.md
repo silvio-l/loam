@@ -77,10 +77,17 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 ## Quick start
 
 ```bash
-loam scan                  # full audit: unused public API across the whole repo
-loam baseline --write      # freeze the accepted state to baseline.json
-loam gate                  # CI: ratchet — only new findings fail (exit 1)
+loam scan                          # full audit: unused public API, whole repo
+loam scan /path/to/project         # same, positional path to project root
+loam baseline --write              # freeze the accepted state to baseline.json
+loam gate                          # CI: ratchet — only new findings fail (exit 1)
+loam gate /path/to/project         # same, positional path to project root
+loam init                          # scaffold loam.yaml config in the project
 ```
+
+All four commands (`scan`, `gate`, `init`, `baseline`) accept an optional positional
+`[path]` as the project root. The explicit `-p`/`--project-root` option overrides the
+positional path when both are given.
 
 `loam --help` lists every command; planned ones are marked *(coming soon)*.
 
