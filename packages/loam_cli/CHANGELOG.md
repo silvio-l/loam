@@ -17,7 +17,7 @@
 - **New rule: `circular-dependencies`.** Detects import cycles across first-party
   Dart libraries (Tarjan strongly-connected components over the import graph);
   export-only re-exports are excluded so barrel files don't false-positive.
-- **Positional project path.** `scan`, `gate`, `init` and `baseline` now accept
+- **Positional project path.** `scan`, `gate`, `health`, `init` and `baseline` now accept
   the project root as a positional `[path]`; `-p`/`--project-root` overrides it.
 - **Fewer false positives.** Flutter `gen-l10n` output is treated as generated
   and excluded from analysis.

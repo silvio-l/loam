@@ -25,8 +25,8 @@ import 'package:path/path.dart' as p;
 
 /// loam.dev CLI entrypoint (command: `loam`).
 ///
-/// Walking-skeleton stub: the command surface is wired, individual
-/// commands are filled in as tracer-bullet slices (see PRD §6).
+/// Wires the full command surface — scan, health, gate, baseline and init are
+/// live; slop and fix are stubs (coming soon).
 Future<void> main(List<String> args) async {
   exit(await run(args));
 }

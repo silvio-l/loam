@@ -54,6 +54,7 @@ Currently active rules:
 | Rule ID | What it finds |
 |---|---|
 | `circular-dependencies` | Circular import/export chains between first-party `lib/` libraries — one finding per strongly connected component, naming all files in the loop. |
+| `complexity-hotspots` | Cyclomatic and cognitive complexity per executable (function, method, constructor, accessor); flags hotspots above documented, conservative thresholds. Aggregated by `loam health` into a Health-Score (0–100) and Grade (A–F). |
 | `unused-public-exports` | Public API members (classes, methods, getters/setters, fields, enums, typedefs) with no references anywhere in the project — on the resolved element model, not regex. |
 
 All other rules in the planned target surface are still to come (🚧).
@@ -244,7 +245,7 @@ that produces Finding output.
 | `sarif` | **Available** | SARIF 2.1 JSON for CI code-scanning tools (GitHub, GitLab, …). |
 | `json` | **Available** | Machine-readable JSON for agent/tooling integration. |
 | `markdown` | **Available** | Markdown report for PR comments, docs embedding, LLM pipelines. |
-| `html` | **Available** | Self-contained HTML-Report: browse Findings by rule, severity, or file. Redirect stdout to `loam-report.html`. |
+| `html` | **Available** | Self-contained HTML report (`loam-report.html` by default; override with `--output`), opened automatically in the browser on interactive runs. `--no-open` skips it; auto-off when piped or under CI. |
 
 The **Reporter is a pure renderer** — format choice never affects exit codes or
 gate decisions.

@@ -41,33 +41,35 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.0):** project-wide **unused public API** — exports, classes,
-methods, getters/setters and fields that nothing in the project references —
-on the resolved Dart element model (not regex), behind the baseline/ratchet gate.
+**Available now (0.1.6) — three live rules:** project-wide **unused public API**
+(dead exports, classes, methods, getters/setters and fields), **circular
+dependencies** between first-party libraries, and **complexity hotspots**
+(cyclomatic/cognitive, aggregated into a `loam health` score). All on the
+resolved Dart element model — not regex — behind the baseline/ratchet gate.
 
 Everything else is the **target surface**: each lands as one plugin behind a
 single, stable `Rule` interface, so adding a feature never changes the pipeline
-(🚧 = planned, not yet in 0.1.0).
+(🚧 = planned).
 
 | Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) |
 |---|---|
 | ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks |
 | ✅ Circular dependencies | 🚧 Narrative filler comments |
 | 🚧 Code duplication (AST-normalised) | 🚧 Ungrounded `// ignore:` |
-| 🚧 Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
+| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions |
 
 ## What makes it different
 
 - **🌱 Semantic, not regex.** Structural rules use the resolved Dart element
   model and project-wide graphs — real whole-program resolution, not heuristics.
-  *(live in 0.1.0)*
+  *(live)*
 - **🔒 Baseline / ratchet gate (the default).** Freeze today's accepted findings;
   from then on only **new** findings fail CI. Monotone improvement, no day-one red.
-  *(live in 0.1.0)*
+  *(live)*
 - **📦 Dart-native.** Installed via `dart pub global activate loam`. SemVer;
   `ruleset@ver` is part of the baseline identity (`prompt@ver` joins it with the
-  LLM layer). *(live in 0.1.0)*
+  LLM layer). *(live)*
 - **♻️ Reproducible, even with an LLM.** The LLM proposes `{score, label}` →
   cached by `sha(code)+prompt@ver` → fixed thresholds decide. Same code = cache
   hit = stable verdict = zero token cost. No flaky gate. *(🚧 planned)*
@@ -75,14 +77,13 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
   findings by rule, severity, or file — no server, no hosting. `loam scan
   --format html` writes `loam-report.html` and opens it in your browser; use
   `--output <file>` to pick the path, `--no-open` to skip the browser (auto-open
-  is suppressed for piped output and under CI). *(live in 0.1.3)*
+  is suppressed for piped output and under CI). *(live since 0.1.3; redesigned in 0.1.6)*
 
 ## Quick start
 
-> 🚧 **0.1.0 — early preview.** The first functional release ships one
-> end-to-end rule (`unused-public-exports`); the remaining capabilities land as
-> individual rules. Commands marked *coming soon* are wired in `loam --help` but
-> not yet implemented.
+> **0.1.6.** Three analysis rules are live — `unused-public-exports`,
+> `circular-dependencies`, `complexity-hotspots` — plus the `loam health` view.
+> Commands marked *coming soon* are wired in `loam --help` but not yet implemented.
 
 ### Install
 
@@ -131,10 +132,10 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 
 ### Use
 
-Available now (tracer rule `unused-public-exports`):
+Available now (three live rules — unused exports, circular deps, complexity hotspots):
 
 ```bash
-loam scan                          # full audit: unused public API, whole repo
+loam scan                          # full audit: all active rules, whole repo
 loam scan /path/to/project         # same, positional path to project root
 loam baseline --write              # freeze the remaining, accepted state
 loam gate                          # CI from now on — ratchet: only new findings fail
@@ -198,8 +199,9 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-**0.1.0 preview** — one rule (`unused-public-exports`) live end to end; the rest
-of the capabilities land as individual rules.
+**0.1.6** — three rules live end to end (`unused-public-exports`,
+`circular-dependencies`, `complexity-hotspots`) plus the `loam health` view; the
+remaining capabilities land as individual rules behind the same `Rule` interface.
 
 For a detailed walkthrough of concepts, CLI commands, output formats, and codegen
 handling, see the **[Developer & Tool Guide](./docs/developer-guide.md)**.

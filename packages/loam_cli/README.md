@@ -8,7 +8,7 @@
   <a href="https://pub.dev/packages/loam"><img src="https://img.shields.io/pub/v/loam.svg?color=88C840" alt="pub version"></a>
   <a href="https://github.com/silvio-l/loam/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-88C840" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/built%20with-Dart%20analyzer-0175C2?logo=dart&logoColor=white" alt="Built with the Dart analyzer">
-  <img src="https://img.shields.io/badge/status-walking%20skeleton-A2635A" alt="Status: early development">
+  <img src="https://img.shields.io/badge/status-preview-A2635A" alt="Status: preview">
 </p>
 
 ---
@@ -21,18 +21,21 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> 🚧 **0.1.0 — early preview.** This is the first functional release. It ships
-> **one** rule (`unused-public-exports`) end to end to prove the architecture;
-> the rest of the capabilities below are on the roadmap, each landing as its own
-> rule behind the same stable `Rule` interface.
+> **0.1.6.** Three rules are live end to end — `unused-public-exports`,
+> `circular-dependencies` and `complexity-hotspots` — plus the `loam health`
+> view. The remaining capabilities below are on the roadmap, each landing as its
+> own rule behind the same stable `Rule` interface.
 
 ## What it catches
 
-**Available now (0.1.0):** project-wide **unused public API** — exports, classes,
-methods, getters/setters and fields that nothing in the project references —
-emitted as findings behind the baseline/ratchet gate, in `human`, `sarif`, `json`, `markdown` or `html`.
+**Available now (0.1.6) — three live rules:** project-wide **unused public API**
+(dead exports, classes, methods, getters/setters and fields), **circular
+dependencies** between first-party libraries, and **complexity hotspots**
+(cyclomatic/cognitive, aggregated into a `loam health` score) — emitted as
+findings behind the baseline/ratchet gate, in `human`, `sarif`, `json`,
+`markdown` or `html`.
 
-Everything else is the **target surface** (🚧 = planned, not in 0.1.0):
+Everything else is the **target surface** (🚧 = planned):
 
 | Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) |
 |---|---|
@@ -44,10 +47,10 @@ Everything else is the **target surface** (🚧 = planned, not in 0.1.0):
 
 ## What makes it different
 
-- **🌱 Semantic, not regex** — resolved Dart element model + project-wide graphs. *(in 0.1.0)*
-- **🔒 Baseline / ratchet gate (default)** — freeze today's findings; only **new** ones fail CI. *(in 0.1.0)*
+- **🌱 Semantic, not regex** — resolved Dart element model + project-wide graphs. *(live)*
+- **🔒 Baseline / ratchet gate (default)** — freeze today's findings; only **new** ones fail CI. *(live)*
 - **♻️ Reproducible even with an LLM** — verdicts cached by `sha(code)+prompt@ver`, fixed thresholds decide. Same code = cache hit = stable verdict, zero token cost. *(🚧 planned)*
-- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a deterministic `prompt@ver` fix-prompt for your AI agent. *(in 0.1.3)*
+- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a deterministic `prompt@ver` fix-prompt for your AI agent. *(live since 0.1.3; redesigned in 0.1.6)*
 - **🔧 Configurable suppression** — `loam.yaml` rule toggles and project-relative `ignore:` globs, plus inline `// loam-ignore: <ruleId> – reason`; `loam init` scaffolds the file. *(in 0.1.3)*
 
 ## Install
@@ -77,7 +80,7 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 ## Quick start
 
 ```bash
-loam scan                          # full audit: unused public API, whole repo
+loam scan                          # full audit: all active rules, whole repo
 loam scan /path/to/project         # same, positional path to project root
 loam baseline --write              # freeze the accepted state to baseline.json
 loam gate                          # CI: ratchet — only new findings fail (exit 1)
@@ -94,8 +97,10 @@ positional path when both are given.
 
 ## Status
 
-Walking skeleton in progress. Founding spec, domain glossary and architecture
-decisions live in the [repository](https://github.com/silvio-l/loam).
+Functional release — three analysis rules live (`unused-public-exports`,
+`circular-dependencies`, `complexity-hotspots`) plus the `loam health` view,
+three more planned. Founding spec, domain glossary and architecture decisions
+live in the [repository](https://github.com/silvio-l/loam).
 
 ## License
 
