@@ -6,6 +6,6 @@
 ///
 /// It can never silently drift from the pubspec: `tool/docs-attest.sh check`
 /// (run by the pre-commit hook, the `dart test` gate, and the pre-push hook)
-/// fails the build if this constant differs from the pubspec version. Bump both
-/// together with `tool/set-version.sh X.Y.Z`.
+/// fails the build if this constant differs from the pubspec version — that
+/// check is what guarantees the two are bumped in lockstep.
 const String loamVersion = '0.1.6';
