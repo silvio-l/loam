@@ -37,6 +37,35 @@ const alternates = hreflangAlternates(normalizedPath);
 const canonicalUrl = `https://getloam.dev${normalizedPath}`;
 const ogImage = 'https://getloam.dev/og-image.png';
 
+// Structured Data (JSON-LD) — produkt-konstant, identisch auf jeder Route.
+// SoftwareApplication macht loam für Google/Bing als Dev-Tool maschinenlesbar
+// (Kategorie, OS, gratis); Organization bündelt sameAs (GitHub) + Logo.
+// Bewusst KEIN aggregateRating, solange keine echten Reviews existieren.
+// Die description ist die geprüfte pubspec-Beschreibung (Anti-Vokabular-konform).
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      name: 'loam.dev',
+      url: 'https://getloam.dev/',
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'Windows, macOS, Linux',
+      description:
+        'Codebase intelligence for Dart & Flutter: finds unused public API, circular dependencies and complexity hotspots behind a baseline/ratchet CI gate.',
+      offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
+      author: { '@type': 'Organization', name: 'loam.dev', url: 'https://getloam.dev/' },
+    },
+    {
+      '@type': 'Organization',
+      name: 'loam.dev',
+      url: 'https://getloam.dev/',
+      logo: 'https://getloam.dev/loam-lockup.png',
+      sameAs: ['https://github.com/silvio-l/loam'],
+    },
+  ],
+};
+
 // Hauptnavigation (locale-scharf). Labels aus i18n/ui.ts; die aktive Seite wird
 // über den normalisierten Pfad markiert, damit jede Seite von jeder erreichbar ist.
 const navBase = lang === 'de' ? '/de' : '';
@@ -79,6 +108,9 @@ const navItems = [
   <meta name="twitter:title" content={title}>
   <meta name="twitter:description" content={description}>
   <meta name="twitter:image" content={ogImage}>
+
+  <!-- Structured Data (JSON-LD): SoftwareApplication + Organization -->
+  <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
 
   <!-- Self-hosted Spline Sans Mono via @fontsource — no third-party font CDN requests.
        Font CSS is imported via ESM in the frontmatter so Vite bundles the woff2 files. -->
@@ -296,7 +328,7 @@ const navItems = [
     <div class="header-left">
       <a class="brand" href={lang === 'de' ? '/de/' : '/'} aria-label="loam.dev">
         <span class="b-dot"></span>
-        <img class="wm-sm" src="/wordmark.svg" alt="loam.dev">
+        <img class="wm-sm" src="/wordmark.svg" alt="loam.dev" width="480" height="120">
       </a>
       <nav class="mainnav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
         {navItems.map(item => (

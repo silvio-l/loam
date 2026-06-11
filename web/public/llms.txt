@@ -1,0 +1,25 @@
+# loam.dev
+
+> loam.dev is a Dart CLI (command: `loam`) for codebase intelligence and anti-AI-slop on Dart and Flutter projects. It surfaces unused public API, circular dependencies and complexity hotspots as Findings, then holds them behind a Baseline so the CI Gate fails only on new regressions (Ratchet mode). It is built on the Dart `analyzer` package — semantic, element-level analysis rather than regex heuristics. Runs locally and in CI; deterministic and offline by default.
+
+The product name is always `loam.dev`; `loam` is the CLI command and the pub.dev package name. The canonical web domain is `getloam.dev`.
+
+## Core concepts
+
+- A **Rule** is one analysis unit (unused public API, circular dependencies, complexity hotspots, slop). Each capability is a Rule behind one interface.
+- A **Finding** is a single result: `{ ruleId, severity, location, message, fingerprint }`.
+- The **Baseline** (`baseline.json`) freezes accepted Findings. The **Gate** is the pass/fail decision with a CI exit code.
+- **Ratchet** (default) fails only on new Findings; **Absolute** mode uses fixed thresholds.
+- `loam scan` runs a baseline-independent full audit; `loam health` reports complexity/health; `loam gate` is the CI check; `loam baseline --write` freezes the current state.
+
+## Docs
+
+- [How it works](https://getloam.dev/how-it-works/): the scan → Findings → Baseline → Gate pipeline.
+- [Rules](https://getloam.dev/rules/): the live Rules and what each one detects.
+- [Developer guide](https://getloam.dev/developer-guide/): install, commands, configuration and CI wiring.
+
+## Reference
+
+- [pub.dev package](https://pub.dev/packages/loam): install and version history.
+- [Source on GitHub](https://github.com/silvio-l/loam): code, releases and issues.
+- [Changelog](https://github.com/silvio-l/loam/blob/main/packages/loam_cli/CHANGELOG.md): release notes per version.

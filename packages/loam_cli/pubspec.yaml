@@ -3,6 +3,12 @@ description: "Codebase intelligence for Dart & Flutter: finds unused public API,
 version: 0.1.6
 repository: https://github.com/silvio-l/loam
 homepage: https://getloam.dev
+topics:
+  - cli
+  - static-analysis
+  - code-quality
+  - analyzer
+  - developer-tools
 
 environment:
   sdk: ^3.11.0

@@ -48,3 +48,30 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy web/dist --project-name=loam --branch=main
+
+      # IndexNow: Bing/Yandex über die deployten URLs informieren (near-real-time
+      # Re-Indexierung). Key-Datei liegt unter web/public/<key>.txt und wird mit
+      # deployt; der POST ist idempotent. Non-fatal — ein Submit-Fehler darf den
+      # Deploy nie kippen. Kein GitHub-Secret nötig (der IndexNow-Key ist public).
+      - name: Notify IndexNow
+        continue-on-error: true
+        run: |
+          curl -fsS -X POST 'https://api.indexnow.org/indexnow' \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "host": "getloam.dev",
+              "key": "3e158f9fc05348f19a87e5161b355ca4",
+              "keyLocation": "https://getloam.dev/3e158f9fc05348f19a87e5161b355ca4.txt",
+              "urlList": [
+                "https://getloam.dev/",
+                "https://getloam.dev/how-it-works/",
+                "https://getloam.dev/rules/",
+                "https://getloam.dev/developer-guide/",
+                "https://getloam.dev/privacy/",
+                "https://getloam.dev/de/",
+                "https://getloam.dev/de/how-it-works/",
+                "https://getloam.dev/de/rules/",
+                "https://getloam.dev/de/developer-guide/",
+                "https://getloam.dev/de/privacy/"
+              ]
+            }' && echo "IndexNow: submitted" || echo "IndexNow: submission failed (non-fatal)"
