@@ -12,6 +12,7 @@ import 'package:loam/src/config/config_scaffold.dart';
 import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/gate/gate_engine.dart';
 import 'package:loam/src/loader/project_loader.dart';
+import 'package:loam/src/loader/sdk_locator.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/html_reporter.dart';
@@ -114,6 +115,13 @@ Future<int> run(List<String> args) async {
     // scan/gate/baseline). Emit a clean one-line message — no raw stacktrace
     // (AC3: stacktrace-free) — and a non-zero exit code (78 = EX_CONFIG).
     stderr.writeln(e.toString());
+    return 78;
+  } on SdkResolutionException catch (e) {
+    // No usable Dart SDK in this environment (e.g. only Flutter's bin/ on PATH,
+    // where `dart` is a wrapper and AnalysisContextCollection would crash with a
+    // raw PathNotFoundException). Emit the actionable, stacktrace-free guidance
+    // and a non-zero exit code (78 = EX_CONFIG — an environment misconfig).
+    stderr.writeln(e.message);
     return 78;
   }
 

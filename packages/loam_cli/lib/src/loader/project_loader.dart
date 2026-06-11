@@ -98,8 +98,15 @@ class ProjectLoadResult {
 /// This component has **no knowledge** of the rule/output/CLI layer —
 /// it is the pure semantic loading layer.
 ///
-/// The loader **never throws** in normal operation. All failures are mapped to
-/// typed [LoadFileError] entries in [ProjectLoadResult.errors]:
+/// The loader **never throws for analysis failures** — per-file parse/semantic
+/// problems are mapped to typed [LoadFileError] entries (see below). The single
+/// exception is a missing environment: when no usable Dart SDK can be located,
+/// [load] throws [SdkResolutionException] (a precondition failure, not a
+/// per-file failure — without an SDK every file would fail identically). It
+/// carries a ready-to-print, actionable message; callers surface it on stderr.
+///
+/// All analysis failures are mapped to typed [LoadFileError] entries in
+/// [ProjectLoadResult.errors]:
 /// - If the project root does not exist, a single root-level error is returned.
 /// - If a file returns [InvalidResult] from the analyzer, it is recorded as an
 ///   error with the result type name as reason.
@@ -138,11 +145,30 @@ class ProjectLoader {
 
     // Pass an explicitly resolved SDK path so the analyzer works both on the
     // Dart VM (pub install) and as a compiled AOT binary (Homebrew), where no
-    // SDK sits beside the executable. Null falls back to the analyzer default.
-    final collection = AnalysisContextCollection(
-      includedPaths: [root],
-      sdkPath: resolveDartSdkPath(),
-    );
+    // SDK sits beside the executable.
+    //
+    // Validate the path up front: handing the analyzer a non-SDK directory
+    // (e.g. a Flutter checkout root, when only flutter/bin is on PATH) makes
+    // AnalysisContextCollection's construction throw a raw PathNotFoundException
+    // — opaque noise for humans and AI agents. Fail with an actionable,
+    // steering message instead (set DART_SDK → bin/cache/dart-sdk).
+    final sdkPath = resolveDartSdkPath();
+    if (sdkPath == null || !isUsableDartSdk(sdkPath)) {
+      throw SdkResolutionException.notFound(resolved: sdkPath);
+    }
+
+    final AnalysisContextCollection collection;
+    try {
+      collection = AnalysisContextCollection(
+        includedPaths: [root],
+        sdkPath: sdkPath,
+      );
+    } on FileSystemException {
+      // Belt-and-suspenders: a path that passed the lib/_internal check but is
+      // still incomplete (truncated/corrupt SDK) surfaces here. Convert the raw
+      // analyzer crash into the same actionable, stacktrace-free guidance.
+      throw SdkResolutionException.notFound(resolved: sdkPath);
+    }
     try {
       final resolved = <LoadedFile>[];
       final errors = <LoadFileError>[];
