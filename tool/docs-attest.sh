@@ -382,10 +382,12 @@ check_shipped_status() {
     done < <(perl -0777 -ne 'while(/ruleId="([^"]+)".*?status="([^"]+)"/sg){print "$1\t$2\n"}' "$page")
   done
 
-  # (B) pub.dev Package-README Capability-Tabelle: die ZELLE einer live-Rule darf
-  #     kein 🚧 tragen. Spaltenweise (FS="|"), damit das 🚧 der Nachbarspalte
-  #     (AI-slop-Liste) nicht fälschlich der Rule zugerechnet wird.
-  if [ -f "$PKGREADME" ]; then
+  # (B) Capability-Tabelle in BEIDEN READMEs (Root = GitHub-Frontpage, Package =
+  #     pub.dev): die ZELLE einer live-Rule darf kein 🚧 tragen. Spaltenweise
+  #     (FS="|"), damit das 🚧 der Nachbarspalte (AI-slop-Liste) nicht zählt.
+  local readme
+  for readme in "$README" "$PKGREADME"; do
+    [ -f "$readme" ] || continue
     while IFS= read -r rid; do
       [ -z "$rid" ] && continue
       local cell_hit
@@ -397,10 +399,10 @@ check_shipped_status() {
             for (k = 1; k <= n; k++) if (index(lc, w[k]) == 0) ok = 0
             if (ok && index($i, "🚧") > 0) print $i
           }
-        }' "$PKGREADME")"
-      [ -n "$cell_hit" ] && note "shipped-status: live-Rule '$rid' steht in packages/loam_cli/README.md noch mit 🚧 (planned):${cell_hit}"
+        }' "$readme")"
+      [ -n "$cell_hit" ] && note "shipped-status: live-Rule '$rid' steht in ${readme#$ROOT/} noch mit 🚧 (planned):${cell_hit}"
     done <<< "$live_rules"
-  fi
+  done
 
   # (C) Developer-Guide: '(coming soon)' DARF nur an echten notImplemented-Stub-
   #     Commands stehen. Shipped-Command mit '(coming soon)' = Drift; Stub OHNE
