@@ -352,15 +352,85 @@ check_privacy_footer() {
   return 0
 }
 
+check_shipped_status() {
+  # Drift-Klasse (genau der Fall, der sonst still auf getloam.dev/pub.dev landet):
+  # ein AUSGELIEFERTES Feature wird öffentlich noch als planned/🚧/coming-soon
+  # geführt — ODER etwas wird als live/✅ ausgegeben, das im Code nicht steckt.
+  # EINE Quelle der Wahrheit: fullRegistryIds (Rules) + notImplemented-Stubs (CLI).
+  local RUNNER="$ROOT/packages/loam_cli/lib/src/runner/analysis_runner.dart"
+  local RULESEN="$ROOT/web/src/pages/rules.astro"
+  local RULESDE="$ROOT/web/src/pages/de/rules.astro"
+
+  # Live-Rule-IDs aus fullRegistryIds (die EINE Quelle für „welche Rule ist aktiv").
+  local live_rules=""
+  [ -f "$RUNNER" ] && live_rules="$(awk '/fullRegistryIds = \[/{f=1;next} f&&/\]/{f=0} f' "$RUNNER" \
+                                    | grep -oE "'[a-z][a-z-]*'" | tr -d "'" | sort -u)"
+
+  # (A) Website-Rules-Seite (EN+DE): jede RuleCard-Status-Angabe MUSS fullRegistryIds
+  #     spiegeln. Bidirektional — fängt „shipped, aber planned" UND „live behauptet,
+  #     aber nicht im Code". Quelle (.astro) statt dist/ — deterministisch ohne Build.
+  local page rid status
+  for page in "$RULESEN" "$RULESDE"; do
+    [ -f "$page" ] || continue
+    while IFS=$'\t' read -r rid status; do
+      [ -z "$rid" ] && continue
+      if printf '%s\n' "$live_rules" | grep -qx -- "$rid"; then
+        [ "$status" = "live" ] || note "shipped-status: Rule '$rid' ist live (fullRegistryIds), aber ${page#$ROOT/} zeigt status=\"$status\""
+      elif [ "$status" = "live" ]; then
+        note "shipped-status: ${page#$ROOT/} markiert '$rid' als live, aber die Rule ist nicht in fullRegistryIds (nicht ausgeliefert)"
+      fi
+    done < <(perl -0777 -ne 'while(/ruleId="([^"]+)".*?status="([^"]+)"/sg){print "$1\t$2\n"}' "$page")
+  done
+
+  # (B) pub.dev Package-README Capability-Tabelle: die ZELLE einer live-Rule darf
+  #     kein 🚧 tragen. Spaltenweise (FS="|"), damit das 🚧 der Nachbarspalte
+  #     (AI-slop-Liste) nicht fälschlich der Rule zugerechnet wird.
+  if [ -f "$PKGREADME" ]; then
+    while IFS= read -r rid; do
+      [ -z "$rid" ] && continue
+      local cell_hit
+      cell_hit="$(awk -F'|' -v words="$rid" '
+        BEGIN { n = split(words, w, "-") }
+        {
+          for (i = 1; i <= NF; i++) {
+            lc = tolower($i); ok = 1
+            for (k = 1; k <= n; k++) if (index(lc, w[k]) == 0) ok = 0
+            if (ok && index($i, "🚧") > 0) print $i
+          }
+        }' "$PKGREADME")"
+      [ -n "$cell_hit" ] && note "shipped-status: live-Rule '$rid' steht in packages/loam_cli/README.md noch mit 🚧 (planned):${cell_hit}"
+    done <<< "$live_rules"
+  fi
+
+  # (C) Developer-Guide: '(coming soon)' DARF nur an echten notImplemented-Stub-
+  #     Commands stehen. Shipped-Command mit '(coming soon)' = Drift; Stub OHNE
+  #     '(coming soon)' = ebenfalls inkonsistent. Stub-Erkennung: notImplemented im
+  #     Command-Block (bis zum nächsten `name = '…'`).
+  if [ -f "$CLI" ] && [ -f "$DEVGUIDE" ]; then
+    local cname cstub
+    while IFS=$'\t' read -r cname cstub; do
+      [ -z "$cname" ] && continue
+      local coming=0
+      if grep -F "loam $cname" "$DEVGUIDE" | grep -qiF "coming soon"; then coming=1; fi
+      if [ "$cstub" = "live" ] && [ "$coming" -eq 1 ]; then
+        note "shipped-status: Command 'loam $cname' ist implementiert, im Developer-Guide aber als '(coming soon)' geführt"
+      elif [ "$cstub" = "stub" ] && [ "$coming" -eq 0 ]; then
+        note "shipped-status: Command 'loam $cname' ist ein notImplemented-Stub, im Developer-Guide aber NICHT als '(coming soon)' markiert"
+      fi
+    done < <(perl -ne 'if(/name = \x27([a-z][a-z-]*)\x27/){ if(defined $c){print "$c\t".($s?"stub":"live")."\n"} $c=$1;$s=0;next } $s=1 if /notImplemented/; END{ print "$c\t".($s?"stub":"live")."\n" if defined $c }' "$CLI")
+  fi
+  return 0
+}
+
 cmd_check() {
   fail=0
   # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
   # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
   # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
-  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs; check_i18n; check_privacy_footer
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs; check_i18n; check_privacy_footer; check_shipped_status
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points · i18n · privacy-footer · dist-regression-guard)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points · i18n · privacy-footer · dist-regression-guard · shipped-status)"
 }
 
 cmd_attest() {
