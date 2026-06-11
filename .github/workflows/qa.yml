@@ -50,6 +50,13 @@ jobs:
       - name: Analyze
         run: dart analyze --fatal-infos --fatal-warnings
 
+      # Expliziter, sichtbarer Public-Docs-QS-Gate (deterministisch, 0 Token).
+      # Läuft ohnehin im dart-test-Gate (test/readme_qa_test.dart), hier aber als
+      # eigener Step: failt schneller und macht die vollständige Ausführung (alle
+      # check_*-Funktionen inkl. shipped-status) unmissverständlich sichtbar.
+      - name: Public-Docs-QS (docs-attest check)
+        run: bash ../../tool/docs-attest.sh check
+
       - name: Test (inkl. Self-Dogfooding + Public-Docs-QS)
         run: dart test
 

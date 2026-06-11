@@ -14,12 +14,15 @@
 # landing notable feature work.
 #
 #   tool/docs-drift.sh            Print the ground truth + doc bundle + a ready
-#                                 review prompt (read it, or pipe to any LLM /
+#   tool/docs-drift.sh --print    review prompt (read it, or pipe to any LLM /
 #                                 hand to an agent that can read the repo).
-#   tool/docs-drift.sh --llm      Additionally run it through the `claude` CLI
-#                                 with a cheap model and print the drift report.
+#   tool/docs-drift.sh --llm      Run it through the local `claude` CLI (cheap
+#                                 model) and print the drift report. For dev use.
+#   tool/docs-drift.sh --api      Run it through the Anthropic API via curl
+#                                 (needs ANTHROPIC_API_KEY + jq). For CI; a
+#                                 missing key is a no-op (exit 0), never an error.
 #
-# Free-tier-safe: human-invoked, bounded, opt-in LLM on a cheap model.
+# Free-tier-safe: bounded, cheap model (Haiku), at release time — not per push.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -102,16 +105,48 @@ EOF
   done
 } > "$prompt"
 
-if [ "${1:-}" = "--llm" ]; then
-  if command -v claude >/dev/null 2>&1; then
-    echo "→ docs-drift: running the soft check via claude ($MODEL) …" >&2
-    claude -p "$(cat "$prompt")" --model "$MODEL"
-  else
-    echo "✗ docs-drift: 'claude' CLI not found." >&2
-    echo "  Pipe the bundle to any LLM instead:  tool/docs-drift.sh | <your-llm>" >&2
+case "${1:-}" in
+  --llm)
+    # Local dev convenience: run through the `claude` CLI (uses its own auth).
+    if command -v claude >/dev/null 2>&1; then
+      echo "→ docs-drift: running the soft check via claude ($MODEL) …" >&2
+      claude -p "$(cat "$prompt")" --model "$MODEL"
+    else
+      echo "✗ docs-drift: 'claude' CLI not found — printing the bundle instead." >&2
+      cat "$prompt"
+    fi
+    ;;
+  --api)
+    # CI-friendly: Anthropic Messages API via curl. Needs ANTHROPIC_API_KEY + jq.
+    # Advisory: a missing key is NOT an error (exit 0) so the workflow never breaks
+    # just because the secret isn't configured.
+    if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+      echo "::notice::docs-drift skipped — ANTHROPIC_API_KEY not set (advisory soft-check)." >&2
+      echo "_docs-drift soft-check skipped: ANTHROPIC_API_KEY not configured._"
+      rm -f "$prompt"; exit 0
+    fi
+    command -v jq >/dev/null 2>&1 || { echo "✗ docs-drift --api needs jq" >&2; rm -f "$prompt"; exit 2; }
+    payload="$(jq -Rs --arg m "$MODEL" \
+      '{model:$m, max_tokens:2048, messages:[{role:"user", content:.}]}' < "$prompt")"
+    resp="$(curl -sS https://api.anthropic.com/v1/messages \
+      -H "x-api-key: $ANTHROPIC_API_KEY" \
+      -H "anthropic-version: 2023-06-01" \
+      -H "content-type: application/json" \
+      -d "$payload")"
+    text="$(printf '%s' "$resp" | jq -r '.content[0].text // empty')"
+    if [ -z "$text" ]; then
+      echo "✗ docs-drift: empty/failed API response:" >&2
+      printf '%s' "$resp" | jq -r '.error.message // .' >&2 2>/dev/null || printf '%s\n' "$resp" >&2
+      rm -f "$prompt"; exit 1
+    fi
+    printf '%s\n' "$text"
+    ;;
+  ""|--print)
     cat "$prompt"
-  fi
-else
-  cat "$prompt"
-fi
+    ;;
+  *)
+    echo "usage: docs-drift.sh [--print | --llm | --api]" >&2
+    rm -f "$prompt"; exit 2
+    ;;
+esac
 rm -f "$prompt"
