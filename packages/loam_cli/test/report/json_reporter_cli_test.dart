@@ -64,7 +64,7 @@ void main() {
     );
   });
 
-  test('loam scan --format json: envelope has schemaVersion == 1', () {
+  test('loam scan --format json: envelope has schemaVersion == 2', () {
     final result = Process.runSync(Platform.executable, [
       'run',
       entrypoint,
@@ -76,7 +76,29 @@ void main() {
     ]);
     final out = result.stdout as String;
     final doc = jsonDecode(out) as Map<String, dynamic>;
-    expect(doc['schemaVersion'], equals(1));
+    expect(doc['schemaVersion'], equals(2));
+  });
+
+  test('loam scan --format json: findings carry kind + remedy (schema 2)', () {
+    final result = Process.runSync(Platform.executable, [
+      'run',
+      entrypoint,
+      '--format',
+      'json',
+      'scan',
+      '--project-root',
+      fixturePath,
+    ]);
+    final out = result.stdout as String;
+    final doc = jsonDecode(out) as Map<String, dynamic>;
+    final findings = (doc['findings'] as List).cast<Map<String, dynamic>>();
+    expect(findings, isNotEmpty);
+    for (final f in findings) {
+      expect(f.containsKey('kind'), isTrue);
+      expect(f.containsKey('remedy'), isTrue);
+      expect(f['kind'], isNotNull);
+      expect(f['remedy'], isNotNull);
+    }
   });
 
   test('loam scan --format json: tool.name == "loam"', () {

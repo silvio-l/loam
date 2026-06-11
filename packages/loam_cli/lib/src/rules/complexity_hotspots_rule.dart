@@ -160,8 +160,29 @@ class ComplexityHotspotsRule implements Rule {
       }
       final breachDesc = breaches.join(', ');
 
+      // Agent-proof classification (see Finding.kind): name the nature of the
+      // complexity so a consumer cannot conflate a large widget tree with a
+      // god-function, nor dismiss real logic as "just a build method".
+      final String kind;
+      final String remedy;
+      if (fc.isFlutterBuild) {
+        kind = 'flutter-widget-build';
+        remedy =
+            'This is widget-tree size, not branching logic — but the tree is '
+            'still too large to read. Extract cohesive sub-trees into separate '
+            'widget classes (or build_* helper methods) until this build '
+            'method drops below the threshold.';
+      } else {
+        kind = 'logic';
+        remedy =
+            'This is real control-flow complexity. Decompose it: extract the '
+            'independent branches/steps into well-named helper methods, replace '
+            'nested conditionals with early returns or guard clauses, and lift '
+            'distinct responsibilities into separate functions.';
+      }
+
       final message =
-          '${fc.qualifiedName}: '
+          '${fc.qualifiedName} [kind=$kind]: '
           'cyclomatic=${m.cyclomatic}, cognitive=${m.cognitive} '
           '($breachDesc)';
 
@@ -179,6 +200,8 @@ class ComplexityHotspotsRule implements Rule {
           line: fc.line,
           message: message,
           fingerprint: fingerprint,
+          kind: kind,
+          remedy: remedy,
         ),
       );
     }

@@ -67,12 +67,12 @@ void main() {
       expect(() => jsonDecode(output), returnsNormally);
     });
 
-    test('schemaVersion == 1', () {
+    test('schemaVersion == 2', () {
       final output = const JsonReporter().render(
         _payload(findings: [_finding()]),
       );
       final doc = jsonDecode(output) as Map<String, dynamic>;
-      expect(doc['schemaVersion'], equals(1));
+      expect(doc['schemaVersion'], equals(2));
     });
 
     test('tool.name == "loam"', () {

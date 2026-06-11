@@ -10,16 +10,27 @@ import 'reporter.dart';
 /// Emits a schema-versioned envelope with a metadata block, summary counts,
 /// and a `findings` array. Designed as the canonical agent/LLM contract surface.
 ///
-/// Envelope shape (schemaVersion 1):
+/// Envelope shape (schemaVersion 2):
 /// ```json
 /// {
-///   "schemaVersion": 1,
+///   "schemaVersion": 2,
 ///   "tool": { "name": "loam", "version": "<toolVersion>" },
 ///   "ruleset": "<rulesetVersion>",
 ///   "summary": { "total": N, "error": N, "warning": N, "info": N },
-///   "findings": [ ... ]
+///   "findings": [
+///     {
+///       "ruleId": "...", "severity": "...", "filePath": "...",
+///       "line": N, "column": N, "message": "...", "fingerprint": "...",
+///       "kind": "...",   // agent-proof classifier (schemaVersion 2+); may be null
+///       "remedy": "..."  // concrete next action  (schemaVersion 2+); may be null
+///     }
+///   ]
 /// }
 /// ```
+///
+/// `schemaVersion` 2 added `kind` and `remedy` (the agent-proof message
+/// contract). Consumers reading the structured fields should not parse them out
+/// of `message`.
 ///
 /// Invariant 4 (pure renderer): no I/O, no exit-code logic, no thresholds.
 /// Invariant 5 (reproducible): no timestamps, no absolute paths in content;
@@ -40,7 +51,7 @@ class JsonReporter implements Reporter {
     }
 
     final doc = <String, dynamic>{
-      'schemaVersion': 1,
+      'schemaVersion': 2,
       'tool': {'name': 'loam', 'version': payload.toolVersion},
       'ruleset': payload.rulesetVersion,
       'summary': {
@@ -66,6 +77,9 @@ class JsonReporter implements Reporter {
       'column': f.column, // null is serialised as JSON null
       'message': f.message,
       'fingerprint': f.fingerprint,
+      'kind': f.kind, // agent-proof classifier; null is serialised as JSON null
+      'remedy':
+          f.remedy, // concrete next action; null is serialised as JSON null
     };
   }
 

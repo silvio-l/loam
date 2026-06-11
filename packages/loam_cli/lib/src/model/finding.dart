@@ -13,7 +13,7 @@ export 'severity.dart';
 /// have no meaningful column. When present, both are 1-based to match SARIF
 /// region semantics.
 class Finding {
-  /// Creates a [Finding]; all fields except [column] are required.
+  /// Creates a [Finding]; [column], [kind] and [remedy] are optional.
   const Finding({
     required this.ruleId,
     required this.severity,
@@ -22,6 +22,8 @@ class Finding {
     required this.message,
     required this.fingerprint,
     this.column,
+    this.kind,
+    this.remedy,
   });
 
   /// Identifier of the rule that produced this finding.
@@ -41,6 +43,22 @@ class Finding {
 
   /// Human-readable description of the finding.
   final String message;
+
+  /// Machine-readable classifier that removes the interpretation gap an AI
+  /// agent would otherwise fill itself (the root cause of mis-triage like
+  /// "those are just build() methods" or "that cycle is a standard pattern").
+  ///
+  /// Stable, lowercase-hyphenated tokens scoped per rule, e.g.
+  /// `flutter-widget-build` vs `logic` (complexity-hotspots), or
+  /// `interface-impl-cycle` vs `bidirectional-cycle` (circular-dependencies).
+  /// `null` only for findings predating the agent-proof message contract.
+  final String? kind;
+
+  /// The concrete next action a consumer (human or agent) should take — phrased
+  /// imperatively, naming the fix, not just restating the problem. Pairs with
+  /// [kind] to make a finding hard to rationalise away. `null` only for
+  /// findings predating the contract.
+  final String? remedy;
 
   /// Position-robust stable hash used by the baseline to diff findings across runs.
   final String fingerprint;

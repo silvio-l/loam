@@ -76,14 +76,32 @@ class CircularDependenciesRule implements Rule {
       // Message: list the member files so the developer can see the loop.
       final membersDisplay = cluster.join(', ');
 
+      // Agent-proof classification (see Finding.kind). The remedy explicitly
+      // pre-empts the common rationalisation ("this is just the platform /
+      // strategy factory pattern, not a real bug") — these ARE real import
+      // cycles regardless of the runtime dispatch pattern layered on top.
+      final kind = cluster.length == 2
+          ? 'bidirectional-cycle'
+          : 'multi-file-cycle';
+      const remedy =
+          'This is a real import cycle, not an artifact of a Platform.isX or '
+          'strategy/factory pattern — runtime dispatch does not require these '
+          'imports to form a loop. Break it by extracting the shared '
+          'abstraction (the abstract interface/base class that the members '
+          'import from each other) into its own file, so every import flows in '
+          'one direction only. Verify with a fresh scan: the cycle must '
+          'disappear, not merely shrink.';
+
       findings.add(
         Finding(
           ruleId: ruleId,
           severity: Severity.warning,
           filePath: smallestMember,
           line: 1,
-          message: 'circular dependency between: $membersDisplay',
+          message: 'circular dependency [kind=$kind] between: $membersDisplay',
           fingerprint: fingerprint,
+          kind: kind,
+          remedy: remedy,
         ),
       );
     }

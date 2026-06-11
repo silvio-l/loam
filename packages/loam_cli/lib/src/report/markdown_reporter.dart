@@ -13,9 +13,9 @@ import 'reporter.dart';
 /// ```markdown
 /// ### lib/src/foo.dart
 ///
-/// | Line | Severity | Rule | Message |
-/// |------|----------|------|---------|
-/// | 10 | warning | unused-public-exports | Unused export: Foo |
+/// | Line | Severity | Rule | Message | Remedy |
+/// |------|----------|------|---------|--------|
+/// | 10 | warning | unused-public-exports | Unused export: Foo | Make it private or delete it. |
 ///
 /// ### lib/src/bar.dart
 /// ...
@@ -60,15 +60,16 @@ class MarkdownReporter implements Reporter {
       buf.writeln();
 
       // GFM table header
-      buf.writeln('| Line | Severity | Rule | Message |');
-      buf.writeln('|------|----------|------|---------|');
+      buf.writeln('| Line | Severity | Rule | Message | Remedy |');
+      buf.writeln('|------|----------|------|---------|--------|');
 
       for (final f in fileFindings) {
         final line = f.line.toString();
         final severity = f.severity.name;
         final rule = f.ruleId;
         final message = _escapePipe(f.message);
-        buf.writeln('| $line | $severity | $rule | $message |');
+        final remedy = _escapePipe(f.remedy ?? '—');
+        buf.writeln('| $line | $severity | $rule | $message | $remedy |');
       }
 
       buf.writeln();

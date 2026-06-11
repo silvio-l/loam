@@ -73,6 +73,14 @@ class SarifReporter implements Reporter {
           },
         },
       ],
+      // Agent-proof message contract: expose the classifier and concrete next
+      // action in the SARIF property bag so tooling/agents read structure, not
+      // prose. Omitted entirely when absent (no null keys).
+      if (f.kind != null || f.remedy != null)
+        'properties': {
+          if (f.kind != null) 'kind': f.kind,
+          if (f.remedy != null) 'remedy': f.remedy,
+        },
     };
   }
 

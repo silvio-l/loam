@@ -64,6 +64,14 @@ class UnusedPublicExportsRule implements Rule {
           line: candidate.line,
           message: 'unused public ${candidate.kind} `${candidate.name}`',
           fingerprint: fingerprint,
+          kind: 'unused-public-export',
+          remedy:
+              'No reference to `${candidate.name}` exists anywhere in this '
+              'package. Make it private (prefix with `_`) or delete it. If it '
+              "is intentionally part of a published package's public API, that "
+              'is the one legitimate exception — keep it and suppress with '
+              '`// loam-ignore: unused-public-exports`, but only after '
+              'confirming an external consumer actually imports it.',
         ),
       );
     }

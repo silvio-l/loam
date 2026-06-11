@@ -182,7 +182,7 @@ void main() {
     for (final f in findings) {
       // The smallest member is the one whose path sorts first.
       // Extract listed members from the message.
-      final raw = f.message.replaceFirst('circular dependency between: ', '');
+      final raw = f.message.split('between: ').last;
       final members = raw.split(', ');
       final smallest = (List<String>.from(members)..sort()).first;
       expect(
@@ -334,7 +334,7 @@ void main() {
   test('message lists cluster members in sorted order', () {
     final findings = makeRule().run(loadResult);
     for (final f in findings) {
-      final raw = f.message.replaceFirst('circular dependency between: ', '');
+      final raw = f.message.split('between: ').last;
       final members = raw.split(', ');
       final sorted = List<String>.from(members)..sort();
       expect(

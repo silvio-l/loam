@@ -284,9 +284,24 @@ class _ExecutableVisitor extends RecursiveAstVisitor<void> {
         filePath: relPath,
         line: loc.lineNumber,
         metrics: calculator.calculate(body),
+        isFlutterBuild: _isFlutterBuildMethod(node),
       ),
     );
     // Do NOT recurse into the body — ComplexityCalculator handles the interior.
+  }
+
+  /// Whether [node] is a Flutter widget-tree build method: named `build` and
+  /// declaring a `Widget`-family return type (`Widget`, `PreferredSizeWidget`,
+  /// …). Uses the source annotation so it is robust across analyzer versions;
+  /// build methods always annotate their return type by Flutter convention.
+  bool _isFlutterBuildMethod(MethodDeclaration node) {
+    if (node.name.lexeme != 'build') return false;
+    final returnType = node.returnType?.toSource();
+    if (returnType == null) return false;
+    final base = returnType.endsWith('?')
+        ? returnType.substring(0, returnType.length - 1)
+        : returnType;
+    return base == 'Widget' || base.endsWith('Widget');
   }
 
   // ---- Constructors --------------------------------------------------------

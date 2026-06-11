@@ -16,6 +16,7 @@ final class FunctionComplexity {
     required this.filePath,
     required this.line,
     required this.metrics,
+    this.isFlutterBuild = false,
   });
 
   /// Stable qualified symbol key.
@@ -38,6 +39,15 @@ final class FunctionComplexity {
   /// The complexity metrics for this executable.
   final ComplexityMetrics metrics;
 
+  /// `true` when this executable is a Flutter widget-tree build method
+  /// (`Widget build(...)` / `PreferredSizeWidget build(...)`).
+  ///
+  /// Such methods accrue cyclomatic/cognitive complexity from the declarative
+  /// widget tree itself, not from branching business logic. The distinction
+  /// drives the complexity finding's `kind` so an agent cannot conflate a large
+  /// widget tree with a "god function" (or dismiss real logic as "just build").
+  final bool isFlutterBuild;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -45,10 +55,12 @@ final class FunctionComplexity {
           other.qualifiedName == qualifiedName &&
           other.filePath == filePath &&
           other.line == line &&
-          other.metrics == metrics;
+          other.metrics == metrics &&
+          other.isFlutterBuild == isFlutterBuild;
 
   @override
-  int get hashCode => Object.hash(qualifiedName, filePath, line, metrics);
+  int get hashCode =>
+      Object.hash(qualifiedName, filePath, line, metrics, isFlutterBuild);
 
   @override
   String toString() =>
@@ -56,5 +68,6 @@ final class FunctionComplexity {
       'qualifiedName: $qualifiedName, '
       'filePath: $filePath, '
       'line: $line, '
-      'metrics: $metrics)';
+      'metrics: $metrics, '
+      'isFlutterBuild: $isFlutterBuild)';
 }
