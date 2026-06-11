@@ -37,9 +37,9 @@ Everything else is the **target surface** (🚧 = planned, not in 0.1.0):
 | Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) |
 |---|---|
 | ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks |
-| 🚧 Circular dependencies | 🚧 Narrative filler comments |
+| ✅ Circular dependencies | 🚧 Narrative filler comments |
 | 🚧 Code duplication (AST-normalised) | 🚧 Ungrounded `// ignore:` |
-| 🚧 Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
+| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions |
 
 ## What makes it different
@@ -82,10 +82,11 @@ loam scan /path/to/project         # same, positional path to project root
 loam baseline --write              # freeze the accepted state to baseline.json
 loam gate                          # CI: ratchet — only new findings fail (exit 1)
 loam gate /path/to/project         # same, positional path to project root
+loam health                        # cyclomatic/cognitive complexity distribution view
 loam init                          # scaffold loam.yaml config in the project
 ```
 
-All four commands (`scan`, `gate`, `init`, `baseline`) accept an optional positional
+All five commands (`scan`, `gate`, `health`, `init`, `baseline`) accept an optional positional
 `[path]` as the project root. The explicit `-p`/`--project-root` option overrides the
 positional path when both are given.
 

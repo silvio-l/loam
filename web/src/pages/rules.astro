@@ -13,7 +13,7 @@ const cleanLabel = t(lang, 'rules.clean.label');
 <Layout
   lang="en"
   title="Rules — loam.dev"
-  description="The full loam.dev rule catalogue: six analysis capabilities for Dart/Flutter projects — one live today, five planned. Each rule shows a slop vs. clean code example."
+  description="The full loam.dev rule catalogue: six analysis capabilities for Dart/Flutter projects — three live today, three planned. Each rule shows a slop vs. clean code example."
   path="/rules"
 >
   <div class="prose-page">
@@ -22,8 +22,8 @@ const cleanLabel = t(lang, 'rules.clean.label');
     <p class="lead">
       loam.dev ships six analysis capabilities, all behind one stable
       <code>Rule</code> interface. Adding a new rule never changes the pipeline —
-      only the rule list. One rule is live today; five are planned and will ship
-      as post-MVP iterations. Status is always honest.
+      only the rule list. Three rules are live today; three are planned and will
+      ship as post-MVP iterations. Status is always honest.
     </p>
 
     <!-- Live rule -->
@@ -55,40 +55,11 @@ class ActiveHelper {
 }`}
       />
 
-      <div class="deeper-box">
-        <h3>Going deeper</h3>
-        <p>
-          The
-          <a href="/developer-guide/">Developer Guide</a>
-          covers the full CLI reference, configuration options (rule toggles,
-          path suppression, inline <code>// loam-ignore:</code> directives),
-          and the complete baseline onboarding sequence — including how to
-          integrate <code>loam gate</code> into GitHub Actions.
-        </p>
-        <p>
-          Automatic suppression for code-generator inputs is described in detail
-          under "Automatic codegen-input suppression" in the guide — the three
-          detection signals (base-type registry, annotation registry, structural
-          fallback) work without any <code>loam.yaml</code> configuration.
-        </p>
-      </div>
-    </section>
-
-    <!-- Planned rules -->
-    <section>
-      <h2>Planned</h2>
-
-      <p class="section-intro">
-        These five rules are on the post-MVP roadmap. Each is a separate plugin
-        behind the same <code>Rule</code> interface — the pipeline will not
-        change when they ship.
-      </p>
-
       <RuleCard
         ruleId="circular-dependencies"
         title="Circular dependencies"
-        status="planned"
-        badgeLabel={planned}
+        status="live"
+        badgeLabel={live}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
         description="Detects import cycles across your Dart libraries. Cycles make compilation order ambiguous, prevent tree-shaking, and are a common sign of unclear layer responsibilities."
@@ -104,32 +75,10 @@ import 'a.dart'; // ← cycle: a → b → a`}
       />
 
       <RuleCard
-        ruleId="code-duplicates"
-        title="Code duplicates"
-        status="planned"
-        badgeLabel={planned}
-        slopLabel={slopLabel}
-        cleanLabel={cleanLabel}
-        description="Finds structurally similar code blocks using AST-normalised token hashing. Flags helpers that were copy-pasted rather than extracted — a classic AI-agent side effect."
-        slopCode={`// feature_a/utils.dart
-String formatDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';
-
-// feature_b/helpers.dart  ← near-duplicate
-String renderDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';`}
-        cleanCode={`// lib/shared/date_format.dart
-String formatDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';
-
-// both features import the shared helper`}
-      />
-
-      <RuleCard
         ruleId="complexity-hotspots"
         title="Complexity hotspots"
-        status="planned"
-        badgeLabel={planned}
+        status="live"
+        badgeLabel={live}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
         description="Measures cyclomatic and cognitive complexity per function/method and aggregates them into a project health score. Flags functions that are too complex to review or test reliably."
@@ -154,6 +103,57 @@ Future<void> syncData(List<Item> items) async {
 }
 
 Future<void> _syncOne(Item item) async { … }`}
+      />
+
+      <div class="deeper-box">
+        <h3>Going deeper</h3>
+        <p>
+          The
+          <a href="/developer-guide/">Developer Guide</a>
+          covers the full CLI reference, configuration options (rule toggles,
+          path suppression, inline <code>// loam-ignore:</code> directives),
+          and the complete baseline onboarding sequence — including how to
+          integrate <code>loam gate</code> into GitHub Actions.
+        </p>
+        <p>
+          Automatic suppression for code-generator inputs is described in detail
+          under "Automatic codegen-input suppression" in the guide — the three
+          detection signals (base-type registry, annotation registry, structural
+          fallback) work without any <code>loam.yaml</code> configuration.
+        </p>
+      </div>
+    </section>
+
+    <!-- Planned rules -->
+    <section>
+      <h2>Planned</h2>
+
+      <p class="section-intro">
+        These three rules are on the post-MVP roadmap. Each is a separate plugin
+        behind the same <code>Rule</code> interface — the pipeline will not
+        change when they ship.
+      </p>
+
+      <RuleCard
+        ruleId="code-duplicates"
+        title="Code duplicates"
+        status="planned"
+        badgeLabel={planned}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Finds structurally similar code blocks using AST-normalised token hashing. Flags helpers that were copy-pasted rather than extracted — a classic AI-agent side effect."
+        slopCode={`// feature_a/utils.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// feature_b/helpers.dart  ← near-duplicate
+String renderDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';`}
+        cleanCode={`// lib/shared/date_format.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// both features import the shared helper`}
       />
 
       <RuleCard
