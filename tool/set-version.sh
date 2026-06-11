@@ -21,7 +21,7 @@ fi
 PUBSPEC="$ROOT/packages/loam_cli/pubspec.yaml"
 VERSIONDART="$ROOT/packages/loam_cli/lib/src/version.dart"
 CHANGELOG="$ROOT/packages/loam_cli/CHANGELOG.md"
-WEBPAGE="$ROOT/web/src/pages/index.astro"
+WEBPAGE="$ROOT/web/src/layouts/Layout.astro"
 
 # 1. pubspec — die Quelle.
 perl -i -pe 's/^version:\s*\S+\s*$/version: '"$NEW"'\n/ if /^version:/' "$PUBSPEC"

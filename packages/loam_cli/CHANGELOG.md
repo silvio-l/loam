@@ -1,7 +1,33 @@
 # Changelog
 
-## 0.1.5
+## 0.1.6
 
+- **New rule: `complexity-hotspots`.** Measures cyclomatic and cognitive
+  complexity per executable over the resolved AST and flags hotspots that breach
+  documented, conservative defaults (cyclomatic > 20 or cognitive > 30; a
+  cyclomatic-only breach also requires cognitive > 5, so flat lookup tables and
+  generated-style boilerplate stay quiet). Findings carry a stable fingerprint
+  anchored on the qualified symbol name, so line shifts don't churn the baseline.
+  Suppress individually with `// loam-ignore: complexity-hotspots – <reason>`.
+- **New command: `loam health`.** A diagnostic aggregate view — Health-Score
+  (0–100), Grade (A–F) and a descending hotspot table — rendered by its own
+  terminal renderer. It always measures (independent of the `complexity-hotspots`
+  rule toggle) and is a report, not a gate: exit 0 even on a low score, exit 64
+  on a usage error.
+- **New rule: `circular-dependencies`.** Detects import cycles across first-party
+  Dart libraries (Tarjan strongly-connected components over the import graph);
+  export-only re-exports are excluded so barrel files don't false-positive.
+- **Positional project path.** `scan`, `gate`, `init` and `baseline` now accept
+  the project root as a positional `[path]`; `-p`/`--project-root` overrides it.
+- **Fewer false positives.** Flutter `gen-l10n` output is treated as generated
+  and excluded from analysis.
+- **Update notice (opt-out).** Prints a one-line stderr notice (at most once a
+  day) when a newer release is on pub.dev; silence it with `--no-update-check`,
+  the `LOAM_NO_UPDATE_CHECK` env var, or `update_check: false` in `loam.yaml`.
+  CI is always silent.
+- **HTML report shows a Health-Score badge.** When `loam scan` emits HTML, a
+  Score + Grade badge is rendered in the report head via a sidecar; the other
+  formats and the `ReportPayload` contract are unchanged.
 - **`--format html` now writes a file and opens it.** Instead of streaming to
   stdout, the HTML report is written to `loam-report.html` (override with
   `--output <file>`) and opened in the default browser on interactive runs.
