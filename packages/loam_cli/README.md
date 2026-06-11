@@ -21,14 +21,14 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.6.** Three rules are live end to end — `unused-public-exports`,
+> **0.1.7.** Three rules are live end to end — `unused-public-exports`,
 > `circular-dependencies` and `complexity-hotspots` — plus the `loam health`
 > view. The remaining capabilities below are on the roadmap, each landing as its
 > own rule behind the same stable `Rule` interface.
 
 ## What it catches
 
-**Available now (0.1.6) — three live rules:** project-wide **unused public API**
+**Available now (0.1.7) — three live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, and **complexity hotspots**
 (cyclomatic/cognitive, aggregated into a `loam health` score) — emitted as
