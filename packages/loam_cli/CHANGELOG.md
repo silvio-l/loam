@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.7
+
+- **Fixed: Flutter SDK no longer crashes the scan.** On a standard Flutter
+  install only `flutter/bin` is on `PATH`, where `dart` is a wrapper script;
+  loam resolved the SDK two levels up to the Flutter checkout root (which has no
+  `lib/_internal`) and the analyzer crashed with a raw `PathNotFoundException`.
+  loam now redirects into `<flutterRoot>/bin/cache/dart-sdk`. When no usable SDK
+  can be found at all, loam prints an actionable message (set `DART_SDK=…`) and
+  exits 78 instead of dumping a stack trace.
+- **Agent-proof findings: every finding now carries a `kind` and a `remedy`.**
+  loam's output is read by AI agents as well as humans, and a bare fact invites
+  mis-triage. `complexity-hotspots` now distinguishes `flutter-widget-build`
+  from `logic`; `circular-dependencies` states the cycle is real regardless of
+  any platform/strategy factory layered on top; every finding names the concrete
+  next action. JSON output is now `schemaVersion: 2` with `kind` and `remedy` as
+  first-class fields; SARIF carries them in the property bag; Markdown gains a
+  Remedy column. Fingerprints are unchanged, so baselines do not churn.
+
 ## 0.1.6
 
 - **New rule: `complexity-hotspots`.** Measures cyclomatic and cognitive
