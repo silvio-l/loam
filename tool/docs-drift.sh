@@ -19,11 +19,12 @@
 #   tool/docs-drift.sh --llm      Run it through the `claude` CLI on a cheap
 #                                 model and print the drift report. Uses your
 #                                 Claude SUBSCRIPTION — NOT the pay-per-token API:
-#                                 the logged-in session locally, or a
-#                                 CLAUDE_CODE_OAUTH_TOKEN env var in CI (generate
-#                                 one with `claude setup-token`).
+#                                 the logged-in `claude` session. (It also honours
+#                                 a CLAUDE_CODE_OAUTH_TOKEN env var, should you
+#                                 ever wire it into a headless runner.)
 #
-# Subscription-billed, bounded, cheap model (Haiku), at release time — not per push.
+# Subscription-billed, bounded, cheap model (Haiku). Wired locally as a
+# non-blocking pre-push advisory — see .githooks/pre-push (LOAM_SKIP_DRIFT=1 off).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
