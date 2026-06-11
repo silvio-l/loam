@@ -11,9 +11,9 @@ name: Docs drift (soft check)
 # which requires a Claude subscription). NOT the pay-per-token Anthropic API —
 # no ANTHROPIC_API_KEY involved.
 #
-# NON-BLOCKING by design: it writes its report to the job summary and never
-# fails the build (an LLM is advisory, not a deterministic gate). Runs at
-# release time (every v* tag) and on demand — not per push, to stay cheap.
+# NON-BLOCKING by design: it writes its report to the job summary AND the step
+# log, and never fails the build (an LLM is advisory, not a deterministic gate).
+# Runs at release time (every v* tag) and on demand — not per push, to stay cheap.
 #
 # Without the secret it is a clean no-op (writes a "skipped" note), so this
 # workflow is safe to have in place before the token is configured.
@@ -70,12 +70,31 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          report="$(tool/docs-drift.sh --llm 2>/dev/null || echo '(docs-drift returned non-zero — see step logs)')"
+          set +e
+          report="$(tool/docs-drift.sh --llm 2>drift-stderr.log)"
+          rc=$?
+
+          # Auditierbar: Report + stderr ins Step-Log (kein stilles Schlucken).
+          echo "::group::docs-drift report (exit $rc)"
+          printf '%s\n' "$report"
+          echo "::endgroup::"
+          echo "::group::docs-drift stderr"
+          cat drift-stderr.log || true
+          echo "::endgroup::"
+
           {
             echo "## Docs-drift soft-check (advisory)"
             echo ""
             echo "Ground truth vs. public docs — semantic drift the deterministic"
             echo "Public-Docs-QS gate can't catch. Advisory only; does not block."
             echo ""
-            echo "$report"
+            if [ "$rc" -eq 0 ] && [ -n "$report" ]; then
+              printf '%s\n' "$report"
+            else
+              echo "⚠️ Soft-check produced no report (exit $rc) — see step logs."
+              echo ""
+              echo '```'
+              tail -40 drift-stderr.log 2>/dev/null || true
+              echo '```'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
