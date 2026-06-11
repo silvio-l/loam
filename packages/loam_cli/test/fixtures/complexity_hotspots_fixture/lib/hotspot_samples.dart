@@ -7,14 +7,16 @@
 /// - [justUnderCyclomatic]: cyclomatic=20, cognitive=19 → must NOT be reported
 ///   (threshold is strictly-above 20).
 /// - [justOverCyclomatic]: cyclomatic=21, cognitive=20 → MUST be reported
-///   (cyclomatic 21 > 20 breaches the threshold).
+///   (cyclomatic 21 > 20, cognitive 20 > kMinCognitiveForCyclomaticOnlyBreach=5).
 /// - [highCognitive]: cyclomatic=8, cognitive=21 — breaches cognitive when
 ///   threshold is lowered for testing. Also breaches default cognitive (21>15)
 ///   when lower threshold used. With the default cognitive threshold of 30,
 ///   this is below the threshold and used only for threshold-boundary tests.
 ///   See [veryHighCognitive] for the default-threshold cognitive fixture.
 /// - [veryHighCognitive]: cognitive=31 → MUST be reported (cognitive 31 > 30).
-/// - [suppressedHotspot]: cyclomatic=21 → suppressed via loam-ignore.
+/// - [suppressedHotspot]: cyclomatic=21, cognitive=20 → suppressed via loam-ignore.
+/// - [flatLookupTable]: cyclomatic=22, cognitive=1 → must NOT be reported
+///   (cyclomatic-only breach, cognitive ≤ kMinCognitiveForCyclomaticOnlyBreach=5).
 library;
 
 /// Trivial function — no decision points.
@@ -175,8 +177,67 @@ String veryHighCognitive(int n, List<int> items) {
   return 'small';
 }
 
+/// Flat lookup table — cyclomatic > 20 but cognitive = 1.
+///
+/// All 21 cases are simple `return` statements with no nesting. The switch
+/// itself adds cognitive=1 (nesting-aware at depth=0: 1+0=1); each case body
+/// is a bare return with no further control flow → zero additional cognitive
+/// points. cyclomatic = 1 + 21 cases = 22.
+///
+/// Must NOT be reported: cyclomatic-only breach, cognitive=1 ≤
+/// kMinCognitiveForCyclomaticOnlyBreach=5. This is the canonical flat-switch
+/// FP that the guard was introduced to suppress.
+String flatLookupTable(int code) {
+  switch (code) {
+    case 1:
+      return 'one';
+    case 2:
+      return 'two';
+    case 3:
+      return 'three';
+    case 4:
+      return 'four';
+    case 5:
+      return 'five';
+    case 6:
+      return 'six';
+    case 7:
+      return 'seven';
+    case 8:
+      return 'eight';
+    case 9:
+      return 'nine';
+    case 10:
+      return 'ten';
+    case 11:
+      return 'eleven';
+    case 12:
+      return 'twelve';
+    case 13:
+      return 'thirteen';
+    case 14:
+      return 'fourteen';
+    case 15:
+      return 'fifteen';
+    case 16:
+      return 'sixteen';
+    case 17:
+      return 'seventeen';
+    case 18:
+      return 'eighteen';
+    case 19:
+      return 'nineteen';
+    case 20:
+      return 'twenty';
+    case 21:
+      return 'twenty-one';
+    default:
+      return 'other';
+  }
+}
+
 /// A function that breaches the cyclomatic threshold but is suppressed.
-/// cyclomatic=21. Suppressed via loam-ignore on the immediately preceding line.
+/// cyclomatic=21, cognitive=20. Suppressed via loam-ignore on the immediately preceding line.
 // loam-ignore: complexity-hotspots – test: intentional hotspot, suppressed for fixture
 int suppressedHotspot(
   int a,

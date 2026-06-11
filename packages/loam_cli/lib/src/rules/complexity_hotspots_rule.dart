@@ -21,6 +21,28 @@ const int kDefaultCyclomaticThreshold = 20;
 /// catching deep-nest / high-cognitive structures. Conservative per PRD §12.
 const int kDefaultCognitiveThreshold = 30;
 
+/// Minimum cognitive complexity required for a cyclomatic-only breach to fire.
+///
+/// When cyclomatic exceeds [kDefaultCyclomaticThreshold] but cognitive does
+/// **not** exceed [kDefaultCognitiveThreshold], this guard prevents reporting
+/// flat switch/lookup-table functions that produce high cyclomatic scores
+/// through many simple, non-nested `case` or `return` branches but carry
+/// virtually zero cognitive load (cognitive ≤ 5).
+///
+/// Rationale (FP mitigation, PRD §12 — "lieber etwas zu hoch ansetzen"):
+/// Generated icon-option maps, equality operators with 20+ field comparisons,
+/// and locale-key lookup tables are textbook flat-switch noise: cyclomatic
+/// can reach 40+ while cognitive stays at 1–2. These are not "god functions"
+/// and their presence in developer-facing reports erodes tool trust. The
+/// threshold of 5 is deliberately low — any function with real branching
+/// logic will exceed it; only flat, zero-nesting tables stay below.
+///
+/// Firing logic:
+/// - ALWAYS fire if `cognitive > kDefaultCognitiveThreshold`.
+/// - Fire for cyclomatic-only breaches ONLY IF
+///   `cyclomatic > kDefaultCyclomaticThreshold AND cognitive > kMinCognitiveForCyclomaticOnlyBreach`.
+const int kMinCognitiveForCyclomaticOnlyBreach = 5;
+
 /// Detects functions/methods that exceed the project's complexity budget.
 ///
 /// Rule ID: `complexity-hotspots`
@@ -40,6 +62,15 @@ const int kDefaultCognitiveThreshold = 30;
 /// - **Fingerprint:** via `computeFingerprint(ruleId, relativePath,
 ///   semanticAnchor: qualifiedName)` — stable against line shifts; changes
 ///   only when the symbol is renamed or moved.
+///
+/// Firing logic (two conditions, either suffices):
+/// 1. `cognitive > kDefaultCognitiveThreshold` — a cognitive breach always
+///    fires regardless of cyclomatic score.
+/// 2. `cyclomatic > kDefaultCyclomaticThreshold AND
+///    cognitive > kMinCognitiveForCyclomaticOnlyBreach` — a cyclomatic-only
+///    breach fires only when the cognitive score exceeds the flat-lookup guard,
+///    suppressing zero-nesting switch tables and generated equality operators
+///    that produce high cyclomatic noise without genuine control-flow burden.
 ///
 /// Trivial executables (cyclomatic == 1 **and** cognitive == 0, i.e. no
 /// decision points at all) are never reported even if the thresholds were
@@ -107,7 +138,17 @@ class ComplexityHotspotsRule implements Rule {
       final cyclomaticBreached = m.cyclomatic > cyclomaticThreshold;
       final cognitiveBreached = m.cognitive > cognitiveThreshold;
 
-      if (!cyclomaticBreached && !cognitiveBreached) continue;
+      // Cyclomatic-only breach: suppress flat switch/lookup-table FPs by
+      // requiring a minimum cognitive score. A cognitive breach always fires.
+      // See [kMinCognitiveForCyclomaticOnlyBreach] for rationale.
+      if (cognitiveBreached) {
+        // Cognitive breach → always report (regardless of cyclomatic).
+      } else if (cyclomaticBreached &&
+          m.cognitive > kMinCognitiveForCyclomaticOnlyBreach) {
+        // Cyclomatic-only breach with sufficient cognitive load → report.
+      } else {
+        continue;
+      }
 
       // Build a readable description of which threshold(s) were breached.
       final breaches = <String>[];

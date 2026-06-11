@@ -143,6 +143,46 @@ void main() {
     );
   });
 
+  // ---------------------------------------------------------------------------
+  // AC4 (calibration): flat-lookup guard — cyclomatic-only breach + low
+  //                    cognitive is NOT reported; same cyclomatic + cognitive>5
+  //                    IS reported (positive control = justOverCyclomatic).
+  // ---------------------------------------------------------------------------
+
+  test('kMinCognitiveForCyclomaticOnlyBreach is 5', () {
+    expect(kMinCognitiveForCyclomaticOnlyBreach, 5);
+  });
+
+  test(
+    'flatLookupTable (cyclomatic=22, cognitive=1) is NOT reported — '
+    'cyclomatic-only breach with cognitive ≤ kMinCognitiveForCyclomaticOnlyBreach',
+    () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('flatLookupTable')),
+        isFalse,
+        reason:
+            'flatLookupTable has cyclomatic=22 > 20 but cognitive=1 ≤ 5 '
+            '(kMinCognitiveForCyclomaticOnlyBreach) → must NOT be reported',
+      );
+    },
+  );
+
+  test(
+    'justOverCyclomatic (cyclomatic=21, cognitive=20) IS still reported — '
+    'cyclomatic-only breach with cognitive > kMinCognitiveForCyclomaticOnlyBreach',
+    () {
+      final findings = makeRule().run(loadResult);
+      expect(
+        findings.any((f) => f.message.contains('justOverCyclomatic')),
+        isTrue,
+        reason:
+            'justOverCyclomatic has cyclomatic=21 > 20 AND cognitive=20 > 5 '
+            '(kMinCognitiveForCyclomaticOnlyBreach) → must still be reported',
+      );
+    },
+  );
+
   // Cognitive boundary: highCognitive has cognitive=28; not reported at default
   // threshold=30 but is reported at threshold=27.
   test(
