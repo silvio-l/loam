@@ -149,4 +149,42 @@ EOF
   fi
 fi
 
+# ── Soft-Check (ADVISORY, blockt NIE): semantische Doc-Drift vor dem Push ─────
+# LLM-Plausibilitätscheck der Public-Docs gegen den Code-Stand — der harte
+# docs-attest sieht nur Struktur/Version, nicht Prosa-Veraltung. KEIN Gate
+# (Invariante 2: kein LLM im blockierenden Gate; gleiche Logik wie der nicht-
+# blockierende Nudge im pre-commit). Läuft NUR wenn der Push Public-Flächen
+# berührt, die claude-CLI da ist und nicht via LOAM_SKIP_DRIFT=1 abgeschaltet.
+# So fällt Drift HIER auf, nicht erst in CI. Bricht den Push unter keinen
+# Umständen ab.
+if [ "${LOAM_SKIP_DRIFT:-0}" != "1" ] && command -v claude >/dev/null 2>&1 \
+   && [ -x "$ROOT/tool/docs-drift.sh" ]; then
+  DRIFT_SURFACE='(^README\.md|^packages/loam_cli/(README\.md|CHANGELOG\.md|pubspec\.yaml|bin/|lib/)|^docs/developer-guide\.md|^web/)'
+  touched=0
+  while read -r _lref local_sha _rref remote_sha; do
+    [ -z "${local_sha:-}" ] && continue
+    [ "$local_sha" = "$ZERO" ] && continue
+    local_sha="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
+    if [ "${remote_sha:-$ZERO}" = "$ZERO" ]; then
+      files="$(git log --name-only --format= "$local_sha" --not --remotes 2>/dev/null || true)"
+    else
+      files="$(git diff --name-only "${remote_sha}..${local_sha}" 2>/dev/null || true)"
+    fi
+    printf '%s\n' "$files" | grep -qE "$DRIFT_SURFACE" && touched=1
+  done <<EOF
+$REFS
+EOF
+  if [ "$touched" = "1" ]; then
+    echo "› docs-drift Soft-Check (advisory, blockt nicht) — Public-Flächen berührt …" >&2
+    TIMEOUT="$(command -v timeout || command -v gtimeout || true)"
+    report="$(${TIMEOUT:+$TIMEOUT 120} "$ROOT/tool/docs-drift.sh" --llm 2>/dev/null || true)"
+    if [ -n "$report" ]; then
+      printf '%s\n' "$report" | sed 's/^/  │ /' >&2
+      echo "  └─ Hinweis, kein Gate. Voll: tool/docs-drift.sh --llm · Aus: LOAM_SKIP_DRIFT=1" >&2
+    else
+      echo "  (docs-drift lieferte keinen Report — übersprungen, Push läuft weiter)" >&2
+    fi
+  fi
+fi
+
 echo "Public-Docs-QS: README für ${attested:0:12} attestiert · kein KI-Trailer · loam-Dogfood grün — Push frei."
