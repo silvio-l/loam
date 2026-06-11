@@ -15,8 +15,24 @@ baseline.json
 # Lokales Dev-Tooling (PROTECTED — niemals nach GitHub)
 dev-tools/
 
-# Lokaler, projektbezogener Dev-Skill (PROTECTED — niemals nach GitHub)
-.claude/skills/dogfood-loop/
+# Lokale Claude-Code-Projektkonfig & Dev-Skills (PROTECTED — niemals nach GitHub).
+# Das GANZE .claude/ bleibt lokal: Settings, lokale Skills, etwaiger Auth-/State.
+/.claude/
+
+# Secrets / Tokens / Credentials (PROTECTED — niemals nach GitHub). Zusätzlich
+# HART erzwungen durch den Content-Secret-Scan in .githooks/pre-commit + pre-push.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+*.token
+*.secret
+*credentials*.json
+.netrc
+id_rsa
+id_ed25519
 
 # OS / Editor
 .DS_Store

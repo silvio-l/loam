@@ -67,6 +67,44 @@ done <<EOF
 $REFS
 EOF
 
+# ── Riegel 1.5: keine Secrets/Tokens im Push (Content-Scan, Backstop) ─────────
+# Fängt Secrets, die den pre-commit-Scan via --no-verify umgangen haben. Gleiche
+# längen-qualifizierte Hochkonfidenz-Muster; Hunks der pattern-tragenden Guard-/
+# Tool-Dateien werden übersprungen, damit die Detektor-Strings sich nicht selbst
+# auslösen.
+SECRET_RE='(sk-ant-[A-Za-z0-9_-]{24,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|(ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|GH_TOKEN|HOMEBREW_TAP_TOKEN|AWS_SECRET_ACCESS_KEY)[[:space:]]*[:=][[:space:]]*['\''"]?[A-Za-z0-9_/+.=-]{20,})'
+block_secret() {
+  cat >&2 <<EOF
+
+╳ Push blockiert — mögliches Secret/Token in den zu pushenden Commits.
+  $1
+  → Secret aus der History entfernen (git rebase -i / git filter-repo), den
+    Wert ROTIEREN, dann erneut pushen. (kein --no-verify)
+EOF
+  exit 1
+}
+while read -r _lref local_sha _rref remote_sha; do
+  [ -z "${local_sha:-}" ] && continue
+  [ "$local_sha" = "$ZERO" ] && continue
+  local_sha="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
+  if [ "${remote_sha:-$ZERO}" = "$ZERO" ]; then
+    patch="$(git log -p --no-color "$local_sha" --not --remotes 2>/dev/null || true)"
+  else
+    patch="$(git log -p --no-color "${remote_sha}..${local_sha}" 2>/dev/null || true)"
+  fi
+  added="$(printf '%s\n' "$patch" | awk '
+    /^diff --git / { skip = ($0 ~ /(\.githooks\/|tool\/docs-attest\.sh|tool\/docs-drift\.sh)/) ? 1 : 0; next }
+    skip { next }
+    /^\+\+\+/ { next }
+    /^\+/ { print }
+  ')"
+  if printf '%s\n' "$added" | grep -qE "$SECRET_RE"; then
+    block_secret "Ref ${_lref:-?} · zu pushen bis ${local_sha:0:12}"
+  fi
+done <<EOF
+$REFS
+EOF
+
 # ── Riegel 2: Public-Docs für genau diesen Commit attestiert? ────────────────
 pushed_any=0
 while read -r _local_ref local_sha _remote_ref _remote_sha; do

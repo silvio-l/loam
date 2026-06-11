@@ -31,6 +31,32 @@ EOF
   exit 1
 fi
 
+# ── Riegel 0.5: keine Secrets/Tokens in den Commit (Content-Scan) ────────────
+# Deterministischer Hochkonfidenz-Scan der GESTAGETEN Additions. Längen-
+# qualifizierte Muster -> die Detektor-Strings in Hooks/Tools matchen sich nicht
+# selbst; die pattern-tragenden Dateien sind zusätzlich ausgenommen. Backstop
+# gegen versehentlich eingefügte Tokens (z. B. CLAUDE_CODE_OAUTH_TOKEN).
+SECRET_RE='(sk-ant-[A-Za-z0-9_-]{24,}|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|(ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|GH_TOKEN|HOMEBREW_TAP_TOKEN|AWS_SECRET_ACCESS_KEY)[[:space:]]*[:=][[:space:]]*['\''"]?[A-Za-z0-9_/+.=-]{20,})'
+secret_files=""
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in .githooks/*|tool/docs-attest.sh|tool/docs-drift.sh) continue ;; esac
+  if git diff --cached -U0 -- "$f" | grep -E '^\+' | grep -vE '^\+\+\+' | grep -qE "$SECRET_RE"; then
+    secret_files="${secret_files}    ${f}"$'\n'
+  fi
+done < <(git diff --cached --name-only --diff-filter=AM)
+if [ -n "$secret_files" ]; then
+  cat >&2 <<EOF
+
+╳ Commit blockiert — mögliches Secret/Token im gestageten Diff:
+$secret_files
+  Secrets/Tokens gehören NIE ins Repo. Richtiger Ort: GitHub-Secrets
+  (verschlüsselt), ~/.claude (lokal) oder ein Passwortmanager.
+  False-Positive? Wert entfernen/maskieren, dann erneut committen.
+EOF
+  exit 1
+fi
+
 QA="$ROOT/tool/docs-attest.sh"
 [ -x "$QA" ] || { echo "pre-commit: $QA fehlt/nicht ausführbar"; exit 1; }
 "$QA" check
