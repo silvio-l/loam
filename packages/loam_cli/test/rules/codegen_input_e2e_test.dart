@@ -180,6 +180,19 @@ void main() {
     );
   });
 
+  test('annotation E2E: AnnotatedInjectable.serviceId is NOT reported', () {
+    // Slice Q2c (AC3): newly-registered @injectable annotation must suppress
+    // member findings via the Element-Model registry path (not source text).
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`serviceId`')),
+      isFalse,
+      reason:
+          'AnnotatedInjectable carries @injectable — its members must NOT be '
+          'reported as unused (newly-registered codegen annotation)',
+    );
+  });
+
   test(
     'annotation E2E: PlainClass.unusedField still reported (FN-protection)',
     () {

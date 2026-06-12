@@ -274,6 +274,34 @@ void main() {
       },
     );
 
+    test('@injectable (constant form) → code-gen input', () {
+      expectAnnotationMatch('AnnotatedInjectable', 'injectable');
+    });
+
+    test('@module (constant form) → code-gen input', () {
+      expectAnnotationMatch('AnnotatedModule', 'module');
+    });
+
+    test('@RoutePage → code-gen input', () {
+      expectAnnotationMatch('AnnotatedRoutePage', 'RoutePage');
+    });
+
+    test('@GenerateMocks → code-gen input', () {
+      expectAnnotationMatch('AnnotatedGenerateMocks', 'GenerateMocks');
+    });
+
+    test('@Collection (Isar) → code-gen input', () {
+      expectAnnotationMatch('AnnotatedCollection', 'Collection');
+    });
+
+    test('@Entity (ObjectBox/floor) → code-gen input', () {
+      expectAnnotationMatch('AnnotatedEntity', 'Entity');
+    });
+
+    test('@HiveType (Hive) → code-gen input', () {
+      expectAnnotationMatch('AnnotatedHiveType', 'HiveType');
+    });
+
     test(
       'negative: class without annotation → NOT code-gen input (reason: none)',
       () {
@@ -349,6 +377,84 @@ void main() {
       expect(result.reason, 'fallback:part_generated');
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // New generated suffixes: *.gr.dart, *.config.dart, *.mocks.dart, *.pb.dart
+  // ---------------------------------------------------------------------------
+
+  test('suffix *.gr.dart: GrSuffixRouter (part *.gr.dart + extends _\$…) → '
+      'code-gen input', () {
+    final cls = _findClass(loadResult, 'GrSuffixRouter');
+    expect(cls, isNotNull, reason: 'GrSuffixRouter must exist in the fixture');
+    final result = classifier.classify(cls!);
+    expect(
+      result.isCodegenInput,
+      isTrue,
+      reason:
+          'GrSuffixRouter binds _\$… in a library with part *.gr.dart — '
+          'must be classified via the narrowed fallback',
+    );
+    expect(result.reason, 'fallback:part_generated');
+  });
+
+  test(
+    'suffix *.config.dart: ConfigSuffixModule (part *.config.dart + extends _\$…) → '
+    'code-gen input',
+    () {
+      final cls = _findClass(loadResult, 'ConfigSuffixModule');
+      expect(
+        cls,
+        isNotNull,
+        reason: 'ConfigSuffixModule must exist in the fixture',
+      );
+      final result = classifier.classify(cls!);
+      expect(
+        result.isCodegenInput,
+        isTrue,
+        reason:
+            'ConfigSuffixModule binds _\$… in a library with part *.config.dart — '
+            'must be classified via the narrowed fallback',
+      );
+      expect(result.reason, 'fallback:part_generated');
+    },
+  );
+
+  test(
+    'suffix *.mocks.dart: MocksSuffixLib (part *.mocks.dart + extends _\$…) → '
+    'code-gen input',
+    () {
+      final cls = _findClass(loadResult, 'MocksSuffixLib');
+      expect(
+        cls,
+        isNotNull,
+        reason: 'MocksSuffixLib must exist in the fixture',
+      );
+      final result = classifier.classify(cls!);
+      expect(
+        result.isCodegenInput,
+        isTrue,
+        reason:
+            'MocksSuffixLib binds _\$… in a library with part *.mocks.dart — '
+            'must be classified via the narrowed fallback',
+      );
+      expect(result.reason, 'fallback:part_generated');
+    },
+  );
+
+  test('suffix *.pb.dart: PbSuffixMessage (part *.pb.dart + extends _\$…) → '
+      'code-gen input', () {
+    final cls = _findClass(loadResult, 'PbSuffixMessage');
+    expect(cls, isNotNull, reason: 'PbSuffixMessage must exist in the fixture');
+    final result = classifier.classify(cls!);
+    expect(
+      result.isCodegenInput,
+      isTrue,
+      reason:
+          'PbSuffixMessage binds _\$… in a library with part *.pb.dart — '
+          'must be classified via the narrowed fallback',
+    );
+    expect(result.reason, 'fallback:part_generated');
+  });
 
   test(
     'narrowed fallback (FN-protection): PlainColocatedClass (part *.g.dart but '

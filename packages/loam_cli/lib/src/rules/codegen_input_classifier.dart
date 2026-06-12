@@ -92,6 +92,13 @@ class CodegenInputClassifier {
     'Riverpod',
     'freezed',
     'JsonSerializable',
+    'injectable',
+    'module',
+    'RoutePage',
+    'GenerateMocks',
+    'Collection',
+    'Entity',
+    'HiveType',
   };
 
   // ---------------------------------------------------------------------------
@@ -202,7 +209,11 @@ class CodegenInputClassifier {
         if (uri is DirectiveUriWithRelativeUriString) {
           final uriString = uri.relativeUriString;
           if (uriString.endsWith('.g.dart') ||
-              uriString.endsWith('.freezed.dart')) {
+              uriString.endsWith('.freezed.dart') ||
+              uriString.endsWith('.gr.dart') ||
+              uriString.endsWith('.config.dart') ||
+              uriString.endsWith('.mocks.dart') ||
+              uriString.endsWith('.pb.dart')) {
             return true;
           }
         }

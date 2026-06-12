@@ -52,3 +52,51 @@ class _Freezed {
 class JsonSerializable {
   const JsonSerializable();
 }
+
+/// Stub for injectable's `@injectable` annotation (constant form).
+/// Real: `package:injectable/injectable.dart`
+const injectable = _Injectable();
+
+class _Injectable {
+  const _Injectable();
+}
+
+/// Stub for injectable's `@module` annotation (constant form).
+/// Real: `package:injectable/injectable.dart`
+const module = _Module();
+
+class _Module {
+  const _Module();
+}
+
+/// Stub for auto_route's `@RoutePage` annotation.
+/// Real: `package:auto_route/auto_route.dart`
+class RoutePage {
+  const RoutePage();
+}
+
+/// Stub for mockito's `@GenerateMocks` annotation.
+/// Real: `package:mockito/annotations.dart`
+class GenerateMocks {
+  // ignore: avoid_unused_constructor_parameters
+  const GenerateMocks(List<Type> classes);
+}
+
+/// Stub for Isar's `@Collection` annotation.
+/// Real: `package:isar/isar.dart`
+class Collection {
+  const Collection();
+}
+
+/// Stub for ObjectBox/floor `@Entity` annotation.
+/// Real: `package:objectbox/objectbox.dart` / `package:floor/floor.dart`
+class Entity {
+  const Entity();
+}
+
+/// Stub for Hive's `@HiveType` annotation.
+/// Real: `package:hive/hive.dart`
+class HiveType {
+  // ignore: avoid_unused_constructor_parameters
+  const HiveType({required int typeId});
+}
