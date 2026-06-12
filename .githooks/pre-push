@@ -149,6 +149,84 @@ EOF
   fi
 fi
 
+# ── Riegel 4: Semgrep SAST — Nicht-Dart-Fläche (web/ JS·TS, tool/ Shell) ─────
+# Semgreps Dart-Abdeckung ist dünn; der Sicherheitsgewinn liegt auf der JS/TS-
+# Website unter web/ und den Shell-Tools (tool/*.sh). Blockierend, damit ein
+# Finding lokal auffällt und gar nicht erst auf GitHub landet. Läuft NUR wenn
+# semgrep installiert ist (frische Maschinen / GUI-Clients ohne semgrep blockieren
+# nicht). Bewusster Einzel-Bypass: LOAM_SKIP_SAST=1 git push (kein --no-verify —
+# das würde auch die Sicherheits-/Attestierungs-Riegel oben umgehen).
+if [ "${LOAM_SKIP_SAST:-0}" = "1" ]; then
+  echo "› Semgrep übersprungen (LOAM_SKIP_SAST=1)." >&2
+elif command -v semgrep >/dev/null 2>&1; then
+  echo "" >&2
+  echo "◆ Semgrep SAST scan (web/ + tool/) …" >&2
+  # Exit-Codes: 0 = sauber, 1 = Findings (-> blocken), alles andere = Infra-/
+  # Config-/Netzfehler (p/ci & r/bash werden von semgrep.dev geladen). Ein
+  # Download-/Netzfehler darf den Push NICHT blockieren — nur echte Findings tun
+  # das. So hängt der Riegel nicht an semgrep.dev-Erreichbarkeit.
+  semgrep \
+      --config p/ci --config r/bash \
+      --error --quiet \
+      --include='*.ts' --include='*.js' --include='*.mjs' --include='*.cjs' \
+      --include='*.sh' \
+      --exclude='node_modules' --exclude='dist' --exclude='build' \
+      --exclude='.dart_tool' \
+      "$ROOT" >&2 && _sg=0 || _sg=$?
+  if [ "${_sg:-0}" = "1" ]; then
+    cat >&2 <<EOF
+
+╳ Push blockiert — Semgrep meldet Sicherheits-Findings (siehe oben).
+  → Findings beheben, dann erneut pushen.
+    False Positive / bewusst akzeptiert? Einmalig: LOAM_SKIP_SAST=1 git push
+EOF
+    exit 1
+  elif [ "${_sg:-0}" != "0" ]; then
+    echo "  ⚠ Semgrep-Infra-/Netzfehler (Exit ${_sg}) — SAST übersprungen, Push läuft weiter." >&2
+  else
+    echo "  ✓ Semgrep: keine Findings" >&2
+  fi
+else
+  echo "› semgrep nicht installiert — SAST übersprungen (install: brew install semgrep)." >&2
+fi
+
+# ── Riegel 5: OSV-Scanner — verwundbare Dependencies (pub + npm) ─────────────
+# Scannt packages/loam_cli/pubspec.lock (Dart) und web/package-lock.json (npm)
+# gegen die OSV-Datenbank (gleiche Quelle wie Dependabot) — lokal, vor dem Push,
+# damit eine bekannte CVE nicht erst auf GitHub auffällt. Nur wenn osv-scanner da
+# ist; bewusster Einzel-Bypass: LOAM_SKIP_OSV=1 git push.
+if [ "${LOAM_SKIP_OSV:-0}" = "1" ]; then
+  echo "› OSV übersprungen (LOAM_SKIP_OSV=1)." >&2
+elif command -v osv-scanner >/dev/null 2>&1; then
+  echo "" >&2
+  echo "◆ OSV vulnerability scan (pub + npm) …" >&2
+  OSV_ARGS=()
+  [ -f "$ROOT/packages/loam_cli/pubspec.lock" ] && OSV_ARGS+=(--lockfile "$ROOT/packages/loam_cli/pubspec.lock")
+  [ -f "$ROOT/web/package-lock.json" ]          && OSV_ARGS+=(--lockfile "$ROOT/web/package-lock.json")
+  if [ "${#OSV_ARGS[@]}" -gt 0 ]; then
+    # Exit-Codes: 0 = sauber, 1 = Verwundbarkeiten (-> blocken), 127/sonst =
+    # Infra-/Netzfehler (OSV-API). Wie bei Semgrep blockt nur der echte Fund.
+    osv-scanner scan "${OSV_ARGS[@]}" >&2 && _osv=0 || _osv=$?
+    if [ "${_osv:-0}" = "1" ]; then
+      cat >&2 <<EOF
+
+╳ Push blockiert — OSV meldet verwundbare Dependencies (siehe oben).
+  → Betroffene Pakete aktualisieren (dart pub upgrade / npm update im web/), dann
+    erneut pushen. Kein Fix verfügbar / bewusst akzeptiert? Einmalig: LOAM_SKIP_OSV=1 git push
+EOF
+      exit 1
+    elif [ "${_osv:-0}" != "0" ]; then
+      echo "  ⚠ OSV-Infra-/Netzfehler (Exit ${_osv}) — Scan übersprungen, Push läuft weiter." >&2
+    else
+      echo "  ✓ OSV: keine bekannten Verwundbarkeiten" >&2
+    fi
+  else
+    echo "  (keine Lockfiles gefunden — OSV übersprungen)" >&2
+  fi
+else
+  echo "› osv-scanner nicht installiert — OSV übersprungen (install: brew install osv-scanner)." >&2
+fi
+
 # ── Soft-Check (ADVISORY, blockt NIE): semantische Doc-Drift vor dem Push ─────
 # LLM-Plausibilitätscheck der Public-Docs gegen den Code-Stand — der harte
 # docs-attest sieht nur Struktur/Version, nicht Prosa-Veraltung. KEIN Gate
@@ -187,4 +265,4 @@ EOF
   fi
 fi
 
-echo "Public-Docs-QS: README für ${attested:0:12} attestiert · kein KI-Trailer · loam-Dogfood grün — Push frei."
+echo "Public-Docs-QS: README für ${attested:0:12} attestiert · kein KI-Trailer · loam-Dogfood grün · Semgrep/OSV geprüft — Push frei."
