@@ -8,4 +8,4 @@
 /// (run by the pre-commit hook, the `dart test` gate, and the pre-push hook)
 /// fails the build if this constant differs from the pubspec version — that
 /// check is what guarantees the two are bumped in lockstep.
-const String loamVersion = '0.1.8';
+const String loamVersion = '0.1.9';

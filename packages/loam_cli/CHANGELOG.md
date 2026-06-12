@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.1.9
+
+- **`unused-public-exports` now reads the stack it runs on — far fewer false
+  positives on real Dart and Flutter projects.** The rule used to judge a
+  throwaway app and a published package the same way, and it recognised only a
+  handful of code-gen frameworks, so on real codebases it flagged deliberately
+  public API and generated or annotated symbols as "dead". Three changes fix
+  that. All of them read from the resolved element model (never source text),
+  and each one only ever **removes** a false positive — upgrading can lower your
+  finding count but never raises it, so the baseline/ratchet gate never paints a
+  project red:
+  - **App vs. publishable package.** loam reads the target's `pubspec.yaml` once
+    at load. On a *publishable* package (anything without `publish_to: none`) the
+    deliberately public top-level `lib/` API is no longer reported as unused —
+    that surface exists to be consumed from outside — while genuinely dead
+    `lib/src/` internals are still reported. An **app** (`publish_to: none`)
+    behaves exactly as it did before. Publishability is conservative: when it
+    cannot be determined, loam assumes publishable.
+  - **Two more visibility annotations.** Public members marked `@internal`
+    (package:meta) or `@visibleForOverriding` are no longer reported, joining the
+    existing `@visibleForTesting` and `@pragma('vm:entry-point')` exemptions.
+  - **A wider code-gen registry.** Symbols produced or annotated by six more
+    generators count as code-gen input instead of dead API: `injectable` /
+    `get_it`, `auto_route`, `mockito`, Isar, ObjectBox / floor and Hive — plus
+    the generated suffixes `*.gr.dart`, `*.config.dart`, `*.mocks.dart` and
+    `*.pb.dart`, on top of the existing `*.g.dart` / `*.freezed.dart`.
+- **New: a `stack:` line in `loam scan`.** Human-format scans print a one-line
+  stack profile — the detected code-gen generators, whether it is a Flutter
+  project, and publishability — so you can see at a glance what loam inferred
+  about your project. It is purely diagnostic: it feeds the report and the
+  publishable-vs-app decision but never makes a suppression call on its own.
+  JSON, SARIF, HTML and Markdown output are unchanged.
+
 ## 0.1.8
 
 - **Complexity now scans `bin/` too, and the scope is configurable.** The
