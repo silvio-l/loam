@@ -1,0 +1,118 @@
+---
+// Live, interactive preview of the actual `html` report loam.dev writes.
+// The report at /demo-report.html is a real, self-contained artefact generated
+// by `tool/gen-demo-report.sh` from a small demo project — not a screenshot.
+// Embedded in an iframe so visitors can filter, select Findings and copy the
+// fix-prompt right on the page.
+interface Props {
+  lang?: 'en' | 'de';
+}
+const { lang = 'en' } = Astro.props;
+
+const copy = {
+  en: {
+    heading: 'See a real report',
+    body:
+      "This is the exact <code>html</code> report loam.dev writes — rendered " +
+      'from a small, deliberately messy demo project. It is live, not a ' +
+      'screenshot: filter by rule or severity, pick the Findings you care ' +
+      'about, and copy the assembled, versioned fix-prompt for your agent.',
+    open: 'Open full screen ↗',
+  },
+  de: {
+    heading: 'Ein echter Report',
+    body:
+      'Das ist exakt der <code>html</code>-Report, den loam.dev schreibt — ' +
+      'erzeugt aus einem kleinen, bewusst unordentlichen Demo-Projekt. Live, ' +
+      'kein Screenshot: nach Rule oder Severity filtern, die relevanten ' +
+      'Findings auswählen und den fertigen, versionierten Fix-Prompt für ' +
+      'deinen Agenten kopieren.',
+    open: 'Vollbild öffnen ↗',
+  },
+}[lang];
+---
+
+<section class="demo-report">
+  <h2>{copy.heading}</h2>
+  <p set:html={copy.body} />
+
+  <figure class="report-frame">
+    <div class="frame-bar">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="frame-title">loam-report.html — shopcart</span>
+      <a class="frame-open" href="/demo-report.html" target="_blank" rel="noopener">
+        {copy.open}
+      </a>
+    </div>
+    <iframe
+      class="report-embed"
+      src="/demo-report.html"
+      title="Interactive loam.dev demo report"
+      loading="lazy"
+    ></iframe>
+  </figure>
+</section>
+
+<style>
+  .report-frame {
+    margin: 1.6rem 0 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--panel);
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+  }
+  .frame-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    background: linear-gradient(180deg, #15171c, #101216);
+    border-bottom: 1px solid var(--line);
+  }
+  .dots {
+    display: inline-flex;
+    gap: 0.4rem;
+    flex: none;
+  }
+  .dots i {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #34373e;
+  }
+  .frame-title {
+    font: 500 0.8rem var(--font);
+    color: var(--dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .frame-open {
+    margin-left: auto;
+    flex: none;
+    font: 600 0.76rem var(--font);
+    color: var(--green);
+    text-decoration: none;
+    border: 1px solid rgba(136, 200, 64, 0.4);
+    border-radius: 7px;
+    padding: 0.3rem 0.62rem;
+    transition: background 0.18s, border-color 0.18s;
+  }
+  .frame-open:hover {
+    background: rgba(136, 200, 64, 0.12);
+    border-color: rgba(136, 200, 64, 0.7);
+  }
+  .report-embed {
+    display: block;
+    width: 100%;
+    height: 620px;
+    border: 0;
+    background: #0c0d10;
+  }
+  @media (max-width: 640px) {
+    .report-embed {
+      height: 480px;
+    }
+  }
+</style>

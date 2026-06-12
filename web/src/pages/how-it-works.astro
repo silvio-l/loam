@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import DemoReport from '../components/DemoReport.astro';
 ---
 
 <Layout
@@ -63,8 +64,8 @@ import Layout from '../layouts/Layout.astro';
               Each Rule emits <strong>Findings</strong> — structured results of
               the form <code>&#123; ruleId, severity, location, message, fingerprint &#125;</code>.
               Every Finding carries a stable <strong>Fingerprint</strong>
-              (a position-robust hash) that survives reformats and line-number
-              shifts. This is the key that makes baseline diffing exact.
+              (a position-independent hash) that survives reformats and
+              line-number shifts. This is the key that makes baseline diffing exact.
             </p>
           </div>
         </div>
@@ -112,6 +113,8 @@ import Layout from '../layouts/Layout.astro';
         </div>
       </div>
     </section>
+
+    <DemoReport lang="en" />
 
     <!-- loam scan vs loam gate -->
     <section>
