@@ -41,10 +41,11 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.7) — three live rules:** project-wide **unused public API**
+**Available now (0.1.8) — three live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, and **complexity hotspots**
-(cyclomatic/cognitive, aggregated into a `loam health` score). All on the
+(cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
+`bin/` by default — configure with `source_dirs` in `loam.yaml`). All on the
 resolved Dart element model — not regex — behind the baseline/ratchet gate.
 
 Everything else is the **target surface**: each lands as one plugin behind a
@@ -81,7 +82,7 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ## Quick start
 
-> **0.1.7.** Three analysis rules are live — `unused-public-exports`,
+> **0.1.8.** Three analysis rules are live — `unused-public-exports`,
 > `circular-dependencies`, `complexity-hotspots` — plus the `loam health` view.
 > Commands marked *coming soon* are wired in `loam --help` but not yet implemented.
 
@@ -204,7 +205,7 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-**0.1.7** — three rules live end to end (`unused-public-exports`,
+**0.1.8** — three rules live end to end (`unused-public-exports`,
 `circular-dependencies`, `complexity-hotspots`) plus the `loam health` view; the
 remaining capabilities land as individual rules behind the same `Rule` interface.
 

@@ -220,9 +220,35 @@ loam init -p /path/to/proj   # specify a different project root
 If `loam.yaml` already exists, the command refuses to overwrite it and exits with
 code 1 — no silent data loss. Delete or edit the file manually to replace it.
 
-The generated `loam.yaml` includes commented examples for the `rules:` and `ignore:`
-sections. The file is valid and loadable as-is (all examples are YAML comments, so
-no rule toggles are active until you uncomment them).
+The generated `loam.yaml` includes commented examples for the `rules:`, `ignore:`
+and `source_dirs:` sections. The file is valid and loadable as-is (all examples are
+YAML comments, so no rule toggles are active until you uncomment them).
+
+#### `source_dirs:` — production-source scope for the complexity scan
+
+`complexity-hotspots` and `loam health` measure the **universal** property of
+function complexity, so they need to know which directories hold hand-written,
+shipping code. By default they measure **`lib/` and `bin/`**. Override per project:
+
+```yaml
+source_dirs:
+  - lib
+  - bin
+  # - tool      # widen to include dev scripts
+  # - test      # widen to include tests (usually noisy — intentionally complex)
+```
+
+Rules of the road:
+
+- **Generated files are always excluded** (`*.g.dart`, gen-l10n output, …),
+  regardless of `source_dirs`.
+- `test/`, `example/` and `tool/` are **off by default** — test matrices and demo
+  code carry intentionally high (or low) complexity that would only add noise.
+- `circular-dependencies` and `unused-public-exports` are inherently a `lib/`
+  concept (entrypoints can't sit in an import cycle; "public API" means `lib/`)
+  and are **not** affected by `source_dirs`.
+- For finer control, suppress individual findings by path with `ignore:` globs or
+  inline `// loam-ignore: <ruleId>` directives.
 
 ### `loam fix` *(coming soon)*
 

@@ -21,17 +21,18 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.7.** Three rules are live end to end — `unused-public-exports`,
+> **0.1.8.** Three rules are live end to end — `unused-public-exports`,
 > `circular-dependencies` and `complexity-hotspots` — plus the `loam health`
 > view. The remaining capabilities below are on the roadmap, each landing as its
 > own rule behind the same stable `Rule` interface.
 
 ## What it catches
 
-**Available now (0.1.7) — three live rules:** project-wide **unused public API**
+**Available now (0.1.8) — three live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, and **complexity hotspots**
-(cyclomatic/cognitive, aggregated into a `loam health` score) — emitted as
+(cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
+`bin/` by default — configure with `source_dirs` in `loam.yaml`) — emitted as
 findings behind the baseline/ratchet gate, in `human`, `sarif`, `json`,
 `markdown` or `html`.
 
@@ -102,8 +103,9 @@ positional path when both are given.
 ## Status
 
 Functional release — three analysis rules live (`unused-public-exports`,
-`circular-dependencies`, `complexity-hotspots`) plus the `loam health` view,
-three more planned. Founding spec, domain glossary and architecture decisions
+`circular-dependencies`, `complexity-hotspots`) plus the `loam health` view; the
+remaining capabilities land as individual rules behind the same `Rule` interface.
+Founding spec, domain glossary and architecture decisions
 live in the [repository](https://github.com/silvio-l/loam).
 
 ## License
