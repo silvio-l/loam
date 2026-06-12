@@ -49,7 +49,8 @@ class PublicApiCandidate {
 /// - Private symbols (name starts with `_`).
 /// - Generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`).
 /// - `main` functions (entrypoints must never be reported as unused).
-/// - Symbols annotated with `@visibleForTesting` or `@pragma`.
+/// - Symbols annotated with `@visibleForTesting`, `@pragma`, `@internal`,
+///   or `@visibleForOverriding`.
 /// - Symbols in libraries that re-export them via `export` directives
 ///   (re-exported symbols are part of the public API).
 /// - **Code-gen input members**: public members of classes that are identified
@@ -359,9 +360,9 @@ class PublicApiCollector {
     final enclosingElement = instanceFragment.element;
 
     // Conservative: if the enclosing type itself carries a conservative
-    // annotation (@visibleForTesting, @pragma) its members are transitively
-    // excluded — the class is intended for special exposure and its member
-    // visibility is not independently meaningful.
+    // annotation (@visibleForTesting, @pragma, @internal, @visibleForOverriding)
+    // its members are transitively excluded — the class is intended for special
+    // exposure and its member visibility is not independently meaningful.
     if (_hasConservativeAnnotation(enclosingElement)) return;
 
     // Methods
@@ -577,14 +578,23 @@ class PublicApiCollector {
   // ---------------------------------------------------------------------------
 
   /// Returns true when [element] carries a conservative annotation that marks
-  /// intentional public exposure: `@visibleForTesting` or `@pragma`.
+  /// intentional public exposure: `@visibleForTesting`, `@pragma`,
+  /// `@internal`, or `@visibleForOverriding`.
   ///
   /// `@pragma` is a built-in Dart core annotation used to communicate intent
   /// to the compiler/runtime (e.g. `@pragma('vm:entry-point')`). Any `@pragma`
   /// annotation signals deliberate exposure and is excluded conservatively.
+  ///
+  /// `@internal` (package:meta) marks a declaration as internal to its package
+  /// and must not be part of the public API contract — excluded conservatively.
+  ///
+  /// `@visibleForOverriding` (package:meta) marks a declaration as intended
+  /// for overriding only, not direct use — excluded conservatively.
   static bool _hasConservativeAnnotation(Element element) {
     for (final annotation in element.metadata.annotations) {
       if (annotation.isVisibleForTesting) return true;
+      if (annotation.isInternal) return true;
+      if (annotation.isVisibleForOverriding) return true;
       // @pragma is a dart:core constructor — detect via element type/name.
       final annotationElement = annotation.element;
       if (annotationElement is ConstructorElement &&

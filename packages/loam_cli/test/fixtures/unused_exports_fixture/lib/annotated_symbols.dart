@@ -13,3 +13,17 @@ class VisibleForTestingClass {
 class PragmaAnnotatedClass {
   String get name => 'pragma_annotated';
 }
+
+/// A class annotated with @internal (package:meta).
+/// Must NOT be reported as unused (conservative annotation exclusion).
+@internal
+class InternalAnnotatedClass {
+  String get name => 'internal_annotated';
+}
+
+/// A class annotated with @visibleForOverriding (package:meta).
+/// Must NOT be reported as unused (conservative annotation exclusion).
+@visibleForOverriding
+class VisibleForOverridingClass {
+  String get name => 'visible_for_overriding';
+}

@@ -528,6 +528,29 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Issue 02 — AC1/AC2: @internal and @visibleForOverriding exclusion
+  // ---------------------------------------------------------------------------
+
+  test('AC1-annotation: @internal class is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`InternalAnnotatedClass`')),
+      isFalse,
+      reason: 'Symbols annotated with @internal must not produce findings',
+    );
+  });
+
+  test('AC2-annotation: @visibleForOverriding class is NOT reported', () {
+    final findings = makeRule().run(loadResult);
+    expect(
+      findings.any((f) => f.message.contains('`VisibleForOverridingClass`')),
+      isFalse,
+      reason:
+          'Symbols annotated with @visibleForOverriding must not produce findings',
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Issue 04 — Slice B: Member-E2E tests
   // ---------------------------------------------------------------------------
 

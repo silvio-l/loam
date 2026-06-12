@@ -448,6 +448,29 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Issue 02 — AC1/AC2: @internal and @visibleForOverriding exclusion
+  // ---------------------------------------------------------------------------
+
+  test('AC1-annotation: @internal class is NOT a candidate', () {
+    final names = candidates.map((c) => c.name).toSet();
+    expect(
+      names.contains('InternalAnnotatedClass'),
+      isFalse,
+      reason: 'Symbols annotated with @internal must never be candidates',
+    );
+  });
+
+  test('AC2-annotation: @visibleForOverriding class is NOT a candidate', () {
+    final names = candidates.map((c) => c.name).toSet();
+    expect(
+      names.contains('VisibleForOverridingClass'),
+      isFalse,
+      reason:
+          'Symbols annotated with @visibleForOverriding must never be candidates',
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Issue 04 — Slice B: Member candidates are collected
   // ---------------------------------------------------------------------------
 
