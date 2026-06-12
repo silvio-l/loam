@@ -266,6 +266,13 @@ class ScanCommand extends LoamCommand {
       }
     }
 
+    // Diagnostic line: printed to stdout for human-readable output only.
+    // Structured formats (json/sarif/html/markdown) must not have extra text
+    // mixed into their output.
+    if (format == 'human') {
+      stdout.writeln(_formatStackDiagnostic(outcome.stackProfile));
+    }
+
     final payload = ReportPayload(
       findings: outcome.findings,
       projectRoot: projectRoot,
@@ -891,6 +898,25 @@ Future<bool> _openInBrowser(String absPath) async {
   } catch (_) {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared helper: format the stack: … diagnostic line from a [StackProfile].
+//
+// Human-only output — printed before the findings report in `loam scan`.
+// Structured formats (json/sarif/html/markdown) suppress this line because
+// extra text would break their parseable output.
+// ---------------------------------------------------------------------------
+
+String _formatStackDiagnostic(StackProfile profile) {
+  final parts = <String>[];
+  if (profile.isFlutter) parts.add('flutter');
+  if (profile.detectedGenerators.isNotEmpty) {
+    final gens = (profile.detectedGenerators.toList()..sort()).join(', ');
+    parts.add(gens);
+  }
+  if (parts.isEmpty) return 'stack: dart';
+  return 'stack: ${parts.join(' · ')}';
 }
 
 // ---------------------------------------------------------------------------

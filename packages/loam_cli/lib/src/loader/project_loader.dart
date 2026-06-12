@@ -6,6 +6,8 @@ import 'package:analyzer/diagnostic/diagnostic.dart';
 import 'package:path/path.dart' as p;
 
 import 'sdk_locator.dart';
+import 'stack_profile.dart';
+export 'stack_profile.dart';
 
 /// A successfully resolved Dart file entry produced by [ProjectLoader].
 ///
@@ -62,12 +64,17 @@ class LoadFileError {
 /// `part of` file) must be visible to the reference index so that they are not
 /// incorrectly reported as unused. [partUnits] provides those compilation units
 /// for reference-scanning only.
+///
+/// The [stackProfile] is derived from the project's `pubspec.yaml` by
+/// [ProjectLoader] during loading. It is a read-only diagnostic object —
+/// never used for suppression decisions (Invariant 1).
 class ProjectLoadResult {
   /// Creates a [ProjectLoadResult].
   const ProjectLoadResult({
     required this.resolved,
     required this.errors,
     this.partUnits = const [],
+    this.stackProfile = const StackProfile.empty(),
   });
 
   /// Successfully resolved files (non-empty element model guaranteed).
@@ -86,6 +93,13 @@ class ProjectLoadResult {
   /// to symbols declared elsewhere — preventing False Positives when a symbol
   /// is referenced only from a part file.
   final List<ResolvedUnitResult> partUnits;
+
+  /// Read-only stack metadata derived from `pubspec.yaml`.
+  ///
+  /// Defaults to [StackProfile.empty()] when pubspec is missing or unparseable.
+  /// Feeds the `stack: …` diagnostic line and future registry priming.
+  /// **Never** used for suppression decisions.
+  final StackProfile stackProfile;
 }
 
 /// Loads a Dart package from [projectRoot] and resolves all Dart source files
@@ -121,8 +135,15 @@ class ProjectLoader {
   /// Never throws. Files that cannot be cleanly resolved are collected in
   /// [ProjectLoadResult.errors]. If the root does not exist, returns a result
   /// with a single root-level [LoadFileError] and an empty resolved list.
+  ///
+  /// The returned [ProjectLoadResult.stackProfile] is always populated from
+  /// `pubspec.yaml` (defensive: missing/broken pubspec ⇒ [StackProfile.empty()]).
   Future<ProjectLoadResult> load(String projectRoot) async {
     final root = p.normalize(p.absolute(projectRoot));
+
+    // Parse pubspec.yaml defensively — always done, even when root is missing
+    // or the project has no Dart files (the profile is always available).
+    final stackProfile = StackProfile.fromProjectRoot(root);
 
     // Guard: non-existent project root — return typed error, do not crash.
     if (!Directory(root).existsSync()) {
@@ -134,13 +155,18 @@ class ProjectLoader {
             reason: 'Project root does not exist: $root',
           ),
         ],
+        stackProfile: stackProfile,
       );
     }
 
     final dartFiles = _collectDartFiles(root);
 
     if (dartFiles.isEmpty) {
-      return const ProjectLoadResult(resolved: [], errors: []);
+      return ProjectLoadResult(
+        resolved: const [],
+        errors: const [],
+        stackProfile: stackProfile,
+      );
     }
 
     // Pass an explicitly resolved SDK path so the analyzer works both on the
@@ -251,6 +277,7 @@ class ProjectLoader {
         resolved: resolved,
         errors: errors,
         partUnits: partUnits,
+        stackProfile: stackProfile,
       );
     } finally {
       await collection.dispose();

@@ -26,6 +26,7 @@ class AnalysisOutcome {
     required this.findings,
     required this.suppressedCount,
     required this.stats,
+    this.stackProfile = const StackProfile.empty(),
   });
 
   /// The surviving findings, deterministically sorted (post-suppression).
@@ -36,6 +37,12 @@ class AnalysisOutcome {
 
   /// Coarse scope statistics for the run.
   final ScanStats stats;
+
+  /// Read-only stack metadata derived from the project's `pubspec.yaml`.
+  ///
+  /// Passed through from [ProjectLoadResult.stackProfile]. Never used for
+  /// suppression decisions — purely diagnostic (Invariant 1).
+  final StackProfile stackProfile;
 }
 
 /// The single shared production path from a loaded project to sorted [Finding]s.
@@ -172,6 +179,7 @@ class AnalysisRunner {
       findings: findings,
       suppressedCount: rawFindings.length - findings.length,
       stats: _computeStats(loadResult, effectiveIds),
+      stackProfile: loadResult.stackProfile,
     );
   }
 
