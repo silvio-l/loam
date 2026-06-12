@@ -1,4 +1,5 @@
 import '../complexity/function_complexity_collector.dart';
+import '../config/loam_config.dart' show kDefaultSourceDirs;
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../model/fingerprint.dart';
@@ -103,10 +104,14 @@ class ComplexityHotspotsRule implements Rule {
     this.cyclomaticThreshold = kDefaultCyclomaticThreshold,
     this.cognitiveThreshold = kDefaultCognitiveThreshold,
     this.collector = const FunctionComplexityCollector(),
+    this.sourceDirs = kDefaultSourceDirs,
   });
 
   /// Absolute path of the project being analysed.
   final String projectRoot;
+
+  /// Top-level directories measured for complexity (default `lib`, `bin`).
+  final List<String> sourceDirs;
 
   /// Cyclomatic complexity threshold. Functions strictly above this value
   /// are reported.
@@ -124,7 +129,11 @@ class ComplexityHotspotsRule implements Rule {
 
   @override
   List<Finding> run(ProjectLoadResult result) {
-    final complexities = collector.collect(result, projectRoot);
+    final complexities = collector.collect(
+      result,
+      projectRoot,
+      sourceDirs: sourceDirs,
+    );
     final findings = <Finding>[];
 
     for (final fc in complexities) {

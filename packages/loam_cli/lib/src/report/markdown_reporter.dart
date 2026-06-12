@@ -38,7 +38,17 @@ class MarkdownReporter implements Reporter {
   @override
   String render(ReportPayload payload) {
     if (payload.findings.isEmpty) {
-      return '0 findings — clean\n';
+      final buf = StringBuffer()
+        ..write('0 findings — clean')
+        ..write(
+          payload.suppressedCount > 0
+              ? ' (${payload.suppressedCount} suppressed)'
+              : '',
+        )
+        ..writeln();
+      final stats = _statsLine(payload.stats);
+      if (stats != null) buf.writeln(stats);
+      return buf.toString();
     }
 
     final buf = StringBuffer();
@@ -79,12 +89,25 @@ class MarkdownReporter implements Reporter {
     buf.write(
       _summaryLine(
         payload.findings,
+        payload.suppressedCount,
         payload.toolVersion,
         payload.rulesetVersion,
       ),
     );
+    final stats = _statsLine(payload.stats);
+    if (stats != null) buf.writeln(stats);
 
     return buf.toString();
+  }
+
+  /// A one-line italic scope summary, or `null` when [stats] is absent.
+  String? _statsLine(ScanStats? stats) {
+    if (stats == null) return null;
+    final fileWord = stats.filesAnalyzed == 1 ? 'file' : 'files';
+    return '_Scanned ${stats.filesAnalyzed} Dart $fileWord '
+        '(${stats.libFilesAnalyzed} under lib/) · '
+        '${stats.linesAnalyzed} lines · '
+        'rules: ${stats.rulesRun.join(', ')}._';
   }
 
   /// Escapes pipe characters in table cell content so GFM tables stay valid.
@@ -103,6 +126,7 @@ class MarkdownReporter implements Reporter {
 
   String _summaryLine(
     List<Finding> findings,
+    int suppressedCount,
     String toolVersion,
     String rulesetVersion,
   ) {
@@ -118,8 +142,11 @@ class MarkdownReporter implements Reporter {
         .join(', ');
 
     final suffix = breakdown.isEmpty ? '' : ' ($breakdown)';
+    final suppressed = suppressedCount > 0
+        ? ' · $suppressedCount suppressed'
+        : '';
 
-    return '$total finding${total == 1 ? '' : 's'}$suffix  '
+    return '$total finding${total == 1 ? '' : 's'}$suffix$suppressed  '
         '[loam $toolVersion · $rulesetVersion]\n';
   }
 }

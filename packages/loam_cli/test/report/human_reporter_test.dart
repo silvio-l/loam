@@ -35,12 +35,23 @@ ReportPayload _payload({
   String rulesetVersion = 'ruleset@abc12345',
   String toolVersion = '0.0.2',
   bool isTty = false,
+  int suppressedCount = 0,
+  ScanStats? stats,
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
   rulesetVersion: rulesetVersion,
   toolVersion: toolVersion,
   isTty: isTty,
+  suppressedCount: suppressedCount,
+  stats: stats,
+);
+
+const _stats = ScanStats(
+  filesAnalyzed: 168,
+  libFilesAnalyzed: 50,
+  linesAnalyzed: 18432,
+  rulesRun: ['circular-dependencies', 'complexity-hotspots'],
 );
 
 void main() {
@@ -237,6 +248,45 @@ void main() {
 
     test('reporterFor("html") returns a Reporter (now implemented)', () {
       expect(reporterFor('html'), isA<Reporter>());
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Suppression + scan-scope surfacing
+  // -------------------------------------------------------------------------
+  group('HumanReporter suppression + scope', () {
+    test('clean run with no suppression is unchanged', () {
+      expect(const HumanReporter().render(_payload()), '0 findings — clean\n');
+    });
+
+    test('clean run shows suppressed count', () {
+      final out = const HumanReporter().render(_payload(suppressedCount: 2));
+      expect(out, contains('0 findings — clean (2 suppressed)'));
+    });
+
+    test('findings summary shows suppressed count', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], suppressedCount: 3),
+      );
+      expect(out, contains('· 3 suppressed'));
+    });
+
+    test('scope line shows files, lib subset, lines and rules', () {
+      final out = const HumanReporter().render(_payload(stats: _stats));
+      expect(
+        out,
+        contains(
+          'Scanned 168 Dart files (50 under lib/) · 18432 lines · '
+          'rules: circular-dependencies, complexity-hotspots',
+        ),
+      );
+    });
+
+    test('no scope line when stats are absent', () {
+      expect(
+        const HumanReporter().render(_payload(findings: [_finding()])),
+        isNot(contains('Scanned')),
+      );
     });
   });
 }

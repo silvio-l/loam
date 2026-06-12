@@ -19,9 +19,11 @@ import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
+import 'package:loam/src/update/install_channel.dart';
 import 'package:loam/src/update/update_checker.dart';
 import 'package:loam/src/update/update_notice.dart';
 import 'package:loam/src/version.dart';
+import 'package:loam/src/version_report.dart';
 import 'package:path/path.dart' as p;
 
 /// loam.dev CLI entrypoint (command: `loam`).
@@ -90,6 +92,13 @@ Future<int> run(List<String> args) async {
           'Skip the update-availability check for this run. '
           'See also: LOAM_NO_UPDATE_CHECK env var and '
           'update_check: false in loam.yaml.',
+    )
+    ..addFlag(
+      'version',
+      negatable: false,
+      help:
+          'Print the running version, install channel and executable path, '
+          'then exit. Use this to confirm an upgrade actually took effect.',
     );
 
   // Parse args once and reuse the result for both command dispatch and the
@@ -102,6 +111,15 @@ Future<int> run(List<String> args) async {
     stderr.writeln(e);
     return 64;
   }
+  // --version short-circuit: print version + install channel + resolved
+  // executable path, then exit 0 before any command dispatch. This is the
+  // anchor an agent uses to confirm an upgrade landed on the binary actually
+  // on PATH (the footer and this line share the single `loamVersion` source).
+  if (topLevelResults.flag('version')) {
+    stdout.writeln(formatVersionInfo(InstallInfo.current()));
+    return 0;
+  }
+
   final noUpdateCheckFlag = topLevelResults.flag('no-update-check');
 
   int code;
@@ -214,7 +232,7 @@ class ScanCommand extends LoamCommand {
     //
     // For all other formats: delegate to AnalysisRunner.run() as before (no
     // change to their code path → byte-identical output guaranteed — AC2).
-    final List<Finding> findings;
+    final AnalysisOutcome outcome;
     final Reporter reporter;
 
     if (format == 'html') {
@@ -222,23 +240,23 @@ class ScanCommand extends LoamCommand {
       final root = p.normalize(p.absolute(projectRoot));
       final loadResult = await const ProjectLoader().load(root);
 
-      // Findings via shared load result — same as before, just no second load.
-      findings = AnalysisRunner(
+      // Outcome via shared load result — same as before, just no second load.
+      outcome = AnalysisRunner(
         config: config,
-      ).runWithLoadResult(root, loadResult);
+      ).analyzeWithLoadResult(root, loadResult);
 
       // Health-Score sidecar: same collector as `loam health` (AC3 — no drift).
       final functions = const FunctionComplexityCollector().collect(
         loadResult,
         root,
+        sourceDirs: config.sourceDirs,
       );
       final healthReport = const HealthScore().compute(functions);
 
       // HtmlReporter with the sidecar — only this format receives health data.
-      // ReportPayload is NOT modified (AC2).
       reporter = HtmlReporter(healthSidecar: healthReport);
     } else {
-      findings = await AnalysisRunner(config: config).run(projectRoot);
+      outcome = await AnalysisRunner(config: config).analyze(projectRoot);
       // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
       try {
         reporter = reporterFor(format);
@@ -249,11 +267,13 @@ class ScanCommand extends LoamCommand {
     }
 
     final payload = ReportPayload(
-      findings: findings,
+      findings: outcome.findings,
       projectRoot: projectRoot,
       rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
       toolVersion: loamVersion,
       isTty: stdout.hasTerminal,
+      suppressedCount: outcome.suppressedCount,
+      stats: outcome.stats,
     );
 
     await _emitReport(
@@ -264,7 +284,7 @@ class ScanCommand extends LoamCommand {
       noOpen: noOpen,
     );
 
-    return findings.isNotEmpty ? 1 : 0;
+    return outcome.findings.isNotEmpty ? 1 : 0;
   }
 }
 
@@ -319,11 +339,15 @@ class _HealthCommand extends LoamCommand {
     // Load the project — ProjectLoader never throws.
     final loadResult = await const ProjectLoader().load(projectRoot);
 
-    // Collect complexity measurements from lib/ (codegen exclusion is inside
-    // the collector — no toggle check needed here).
+    // Load config for the source-dir scope (loam.yaml); missing → defaults.
+    final config = await _loadConfig(projectRoot);
+
+    // Collect complexity measurements from the configured source dirs (codegen
+    // exclusion is inside the collector — no toggle check needed here).
     final functions = const FunctionComplexityCollector().collect(
       loadResult,
       projectRoot,
+      sourceDirs: config.sourceDirs,
     );
 
     // Aggregate into a health report.

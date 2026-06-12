@@ -76,75 +76,108 @@ abstract final class ConfigLoader {
       throw ConfigLoadException('Failed to parse $fileName: ${e.message}');
     }
 
-    // Parse `rules` section.
+    // Each section is parsed by its own focused helper so this orchestrator
+    // stays simple (one responsibility: file/YAML handling + assembly).
+    return LoamConfig(
+      ruleToggles: Map.unmodifiable(_parseRuleToggles(doc, knownRuleIds)),
+      ignoreGlobs: List.unmodifiable(_parseIgnoreGlobs(doc)),
+      sourceDirs: _parseSourceDirs(doc),
+      updateCheck: _parseUpdateCheck(doc),
+    );
+  }
+
+  /// Parses the `rules` mapping (`ruleId → bool`); validates against
+  /// [knownRuleIds] when provided. Absent section → empty map.
+  static Map<String, bool> _parseRuleToggles(
+    YamlMap doc,
+    Set<String>? knownRuleIds,
+  ) {
     final ruleToggles = <String, bool>{};
     final rawRules = doc['rules'];
-    if (rawRules != null) {
-      if (rawRules is! YamlMap) {
+    if (rawRules == null) return ruleToggles;
+    if (rawRules is! YamlMap) {
+      throw ConfigLoadException(
+        '$fileName: "rules" must be a mapping of ruleId → bool.',
+      );
+    }
+    for (final entry in rawRules.entries) {
+      final ruleId = entry.key?.toString();
+      if (ruleId == null) continue;
+
+      final value = entry.value;
+      if (value is! bool) {
         throw ConfigLoadException(
-          '$fileName: "rules" must be a mapping of ruleId → bool.',
+          '$fileName: rule "$ruleId" must have a boolean value (true/false), '
+          'got: $value.',
         );
       }
-      for (final entry in rawRules.entries) {
-        final ruleId = entry.key?.toString();
-        if (ruleId == null) continue;
-
-        final value = entry.value;
-        if (value is! bool) {
-          throw ConfigLoadException(
-            '$fileName: rule "$ruleId" must have a boolean value (true/false), '
-            'got: $value.',
-          );
-        }
-
-        // Validate against known registry when provided.
-        if (knownRuleIds != null && !knownRuleIds.contains(ruleId)) {
-          throw ConfigLoadException(
-            '$fileName: unknown ruleId "$ruleId". '
-            'Known rules: ${knownRuleIds.join(', ')}.',
-          );
-        }
-
-        ruleToggles[ruleId] = value;
+      if (knownRuleIds != null && !knownRuleIds.contains(ruleId)) {
+        throw ConfigLoadException(
+          '$fileName: unknown ruleId "$ruleId". '
+          'Known rules: ${knownRuleIds.join(', ')}.',
+        );
       }
+      ruleToggles[ruleId] = value;
     }
+    return ruleToggles;
+  }
 
-    // Parse `ignore` section (placeholder — matching in issue 02).
+  /// Parses the `ignore` glob list. Absent section → empty list.
+  static List<String> _parseIgnoreGlobs(YamlMap doc) {
     final ignoreGlobs = <String>[];
     final rawIgnore = doc['ignore'];
-    if (rawIgnore != null) {
-      if (rawIgnore is! YamlList) {
+    if (rawIgnore == null) return ignoreGlobs;
+    if (rawIgnore is! YamlList) {
+      throw ConfigLoadException(
+        '$fileName: "ignore" must be a list of glob patterns.',
+      );
+    }
+    for (final item in rawIgnore) {
+      if (item is! String) {
         throw ConfigLoadException(
-          '$fileName: "ignore" must be a list of glob patterns.',
+          '$fileName: each entry in "ignore" must be a string, got: $item.',
         );
       }
-      for (final item in rawIgnore) {
-        if (item is! String) {
-          throw ConfigLoadException(
-            '$fileName: each entry in "ignore" must be a string, got: $item.',
-          );
-        }
-        ignoreGlobs.add(item);
-      }
+      ignoreGlobs.add(item);
     }
+    return ignoreGlobs;
+  }
 
-    // Parse `update_check` field (bool, default true).
-    var updateCheck = true;
+  /// Parses `source_dirs` into a deduplicated list of top-level directory
+  /// names. Absent section → [kDefaultSourceDirs].
+  static List<String> _parseSourceDirs(YamlMap doc) {
+    final rawSourceDirs = doc['source_dirs'];
+    if (rawSourceDirs == null) return kDefaultSourceDirs;
+    if (rawSourceDirs is! YamlList) {
+      throw ConfigLoadException(
+        '$fileName: "source_dirs" must be a list of directory names.',
+      );
+    }
+    final parsed = <String>[];
+    for (final item in rawSourceDirs) {
+      if (item is! String || item.trim().isEmpty) {
+        throw ConfigLoadException(
+          '$fileName: each entry in "source_dirs" must be a non-empty '
+          'string, got: $item.',
+        );
+      }
+      // Normalise to the first path segment (a top-level dir like `lib`).
+      final seg = item.trim().replaceAll(r'\', '/').split('/').first;
+      if (seg.isNotEmpty && !parsed.contains(seg)) parsed.add(seg);
+    }
+    return List.unmodifiable(parsed);
+  }
+
+  /// Parses the `update_check` boolean. Absent field → `true`.
+  static bool _parseUpdateCheck(YamlMap doc) {
     final rawUpdateCheck = doc['update_check'];
-    if (rawUpdateCheck != null) {
-      if (rawUpdateCheck is! bool) {
-        throw ConfigLoadException(
-          '$fileName: "update_check" must be a boolean value (true/false), '
-          'got: $rawUpdateCheck.',
-        );
-      }
-      updateCheck = rawUpdateCheck;
+    if (rawUpdateCheck == null) return true;
+    if (rawUpdateCheck is! bool) {
+      throw ConfigLoadException(
+        '$fileName: "update_check" must be a boolean value (true/false), '
+        'got: $rawUpdateCheck.',
+      );
     }
-
-    return LoamConfig(
-      ruleToggles: Map.unmodifiable(ruleToggles),
-      ignoreGlobs: List.unmodifiable(ignoreGlobs),
-      updateCheck: updateCheck,
-    );
+    return rawUpdateCheck;
   }
 }

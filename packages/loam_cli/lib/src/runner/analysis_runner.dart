@@ -6,11 +6,37 @@ import 'package:path/path.dart' as p;
 import '../config/loam_config.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
+import '../report/reporter.dart' show ScanStats;
 import '../rules/circular_dependencies_rule.dart';
 import '../rules/complexity_hotspots_rule.dart';
 import '../rules/unused_public_exports_rule.dart';
 import '../suppression/inline_suppression_scanner.dart';
 import '../suppression/suppression_engine.dart';
+
+/// The full result of one analysis run: the surviving [findings], how many were
+/// removed by suppression, and coarse scope [stats].
+///
+/// [AnalysisRunner.run] / [AnalysisRunner.runWithLoadResult] keep returning a
+/// bare `List<Finding>` for callers that only need findings (`gate`,
+/// `baseline`, tests). The `analyze*` variants return this richer outcome for
+/// the user-facing `scan` report, which surfaces suppression and scope.
+class AnalysisOutcome {
+  /// Creates an [AnalysisOutcome].
+  const AnalysisOutcome({
+    required this.findings,
+    required this.suppressedCount,
+    required this.stats,
+  });
+
+  /// The surviving findings, deterministically sorted (post-suppression).
+  final List<Finding> findings;
+
+  /// How many raw findings suppression removed (`raw - surviving`).
+  final int suppressedCount;
+
+  /// Coarse scope statistics for the run.
+  final ScanStats stats;
+}
 
 /// The single shared production path from a loaded project to sorted [Finding]s.
 ///
@@ -112,6 +138,68 @@ class AnalysisRunner {
     return runWithLoadResult(root, loadResult);
   }
 
+  /// Like [run], but returns the richer [AnalysisOutcome] (findings +
+  /// suppressed count + scope stats) the `scan` report needs.
+  Future<AnalysisOutcome> analyze(String projectRoot) async {
+    final root = p.normalize(p.absolute(projectRoot));
+    final loadResult = await ProjectLoader().load(root);
+    return analyzeWithLoadResult(root, loadResult);
+  }
+
+  /// Like [runWithLoadResult], but returns the richer [AnalysisOutcome].
+  ///
+  /// Used by `ScanCommand` (including the HTML path, which pre-loads the
+  /// project to share it with the health sidecar — no second load, no drift).
+  AnalysisOutcome analyzeWithLoadResult(
+    String projectRoot,
+    ProjectLoadResult loadResult,
+  ) {
+    final root = p.normalize(p.absolute(projectRoot));
+    final effectiveIds = activeRuleIdsForConfig(config);
+    final rawFindings = _collectRaw(root, loadResult, effectiveIds);
+
+    final inlineDirectives = InlineSuppressionScanner.scan(loadResult, root);
+    final findings = SuppressionEngine.filter(
+      rawFindings,
+      config,
+      root,
+      inlineDirectives: inlineDirectives,
+    );
+
+    findings.sort(_findingOrder);
+
+    return AnalysisOutcome(
+      findings: findings,
+      suppressedCount: rawFindings.length - findings.length,
+      stats: _computeStats(loadResult, effectiveIds),
+    );
+  }
+
+  /// Computes coarse scope statistics from the loaded project.
+  ScanStats _computeStats(ProjectLoadResult loadResult, List<String> rulesRun) {
+    var libFiles = 0;
+    var lines = 0;
+    for (final file in loadResult.resolved) {
+      if (file.isUnderLib) libFiles++;
+      lines += file.result.lineInfo.lineCount;
+    }
+    return ScanStats(
+      filesAnalyzed: loadResult.resolved.length,
+      libFilesAnalyzed: libFiles,
+      linesAnalyzed: lines,
+      rulesRun: rulesRun,
+    );
+  }
+
+  /// Deterministic finding order: filePath → line → fingerprint (Invariant 5).
+  static int _findingOrder(Finding a, Finding b) {
+    final pathCmp = a.filePath.compareTo(b.filePath);
+    if (pathCmp != 0) return pathCmp;
+    final lineCmp = a.line.compareTo(b.line);
+    if (lineCmp != 0) return lineCmp;
+    return a.fingerprint.compareTo(b.fingerprint);
+  }
+
   /// Runs the active rule registry on an already-loaded [ProjectLoadResult].
   ///
   /// This is the shared inner path used by [run] and by callers that have
@@ -127,17 +215,26 @@ class AnalysisRunner {
   List<Finding> runWithLoadResult(
     String projectRoot,
     ProjectLoadResult loadResult,
+  ) => analyzeWithLoadResult(projectRoot, loadResult).findings;
+
+  /// Runs the active rule registry and returns the raw, unsuppressed findings.
+  ///
+  /// [root] must be the normalised absolute project root. The registry is the
+  /// full registry minus rules disabled via [config] — disabled rules are not
+  /// instantiated at all (registry-level filter, not a post-run finding filter).
+  List<Finding> _collectRaw(
+    String root,
+    ProjectLoadResult loadResult,
+    List<String> effectiveIds,
   ) {
-    final root = p.normalize(p.absolute(projectRoot));
-
-    // Build the registry for this run: full registry minus disabled rules.
-    final effectiveIds = activeRuleIdsForConfig(config);
-
     final rules = [
       if (effectiveIds.contains('circular-dependencies'))
         CircularDependenciesRule(projectRoot: root),
       if (effectiveIds.contains('complexity-hotspots'))
-        ComplexityHotspotsRule(projectRoot: root),
+        ComplexityHotspotsRule(
+          projectRoot: root,
+          sourceDirs: config.sourceDirs,
+        ),
       if (effectiveIds.contains('unused-public-exports'))
         UnusedPublicExportsRule(projectRoot: root),
     ];
@@ -146,32 +243,6 @@ class AnalysisRunner {
     for (final rule in rules) {
       rawFindings.addAll(rule.run(loadResult));
     }
-
-    // Scan for inline `// loam-ignore:` directives using the analyzer's
-    // token/comment model (Invariant 1 — no whole-file regex).
-    // Passes [root] so that directives carry the same project-relative POSIX
-    // paths as Finding.filePath — enabling a plain string equality comparison.
-    final inlineDirectives = InlineSuppressionScanner.scan(loadResult, root);
-
-    // Apply suppression BEFORE the deterministic sort (ADR-0003 / D10).
-    // scan, gate, and baseline all see the same filtered stream.
-    // Source 1 (glob) and Source 2 (inline directives) are combined here.
-    final findings = SuppressionEngine.filter(
-      rawFindings,
-      config,
-      root,
-      inlineDirectives: inlineDirectives,
-    );
-
-    // Deterministic sort: filePath → line → fingerprint (Invariant 5).
-    findings.sort((a, b) {
-      final pathCmp = a.filePath.compareTo(b.filePath);
-      if (pathCmp != 0) return pathCmp;
-      final lineCmp = a.line.compareTo(b.line);
-      if (lineCmp != 0) return lineCmp;
-      return a.fingerprint.compareTo(b.fingerprint);
-    });
-
-    return findings;
+    return rawFindings;
   }
 }

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:pub_semver/pub_semver.dart';
 
+import 'install_channel.dart';
 import 'latest_version_fetcher.dart';
 import 'update_check_cache.dart';
 import 'update_notice.dart';
@@ -28,9 +29,6 @@ class UpdateChecker {
   /// The name of the package to check on pub.dev.
   static const _packageName = 'loam';
 
-  /// The update command shown to the user.
-  static const _updateCommand = 'dart pub global activate loam';
-
   /// The throttle duration — checks run at most once every 24 hours.
   static const _throttle = Duration(hours: 24);
 
@@ -38,6 +36,11 @@ class UpdateChecker {
   final LatestVersionFetcher _fetcher;
   final UpdateCheckCache _cache;
   final DateTime Function() _now;
+
+  /// The resolved path of the running executable, used to infer the install
+  /// channel so the notice prints the **correct** upgrade command. Defaults to
+  /// [Platform.resolvedExecutable]; injected for testability.
+  final String _executablePath;
 
   /// Environment variables used for suppression decisions.
   ///
@@ -51,17 +54,22 @@ class UpdateChecker {
   /// - [cache]: used to persist and retrieve the throttle timestamp.
   /// - [now]: clock function, injected for throttle tests.
   /// - [env]: environment variable map, defaults to [Platform.environment].
+  /// - [executablePath]: the resolved executable path used for install-channel
+  ///   detection, defaults to [Platform.resolvedExecutable]. Injected so the
+  ///   channel-specific upgrade command is deterministic in tests.
   UpdateChecker({
     required String currentVersion,
     LatestVersionFetcher? fetcher,
     UpdateCheckCache? cache,
     DateTime Function()? now,
     Map<String, String>? env,
+    String? executablePath,
   }) : _currentVersion = currentVersion,
        _fetcher = fetcher ?? const PubDevLatestVersionFetcher(),
        _cache = cache ?? const FileUpdateCheckCache(),
        _now = now ?? (() => DateTime.now().toUtc()),
-       _env = env ?? Platform.environment;
+       _env = env ?? Platform.environment,
+       _executablePath = executablePath ?? Platform.resolvedExecutable;
 
   /// Checks for an available update and returns an [UpdateNotice] when one is
   /// found.
@@ -150,7 +158,9 @@ class UpdateChecker {
     return UpdateNotice(
       currentVersion: current,
       latestVersion: latest,
-      updateCommand: _updateCommand,
+      updateCommand: InstallInfo.fromExecutablePath(
+        _executablePath,
+      ).upgradeCommand,
     );
   }
 }

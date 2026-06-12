@@ -35,12 +35,16 @@ ReportPayload _payload({
   String rulesetVersion = 'ruleset@abc12345',
   String toolVersion = '0.0.2',
   bool isTty = false,
+  int suppressedCount = 0,
+  ScanStats? stats,
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
   rulesetVersion: rulesetVersion,
   toolVersion: toolVersion,
   isTty: isTty,
+  suppressedCount: suppressedCount,
+  stats: stats,
 );
 
 void main() {
@@ -323,6 +327,42 @@ void main() {
 
     test('reporterFor("markdown") does not throw', () {
       expect(() => reporterFor('markdown'), returnsNormally);
+    });
+  });
+
+  group('MarkdownReporter suppression + scope', () {
+    test('clean run with no suppression is unchanged', () {
+      expect(
+        const MarkdownReporter().render(_payload()),
+        '0 findings — clean\n',
+      );
+    });
+
+    test('clean run shows suppressed count', () {
+      expect(
+        const MarkdownReporter().render(_payload(suppressedCount: 2)),
+        contains('0 findings — clean (2 suppressed)'),
+      );
+    });
+
+    test('scope line is rendered as italic text', () {
+      final out = const MarkdownReporter().render(
+        _payload(
+          stats: const ScanStats(
+            filesAnalyzed: 168,
+            libFilesAnalyzed: 50,
+            linesAnalyzed: 18432,
+            rulesRun: ['complexity-hotspots'],
+          ),
+        ),
+      );
+      expect(
+        out,
+        contains(
+          '_Scanned 168 Dart files (50 under lib/) · 18432 lines · '
+          'rules: complexity-hotspots._',
+        ),
+      );
     });
   });
 }

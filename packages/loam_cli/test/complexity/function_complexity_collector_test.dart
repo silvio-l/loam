@@ -169,20 +169,44 @@ void main() {
       expect(names, isNot(contains('GeneratedClass.generatedMethod')));
     });
 
-    test('bin/ file symbols are excluded', () {
-      // main() is defined in bin/main.dart — must not appear.
+    test('bin/ file symbols are INCLUDED by default (lib + bin)', () {
+      // main() is defined in bin/main.dart — included under the default scope.
       final names = results.map((r) => r.qualifiedName).toSet();
-      expect(names, isNot(contains('main')));
+      expect(names, contains('main'));
     });
 
-    test('all results are under lib/', () {
+    test('all default results are under lib/ or bin/', () {
       for (final r in results) {
         expect(
-          r.filePath.startsWith('lib/'),
+          r.filePath.startsWith('lib/') || r.filePath.startsWith('bin/'),
           isTrue,
-          reason: '${r.qualifiedName} at ${r.filePath} is not under lib/',
+          reason:
+              '${r.qualifiedName} at ${r.filePath} is not under lib/ or bin/',
         );
       }
+    });
+
+    test('sourceDirs can be narrowed to lib/ only (excludes bin/)', () {
+      final libOnly = const FunctionComplexityCollector().collect(
+        loadResult,
+        _fixturePath,
+        sourceDirs: const ['lib'],
+      );
+      final names = libOnly.map((r) => r.qualifiedName).toSet();
+      expect(names, isNot(contains('main')));
+      for (final r in libOnly) {
+        expect(r.filePath.startsWith('lib/'), isTrue);
+      }
+    });
+
+    test('generated files stay excluded regardless of sourceDirs', () {
+      final wideScope = const FunctionComplexityCollector().collect(
+        loadResult,
+        _fixturePath,
+        sourceDirs: const ['lib', 'bin', 'test'],
+      );
+      final names = wideScope.map((r) => r.qualifiedName).toSet();
+      expect(names, isNot(contains('generatedFunction')));
     });
   });
 

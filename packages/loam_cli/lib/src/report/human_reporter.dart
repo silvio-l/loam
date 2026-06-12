@@ -42,12 +42,19 @@ class HumanReporter implements Reporter {
 
   @override
   String render(ReportPayload payload) {
+    final tty = payload.isTty;
+
     if (payload.findings.isEmpty) {
-      return '0 findings — clean\n';
+      final buf = StringBuffer()
+        ..write('0 findings — clean')
+        ..write(_suppressedSuffix(payload.suppressedCount))
+        ..writeln();
+      final stats = _statsLine(payload.stats, tty);
+      if (stats != null) buf.writeln(stats);
+      return buf.toString();
     }
 
     final buf = StringBuffer();
-    final tty = payload.isTty;
 
     // Group findings by filePath while preserving input order.
     final groups = <String, List<Finding>>{};
@@ -86,13 +93,32 @@ class HumanReporter implements Reporter {
     buf.write(
       _summaryLine(
         payload.findings,
+        payload.suppressedCount,
         payload.toolVersion,
         payload.rulesetVersion,
         tty,
       ),
     );
+    final stats = _statsLine(payload.stats, tty);
+    if (stats != null) buf.writeln(stats);
 
     return buf.toString();
+  }
+
+  /// `' (N suppressed)'` when [suppressed] > 0, else `''`.
+  String _suppressedSuffix(int suppressed) =>
+      suppressed > 0 ? ' ($suppressed suppressed)' : '';
+
+  /// A one-line scope summary, or `null` when [stats] is absent.
+  String? _statsLine(ScanStats? stats, bool tty) {
+    if (stats == null) return null;
+    final fileWord = stats.filesAnalyzed == 1 ? 'file' : 'files';
+    final label =
+        'Scanned ${stats.filesAnalyzed} Dart $fileWord '
+        '(${stats.libFilesAnalyzed} under lib/) · '
+        '${stats.linesAnalyzed} lines · '
+        'rules: ${stats.rulesRun.join(', ')}';
+    return tty ? '$_grey$label$_reset' : label;
   }
 
   String _severityLabel(Severity severity, bool tty) {
@@ -107,6 +133,7 @@ class HumanReporter implements Reporter {
 
   String _summaryLine(
     List<Finding> findings,
+    int suppressedCount,
     String toolVersion,
     String rulesetVersion,
     bool tty,
@@ -123,10 +150,13 @@ class HumanReporter implements Reporter {
         .join(', ');
 
     final suffix = breakdown.isEmpty ? '' : ' ($breakdown)';
+    final suppressed = suppressedCount > 0
+        ? ' · $suppressedCount suppressed'
+        : '';
 
     // Include tool version and ruleset version for traceability.
     final label =
-        '$total finding${total == 1 ? '' : 's'}$suffix  '
+        '$total finding${total == 1 ? '' : 's'}$suffix$suppressed  '
         '[loam $toolVersion · $rulesetVersion]';
     if (tty) {
       return '$_grey$label$_reset\n';

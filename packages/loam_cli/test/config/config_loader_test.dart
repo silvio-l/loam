@@ -264,4 +264,58 @@ rules:
       expect(const LoamConfig.defaults().updateCheck, isTrue);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // source_dirs — configurable production-source scope
+  // -------------------------------------------------------------------------
+  group('source_dirs', () {
+    test('absent → default lib + bin', () async {
+      File(p.join(tempDir.path, 'loam.yaml')).writeAsStringSync('rules:\n');
+      final config = await ConfigLoader.load(tempDir.path);
+      expect(config.sourceDirs, ['lib', 'bin']);
+    });
+
+    test('explicit list overrides the default', () async {
+      File(
+        p.join(tempDir.path, 'loam.yaml'),
+      ).writeAsStringSync('source_dirs:\n  - lib\n  - bin\n  - tool\n');
+      final config = await ConfigLoader.load(tempDir.path);
+      expect(config.sourceDirs, ['lib', 'bin', 'tool']);
+    });
+
+    test(
+      'entries are normalised to the top-level segment and deduped',
+      () async {
+        File(p.join(tempDir.path, 'loam.yaml')).writeAsStringSync(
+          'source_dirs:\n  - "lib/"\n  - "lib/src"\n  - bin\n',
+        );
+        final config = await ConfigLoader.load(tempDir.path);
+        expect(config.sourceDirs, ['lib', 'bin']);
+      },
+    );
+
+    test('non-list source_dirs throws ConfigLoadException', () async {
+      File(
+        p.join(tempDir.path, 'loam.yaml'),
+      ).writeAsStringSync('source_dirs: lib\n');
+      expect(
+        ConfigLoader.load(tempDir.path),
+        throwsA(isA<ConfigLoadException>()),
+      );
+    });
+
+    test('empty entry throws ConfigLoadException', () async {
+      File(
+        p.join(tempDir.path, 'loam.yaml'),
+      ).writeAsStringSync('source_dirs:\n  - ""\n');
+      expect(
+        ConfigLoader.load(tempDir.path),
+        throwsA(isA<ConfigLoadException>()),
+      );
+    });
+
+    test('defaults() sourceDirs is lib + bin', () {
+      expect(const LoamConfig.defaults().sourceDirs, ['lib', 'bin']);
+    });
+  });
 }

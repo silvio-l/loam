@@ -37,12 +37,16 @@ ReportPayload _payload({
   String rulesetVersion = 'ruleset@abc12345',
   String toolVersion = '0.0.2',
   bool isTty = false,
+  int suppressedCount = 0,
+  ScanStats? stats,
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
   rulesetVersion: rulesetVersion,
   toolVersion: toolVersion,
   isTty: isTty,
+  suppressedCount: suppressedCount,
+  stats: stats,
 );
 
 void main() {
@@ -67,12 +71,48 @@ void main() {
       expect(() => jsonDecode(output), returnsNormally);
     });
 
-    test('schemaVersion == 2', () {
+    test('schemaVersion == 3', () {
       final output = const JsonReporter().render(
         _payload(findings: [_finding()]),
       );
       final doc = jsonDecode(output) as Map<String, dynamic>;
-      expect(doc['schemaVersion'], equals(2));
+      expect(doc['schemaVersion'], equals(3));
+    });
+
+    test('summary.suppressed carries the suppressed count', () {
+      final doc =
+          jsonDecode(const JsonReporter().render(_payload(suppressedCount: 2)))
+              as Map<String, dynamic>;
+      expect((doc['summary'] as Map)['suppressed'], equals(2));
+    });
+
+    test('scan object carries scope stats when present', () {
+      final doc =
+          jsonDecode(
+                const JsonReporter().render(
+                  _payload(
+                    stats: const ScanStats(
+                      filesAnalyzed: 168,
+                      libFilesAnalyzed: 50,
+                      linesAnalyzed: 18432,
+                      rulesRun: ['complexity-hotspots'],
+                    ),
+                  ),
+                ),
+              )
+              as Map<String, dynamic>;
+      final scan = doc['scan'] as Map<String, dynamic>;
+      expect(scan['filesAnalyzed'], 168);
+      expect(scan['libFilesAnalyzed'], 50);
+      expect(scan['linesAnalyzed'], 18432);
+      expect(scan['rulesRun'], ['complexity-hotspots']);
+    });
+
+    test('scan object omitted when stats absent', () {
+      final doc =
+          jsonDecode(const JsonReporter().render(_payload()))
+              as Map<String, dynamic>;
+      expect(doc.containsKey('scan'), isFalse);
     });
 
     test('tool.name == "loam"', () {

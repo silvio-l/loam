@@ -4,6 +4,7 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
 import 'package:path/path.dart' as p;
 
+import '../config/loam_config.dart' show kDefaultSourceDirs;
 import '../loader/project_loader.dart';
 import '../rules/generated_file.dart';
 import 'complexity_calculator.dart';
@@ -32,8 +33,9 @@ export 'function_complexity.dart';
 /// - Local functions and closures (their complexity flows into the enclosing
 ///   executable via [ComplexityCalculator]).
 /// - Declarations in generated files (`*.g.dart`, `*.freezed.dart`,
-///   `*.mocks.dart`, Flutter gen-l10n output).
-/// - Declarations in files outside `lib/` (e.g. `bin/`, `test/`, `tool/`).
+///   `*.mocks.dart`, Flutter gen-l10n output) — always excluded.
+/// - Declarations in files outside the configured source directories
+///   (`sourceDirs`, default `lib/` + `bin/`; e.g. `test/`, `tool/`).
 ///
 /// **Part/augment handling:**
 /// The element model's `libraryElement.fragments` is used instead of naive
@@ -59,16 +61,22 @@ class FunctionComplexityCollector {
   final ComplexityCalculator calculator;
 
   /// Collects complexity measurements for all named executables in the
-  /// `lib/` files of [result].
+  /// configured source directories of [result].
   ///
   /// [projectRoot] is the absolute path of the analysed package root, used
   /// to compute POSIX-relative [FunctionComplexity.filePath] values.
   ///
+  /// [sourceDirs] are the top-level directories treated as production source
+  /// (default [kDefaultSourceDirs] = `lib`, `bin`). A file is measured only
+  /// when its top-level directory (relative to [projectRoot]) is in this list;
+  /// generated files are always excluded.
+  ///
   /// Never throws. Returns an empty list when [result.resolved] is empty.
   List<FunctionComplexity> collect(
     ProjectLoadResult result,
-    String projectRoot,
-  ) {
+    String projectRoot, {
+    List<String> sourceDirs = kDefaultSourceDirs,
+  }) {
     // Build a path → ResolvedUnitResult map covering both library files and
     // part files so the AST of every fragment is reachable.
     final unitByPath = <String, ResolvedUnitResult>{};
@@ -86,7 +94,7 @@ class FunctionComplexityCollector {
     final seenIds = <int>{};
 
     for (final file in result.resolved) {
-      if (!file.isUnderLib) continue;
+      if (!_isUnderSourceDir(file.path, projectRoot, sourceDirs)) continue;
       if (isGeneratedDartFile(file.path)) continue;
 
       final library = file.result.libraryElement;
@@ -142,6 +150,17 @@ class FunctionComplexityCollector {
   static String _toRelativePosix(String absolutePath, String projectRoot) {
     final rel = p.relative(absolutePath, from: projectRoot);
     return rel.replaceAll(r'\', '/');
+  }
+
+  /// Whether [filePath]'s top-level directory (relative to [projectRoot]) is
+  /// one of [sourceDirs]. A file directly at the root, or outside it, is not.
+  static bool _isUnderSourceDir(
+    String filePath,
+    String projectRoot,
+    List<String> sourceDirs,
+  ) {
+    final segments = p.split(p.relative(filePath, from: projectRoot));
+    return segments.length > 1 && sourceDirs.contains(segments.first);
   }
 }
 

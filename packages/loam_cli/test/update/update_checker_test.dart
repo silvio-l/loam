@@ -48,12 +48,18 @@ class FakeUpdateCheckCache implements UpdateCheckCache {
 }
 
 /// Builds an [UpdateChecker] with all dependencies faked.
+///
+/// [executablePath] defaults to a neutral, channel-unknown path so the
+/// suggested upgrade command is deterministic regardless of how the test
+/// runner's own `dart` binary happens to be installed (a Homebrew Dart SDK
+/// would otherwise resolve under a `Cellar` segment and flip the channel).
 UpdateChecker _checker({
   String currentVersion = '0.1.4',
   FakeLatestVersionFetcher? fetcher,
   FakeUpdateCheckCache? cache,
   DateTime Function()? now,
   Map<String, String>? env,
+  String executablePath = '/opt/loam-test/bin/loam',
 }) {
   return UpdateChecker(
     currentVersion: currentVersion,
@@ -61,6 +67,7 @@ UpdateChecker _checker({
     cache: cache ?? FakeUpdateCheckCache(),
     now: now,
     env: env ?? {},
+    executablePath: executablePath,
   );
 }
 
@@ -377,7 +384,11 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('UpdateChecker — semver comparison', () {
-    Future<UpdateNotice?> checkVersions(String current, String latest) async {
+    Future<UpdateNotice?> checkVersions(
+      String current,
+      String latest, {
+      String executablePath = '/opt/loam-test/bin/loam',
+    }) async {
       final now = DateTime.utc(2026, 1, 1);
       final cache = FakeUpdateCheckCache()
         ..write(
@@ -390,6 +401,7 @@ void main() {
         currentVersion: current,
         cache: cache,
         now: () => now,
+        executablePath: executablePath,
       ).check();
     }
 
@@ -416,6 +428,29 @@ void main() {
       expect(notice!.currentVersion, Version.parse('0.1.4'));
       expect(notice.latestVersion, Version.parse('0.2.0'));
       expect(notice.updateCommand, 'dart pub global activate loam');
+    });
+
+    test('Homebrew install → notice suggests `brew upgrade loam`', () async {
+      // A symlink-resolved Homebrew binary lives under a `Cellar` segment.
+      // Suggesting `dart pub global activate` here would only shadow it with an
+      // unreachable pub-cache copy — the bug this fix exists to prevent.
+      final notice = await checkVersions(
+        '0.1.6',
+        '0.1.7',
+        executablePath: '/opt/homebrew/Cellar/loam/0.1.6/bin/loam',
+      );
+      expect(notice, isNotNull);
+      expect(notice!.updateCommand, 'brew upgrade loam');
+    });
+
+    test('pub-global install → notice suggests pub global activate', () async {
+      final notice = await checkVersions(
+        '0.1.6',
+        '0.1.7',
+        executablePath: '/Users/x/.pub-cache/bin/loam',
+      );
+      expect(notice, isNotNull);
+      expect(notice!.updateCommand, 'dart pub global activate loam');
     });
   });
 

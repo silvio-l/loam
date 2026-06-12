@@ -98,6 +98,19 @@ class HtmlReporter implements Reporter {
     final warnings = counts[Severity.warning] ?? 0;
     final infos = counts[Severity.info] ?? 0;
 
+    // Suppression + scope context (mirrors the other reporters). Surfaced so a
+    // clean HTML report can't be mistaken for "nothing scanned".
+    final suppressedNote = payload.suppressedCount > 0
+        ? '<p class="card-meta">${payload.suppressedCount} suppressed</p>'
+        : '';
+    final stats = payload.stats;
+    final scopeRows = stats == null
+        ? ''
+        : '<dt>files</dt><dd>${stats.filesAnalyzed} '
+              '(${stats.libFilesAnalyzed} under lib/)</dd>'
+              '<dt>lines</dt><dd>${stats.linesAnalyzed}</dd>'
+              '<dt>rules</dt><dd>${stats.rulesRun.join(', ')}</dd>';
+
     // Severity bar: flex weights are deterministic (counts only); a zero-finding
     // run shows a single "clean" segment instead of an empty rail.
     final sevBar = total == 0
@@ -178,6 +191,7 @@ $healthBadge
       <section class="card summary-card">
         <h2 class="card-title">Summary</h2>
         <p class="total">$total finding${total == 1 ? '' : 's'}</p>
+        $suppressedNote
         <div class="sev-bar">$sevBar</div>
         <ul class="sev-legend">
           <li><span class="dot dot-error"></span> error <b>$errors</b></li>
@@ -191,6 +205,7 @@ $healthBadge
         <dl class="kv">
           <dt>tool</dt><dd>loam ${payload.toolVersion}</dd>
           <dt>ruleset</dt><dd>${payload.rulesetVersion}</dd>
+          $scopeRows
           <dt>report</dt><dd>self-contained &middot; offline</dd>
         </dl>
         <ol class="howto">

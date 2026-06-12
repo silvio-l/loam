@@ -62,6 +62,24 @@ rules:
   #   unused-public-exports: false
 
 # ---------------------------------------------------------------------------
+# source_dirs — top-level directories treated as production source for the
+# universal complexity scan (complexity-hotspots, `loam health`).
+#
+# Default: [lib, bin] — hand-written, shipping Dart code. Generated files
+# (*.g.dart, gen-l10n output, …) are ALWAYS excluded regardless of this list.
+#
+# Deliberately NOT included by default (override here if you want them):
+#   test, integration_test, test_driver  — intentionally high complexity
+#   example, tool, benchmark             — demo / dev-only code
+#
+# Note: circular-dependencies and unused-public-exports are inherently a
+# lib/ concept and are unaffected by this setting.
+# ---------------------------------------------------------------------------
+# source_dirs:
+#   - lib
+#   - bin
+
+# ---------------------------------------------------------------------------
 # ignore — project-relative glob patterns for path suppression
 #
 # Findings whose file path matches any glob are suppressed (Source 1).

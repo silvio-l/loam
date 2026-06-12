@@ -50,8 +50,9 @@ class JsonReporter implements Reporter {
       counts[f.severity] = (counts[f.severity] ?? 0) + 1;
     }
 
+    final stats = payload.stats;
     final doc = <String, dynamic>{
-      'schemaVersion': 2,
+      'schemaVersion': 3,
       'tool': {'name': 'loam', 'version': payload.toolVersion},
       'ruleset': payload.rulesetVersion,
       'summary': {
@@ -59,7 +60,15 @@ class JsonReporter implements Reporter {
         'error': counts[Severity.error],
         'warning': counts[Severity.warning],
         'info': counts[Severity.info],
+        'suppressed': payload.suppressedCount,
       },
+      if (stats != null)
+        'scan': {
+          'filesAnalyzed': stats.filesAnalyzed,
+          'libFilesAnalyzed': stats.libFilesAnalyzed,
+          'linesAnalyzed': stats.linesAnalyzed,
+          'rulesRun': stats.rulesRun,
+        },
       'findings': payload.findings
           .map((f) => _buildFinding(f, payload.projectRoot))
           .toList(),

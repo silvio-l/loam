@@ -158,4 +158,51 @@ void main() {
   test('activeRuleIds contains unused-public-exports', () {
     expect(AnalysisRunner.activeRuleIds, contains('unused-public-exports'));
   });
+
+  // ---------------------------------------------------------------------------
+  // analyze(): findings + suppressed count + scope stats
+  // ---------------------------------------------------------------------------
+
+  group('analyze() outcome', () {
+    test('findings match run() exactly', () async {
+      final runner = AnalysisRunner();
+      final viaRun = await runner.run(fixturePath);
+      final outcome = await runner.analyze(fixturePath);
+      expect(
+        outcome.findings.map((f) => f.fingerprint),
+        viaRun.map((f) => f.fingerprint),
+      );
+    });
+
+    test('stats report files, lib subset and all active rules', () async {
+      final outcome = await AnalysisRunner().analyze(fixturePath);
+      expect(outcome.stats.filesAnalyzed, greaterThan(0));
+      expect(
+        outcome.stats.libFilesAnalyzed,
+        lessThanOrEqualTo(outcome.stats.filesAnalyzed),
+      );
+      expect(outcome.stats.linesAnalyzed, greaterThan(0));
+      expect(outcome.stats.rulesRun, AnalysisRunner.activeRuleIds);
+    });
+
+    test(
+      'suppressedCount counts inline-ignored findings (raw − surviving)',
+      () async {
+        final suppressionFixture = p.normalize(
+          p.join(
+            Directory.current.path,
+            'test',
+            'fixtures',
+            'inline_suppression_fixture',
+          ),
+        );
+        final outcome = await AnalysisRunner().analyze(suppressionFixture);
+        expect(
+          outcome.suppressedCount,
+          greaterThan(0),
+          reason: 'the fixture carries real // loam-ignore: directives',
+        );
+      },
+    );
+  });
 }

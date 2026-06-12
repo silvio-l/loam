@@ -64,7 +64,7 @@ void main() {
     );
   });
 
-  test('loam scan --format json: envelope has schemaVersion == 2', () {
+  test('loam scan --format json: envelope has schemaVersion == 3', () {
     final result = Process.runSync(Platform.executable, [
       'run',
       entrypoint,
@@ -76,7 +76,15 @@ void main() {
     ]);
     final out = result.stdout as String;
     final doc = jsonDecode(out) as Map<String, dynamic>;
-    expect(doc['schemaVersion'], equals(2));
+    expect(doc['schemaVersion'], equals(3));
+    // Scope + suppression surfaced (schemaVersion 3 additions).
+    final summary = doc['summary'] as Map<String, dynamic>;
+    expect(summary['suppressed'], isA<int>());
+    final scan = doc['scan'] as Map<String, dynamic>;
+    expect(scan['filesAnalyzed'], isA<int>());
+    expect(scan['libFilesAnalyzed'], isA<int>());
+    expect(scan['linesAnalyzed'], isA<int>());
+    expect(scan['rulesRun'], isA<List<dynamic>>());
   });
 
   test('loam scan --format json: findings carry kind + remedy (schema 2)', () {

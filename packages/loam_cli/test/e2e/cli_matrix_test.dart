@@ -159,6 +159,12 @@ environment:
     });
   });
 
+  group('global --version → exit 0 (short-circuit, no command)', () {
+    test('--version → exit 0', () async {
+      expect(await cli.run(['--version']), 0);
+    });
+  });
+
   group('usage errors → EX_USAGE (64)', () {
     test('unknown --format → exit 64', () async {
       expect(

@@ -8,6 +8,8 @@ build/
 # Loam runtime artifacts
 .loam/
 baseline.json
+# Default output of `loam scan --format html` — never commit a generated report.
+loam-report.html
 
 # Lokales Issue-Tracking & Doku (PROTECTED — niemals nach GitHub)
 .scratch/

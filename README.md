@@ -173,9 +173,14 @@ round just repeats it. Greenfield? `loam gate --absolute` needs no baseline.
 
 **Update notice.** loam.dev checks pub.dev at most once a day and, when a newer
 release exists, prints one line to stderr *after* the command output — never to
-stdout, never touching the exit code. Silence it per run with `--no-update-check`,
-machine-wide with the `LOAM_NO_UPDATE_CHECK` environment variable, or repo-wide
-with `update_check: false` in `loam.yaml`. CI is always silent.
+stdout, never touching the exit code. The line names the upgrade command that
+matches how loam was installed (`brew upgrade loam` for a Homebrew binary,
+`dart pub global activate loam` otherwise), so the update lands on the binary you
+actually run. To confirm it did, run `loam --version`: it prints the running
+version, the install channel and the resolved executable path. Silence the notice
+per run with `--no-update-check`, machine-wide with the `LOAM_NO_UPDATE_CHECK`
+environment variable, or repo-wide with `update_check: false` in `loam.yaml`. CI
+is always silent.
 
 ## Built for the terminal
 

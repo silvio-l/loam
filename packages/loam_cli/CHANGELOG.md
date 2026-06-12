@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.1.8
+
+- **Complexity now scans `bin/` too, and the scope is configurable.** The
+  `complexity-hotspots` rule and `loam health` measured only `lib/`, silently
+  skipping `bin/` entrypoint logic (real, shipping code). They now measure
+  `lib/` **and** `bin/` by default. Configure it per project with `source_dirs`
+  in `loam.yaml` — e.g. add `test`/`tool` to widen, or narrow to `lib` only.
+  Generated files stay excluded regardless; `test/`, `example/` and `tool/`
+  remain off by default (intentionally high or low complexity = noise). The
+  structural rules `circular-dependencies` and `unused-public-exports` are an
+  inherent `lib/` concept and are deliberately unaffected.
+- **Channel-aware update notice.** The once-a-day update line now prints the
+  upgrade command that matches how loam was actually installed —
+  `brew upgrade loam` for a Homebrew binary, `dart pub global activate loam`
+  otherwise. This prevents the trap where a Homebrew user follows the generic
+  pub.dev advice and installs a second, unreachable `~/.pub-cache` copy that
+  never shadows the Homebrew binary, so the "update" silently does nothing.
+- **New: `loam --version`.** Prints the running version, the install channel and
+  the resolved executable path (e.g. `install: homebrew · …/Cellar/loam/…`). Use
+  it to confirm an upgrade actually landed on the binary on your `PATH`. The
+  version comes from the same constant the report footer uses, so the two can
+  never disagree. The Homebrew formula's `brew test` now asserts this version,
+  catching a stale or mis-rendered formula.
+- **Reports now surface suppression and scan scope.** A `0 findings — clean`
+  result was indistinguishable from "nothing scanned" or "real findings
+  knowingly suppressed". Every reporter now shows how many findings were
+  suppressed (`// loam-ignore:` + `loam.yaml` globs) and a scope line —
+  files analysed (and how many under `lib/`), lines, and which rules ran — so a
+  clean scan can be trusted as comprehensive. JSON is now `schemaVersion: 3`
+  with a `summary.suppressed` count and a `scan` object; SARIF carries the same
+  in a run-level property bag; human/Markdown gain a scope line; the HTML report
+  shows scope rows and a suppressed note. Findings and fingerprints are
+  unchanged, so baselines do not churn.
+
 ## 0.1.7
 
 - **Fixed: Flutter SDK no longer crashes the scan.** On a standard Flutter

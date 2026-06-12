@@ -33,7 +33,10 @@ class Loam < Formula
   end
 
   test do
-    assert_match "loam", shell_output("#{bin}/loam --help")
+    # Assert the *version*, not just the name: a stale or mis-rendered formula
+    # whose binary reports a different baked-in version than the formula claims
+    # must fail `brew test`. `loam --version` prints `loam <version>` on line 1.
+    assert_match "loam #{version}", shell_output("#{bin}/loam --version")
   end
 
   livecheck do

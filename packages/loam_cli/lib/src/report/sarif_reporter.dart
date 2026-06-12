@@ -50,6 +50,18 @@ class SarifReporter implements Reporter {
             },
           },
           'results': results,
+          // Run-level property bag: scope + suppression context, so tooling can
+          // tell a clean run that covered the codebase from one that scanned
+          // little or hid findings. Standards-friendly (`runs[].properties`).
+          'properties': {
+            'suppressed': payload.suppressedCount,
+            if (payload.stats case final stats?) ...{
+              'filesAnalyzed': stats.filesAnalyzed,
+              'libFilesAnalyzed': stats.libFilesAnalyzed,
+              'linesAnalyzed': stats.linesAnalyzed,
+              'rulesRun': stats.rulesRun,
+            },
+          },
         },
       ],
     };
