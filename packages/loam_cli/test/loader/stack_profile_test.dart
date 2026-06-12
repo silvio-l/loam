@@ -37,11 +37,21 @@ void main() {
   // AC6: Unit-Tests — StackProfile.fromProjectRoot
   // ---------------------------------------------------------------------------
 
+  // Path to a publishable fixture (no publish_to: none) for isPublishable tests.
+  final publishablePkgFixture = p.normalize(
+    p.join(
+      Directory.current.path,
+      'test',
+      'fixtures',
+      'publishable_pkg_fixture',
+    ),
+  );
+
   group('AC6: StackProfile.fromProjectRoot', () {
-    // The unused_exports_fixture pubspec has no Flutter dep and no publish_to:
+    // The publishable_pkg_fixture pubspec has no Flutter dep and no publish_to:
     // none → isFlutter=false, isPublishable=true.
-    test('parses unused_exports_fixture/pubspec.yaml correctly', () {
-      final profile = StackProfile.fromProjectRoot(unusedExportsFixture);
+    test('parses publishable_pkg_fixture/pubspec.yaml correctly', () {
+      final profile = StackProfile.fromProjectRoot(publishablePkgFixture);
 
       expect(profile.isFlutter, isFalse, reason: 'no flutter dep in fixture');
       expect(

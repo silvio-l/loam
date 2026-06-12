@@ -1,0 +1,6 @@
+name: publishable_pkg_fixture
+description: "Test fixture for publishable-mode suppression (no publish_to: none)."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0

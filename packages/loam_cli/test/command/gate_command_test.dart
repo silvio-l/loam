@@ -17,6 +17,7 @@ Directory _makeCleanProject() {
   final dir = Directory.systemTemp.createTempSync('loam_gate_cmd_test_');
   File(p.join(dir.path, 'pubspec.yaml')).writeAsStringSync('''
 name: gate_test_pkg
+publish_to: none
 environment:
   sdk: ">=3.0.0 <4.0.0"
 ''');

@@ -38,6 +38,7 @@ Directory _makeProjectWithFinding() {
   final dir = Directory.systemTemp.createTempSync('loam_d10_test_');
   File(p.join(dir.path, 'pubspec.yaml')).writeAsStringSync('''
 name: d10_test_pkg
+publish_to: none
 environment:
   sdk: ">=3.0.0 <4.0.0"
 ''');

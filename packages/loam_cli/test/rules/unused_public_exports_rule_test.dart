@@ -995,4 +995,123 @@ void main() {
       },
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Issue 03 (Sprint 23) — App-vs-publishable-Package (AC1–AC4)
+  //
+  // Two dedicated fixtures exercise both modes:
+  //   publishable_pkg_fixture: no publish_to: none → isPublishable = true
+  //   app_pkg_fixture:         publish_to: none    → isPublishable = false
+  //
+  // AC3 is structural (no re-parse): the rule reads result.stackProfile
+  // .isPublishable, which is set by ProjectLoader from pubspec.yaml during load.
+  // ---------------------------------------------------------------------------
+  group('App-vs-Package publishable mode (Issue 03 — Sprint 23)', () {
+    // -------------------------------------------------------------------------
+    // Publishable fixture
+    // -------------------------------------------------------------------------
+    final publishableFixturePath = p.normalize(
+      p.join(
+        Directory.current.path,
+        'test',
+        'fixtures',
+        'publishable_pkg_fixture',
+      ),
+    );
+
+    late ProjectLoadResult publishableResult;
+
+    setUpAll(() async {
+      final loader = ProjectLoader();
+      publishableResult = await loader.load(publishableFixturePath);
+      expect(
+        publishableResult.errors,
+        isEmpty,
+        reason: 'publishable_pkg_fixture must load cleanly',
+      );
+      // AC3: isPublishable must be true (no publish_to: none in pubspec).
+      expect(
+        publishableResult.stackProfile.isPublishable,
+        isTrue,
+        reason:
+            'publishable_pkg_fixture has no publish_to: none → '
+            'StackProfile.isPublishable must be true',
+      );
+    });
+
+    // AC1: on a publishable package, a public class directly in lib/ (not
+    // lib/src/) is part of the intentional public API and must NOT be reported.
+    test('AC1: publishable — PublishableLibClass in lib/ is NOT reported', () {
+      final rule = UnusedPublicExportsRule(projectRoot: publishableFixturePath);
+      final findings = rule.run(publishableResult);
+      expect(
+        findings.any((f) => f.message.contains('`PublishableLibClass`')),
+        isFalse,
+        reason:
+            'PublishableLibClass is in lib/ of a publishable package — '
+            'it is intentionally public and must not be reported as unused',
+      );
+    });
+
+    // Conservative guard: lib/src/ symbols on a publishable package are still
+    // internally dead if not re-exported — they must continue to be reported.
+    test(
+      'AC1-guard: publishable — InternalSrcClass in lib/src/ IS reported',
+      () {
+        final rule = UnusedPublicExportsRule(
+          projectRoot: publishableFixturePath,
+        );
+        final findings = rule.run(publishableResult);
+        expect(
+          findings.any((f) => f.message.contains('`InternalSrcClass`')),
+          isTrue,
+          reason:
+              'InternalSrcClass is in lib/src/ (internal by convention) and '
+              'not re-exported — it must still be reported on publishable '
+              'packages to surface internally-dead code',
+        );
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // App fixture
+    // -------------------------------------------------------------------------
+    final appFixturePath = p.normalize(
+      p.join(Directory.current.path, 'test', 'fixtures', 'app_pkg_fixture'),
+    );
+
+    late ProjectLoadResult appResult;
+
+    setUpAll(() async {
+      final loader = ProjectLoader();
+      appResult = await loader.load(appFixturePath);
+      expect(
+        appResult.errors,
+        isEmpty,
+        reason: 'app_pkg_fixture must load cleanly',
+      );
+      // AC3: isPublishable must be false (publish_to: none in pubspec).
+      expect(
+        appResult.stackProfile.isPublishable,
+        isFalse,
+        reason:
+            'app_pkg_fixture has publish_to: none → '
+            'StackProfile.isPublishable must be false',
+      );
+    });
+
+    // AC2: on an app (publish_to: none) unused public symbols in lib/ are
+    // reported — identical to pre-sprint behaviour.
+    test('AC2: app (publish_to: none) — AppLibClass in lib/ IS reported', () {
+      final rule = UnusedPublicExportsRule(projectRoot: appFixturePath);
+      final findings = rule.run(appResult);
+      expect(
+        findings.any((f) => f.message.contains('`AppLibClass`')),
+        isTrue,
+        reason:
+            'AppLibClass is in lib/ of an app (publish_to: none) — '
+            'unused public symbols must still be reported in app mode',
+      );
+    });
+  });
 }

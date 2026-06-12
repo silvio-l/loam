@@ -1,0 +1,7 @@
+name: app_pkg_fixture
+description: "Test fixture for app-mode behavior (publish_to: none)."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0

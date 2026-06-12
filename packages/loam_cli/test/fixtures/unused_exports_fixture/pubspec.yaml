@@ -1,6 +1,7 @@
 name: unused_exports_fixture
 description: "Test fixture for UnusedPublicExportsRule tests."
 version: 0.0.1
+publish_to: none
 
 environment:
   sdk: ^3.11.0

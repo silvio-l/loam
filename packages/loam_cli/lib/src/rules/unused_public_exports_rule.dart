@@ -23,6 +23,22 @@ import 'usage_index.dart';
 ///   [PublicApiCollector].
 /// - The rule does NOT crash when [ProjectLoadResult.errors] is non-empty;
 ///   it analyses the resolvable files only.
+///
+/// **Publishable-package mode** (`StackProfile.isPublishable == true`):
+///
+/// On a publishable package (no `publish_to: none`), any file directly under
+/// `lib/` (but not under `lib/src/`) is importable by external consumers as
+/// `package:mypackage/foo.dart`. Symbols declared in those files are part of
+/// the *deliberately-public* API and must not be reported as unused — they may
+/// be consumed by packages that the current analysis cannot see.
+///
+/// Symbols in `lib/src/` remain eligible for reporting on publishable packages
+/// because `lib/src/` is the Dart convention for internal implementation
+/// details that are not part of the publicly advertised API.
+///
+/// On an app (`publish_to: none`, `isPublishable == false`) the behaviour is
+/// identical to before this change — all unreferenced public symbols in `lib/`
+/// are reported.
 class UnusedPublicExportsRule implements Rule {
   /// Creates an [UnusedPublicExportsRule] rooted at [projectRoot].
   const UnusedPublicExportsRule({required this.projectRoot});
@@ -37,6 +53,10 @@ class UnusedPublicExportsRule implements Rule {
 
   @override
   List<Finding> run(ProjectLoadResult result) {
+    // Read publishability from the stack profile — do NOT re-parse pubspec.
+    // StackProfile is populated by ProjectLoader and carried on ProjectLoadResult.
+    final isPublishable = result.stackProfile.isPublishable;
+
     // Build the project-wide reference index from all resolved files.
     final index = UsageIndex.build(result);
 
@@ -49,6 +69,11 @@ class UnusedPublicExportsRule implements Rule {
 
     for (final candidate in candidates) {
       if (index.isReferenced(candidate.element)) continue;
+
+      // Publishable-package suppression: symbols directly in lib/ (not lib/src/)
+      // are part of the intentional public API on a publishable package.
+      // External consumers can import them by path — suppress to avoid FP.
+      if (isPublishable && _isTopLevelLibPath(candidate.relativePath)) continue;
 
       final fingerprint = computeFingerprint(
         ruleId: ruleId,
@@ -85,5 +110,21 @@ class UnusedPublicExportsRule implements Rule {
     });
 
     return findings;
+  }
+
+  /// Returns `true` when [relativePath] is directly under `lib/` but NOT under
+  /// `lib/src/`.
+  ///
+  /// Files directly under `lib/` (e.g. `lib/api.dart`, `lib/feature/page.dart`)
+  /// are importable by external consumers as `package:mypkg/api.dart`. Symbols
+  /// declared there are part of the intentional public API on a publishable
+  /// package and must not be flagged as unused.
+  ///
+  /// `lib/src/` is the Dart convention for internal implementation details; it
+  /// is not suppressed here so that internally-dead symbols in `lib/src/` that
+  /// are not re-exported continue to surface as findings.
+  static bool _isTopLevelLibPath(String relativePath) {
+    return relativePath.startsWith('lib/') &&
+        !relativePath.startsWith('lib/src/');
   }
 }
