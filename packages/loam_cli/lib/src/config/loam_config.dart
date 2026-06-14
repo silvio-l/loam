@@ -95,6 +95,7 @@ class LoamConfig {
     return true;
   }
 
+  // loam-ignore: code-duplicates – per-class equality helper; extracting a shared generic would require a new import and obscure the type specificity.
   static bool _listsEqual(List<String> a, List<String> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {

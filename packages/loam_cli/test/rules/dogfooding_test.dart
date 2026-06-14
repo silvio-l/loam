@@ -2,8 +2,8 @@
 library;
 
 /// Self-dogfooding test: runs UnusedPublicExportsRule, CircularDependenciesRule,
-/// and ComplexityHotspotsRule over the loam_cli package itself
-/// (packages/loam_cli/) and asserts zero findings for each.
+/// CodeDuplicatesRule, and ComplexityHotspotsRule over the loam_cli package
+/// itself (packages/loam_cli/) and asserts zero findings for each.
 ///
 /// This is the Slice A acceptance criterion (AC5): each rule must be
 /// conservative enough that it produces no false positives on the own
@@ -12,6 +12,7 @@ library;
 /// genuine self-cycle must be broken in production code.
 import 'dart:io';
 
+import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/rules/circular_dependencies_rule.dart';
 import 'package:loam/src/rules/complexity_hotspots_rule.dart';
@@ -161,6 +162,60 @@ void main() {
           'complexity-hotspots finding(s) on loam_cli/. Per PRD §12, either '
           'refactor the production function or add a targeted '
           '// loam-ignore: complexity-hotspots – <reason> on the declaration.\n'
+          'Details:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // The code-duplicates rule reports zero *unsuppressed* findings on the
+  // loam_cli lib/ codebase.
+  //
+  // The test runs via [AnalysisRunner] with [ignore_globs] covering test/**
+  // so that fixture files (which intentionally contain duplicates) and test
+  // helper files (which share boilerplate setup code by design) are excluded.
+  // Only the production code under lib/ and bin/ is checked.
+  //
+  // Genuine lib/ duplicates are suppressed inline with reviewed
+  // `// loam-ignore: code-duplicates – <reason>` directives. These suppressions
+  // are intentional and carry a documented reason — they are NOT a blanket
+  // disable.
+  //
+  // Per PRD §12: new unsuppressed lib/ findings must be resolved by either
+  // (a) extracting the shared helper, or (b) adding a targeted
+  // `// loam-ignore: code-duplicates – <reason>` on the function body.
+  // Do NOT disable the rule globally or add test/ to ignore_globs in loam.yaml.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'dogfooding: code-duplicates reports 0 unsuppressed findings on loam_cli/lib/',
+    () async {
+      // Use AnalysisRunner with ignore_globs to scope to lib/ + bin/ only.
+      // test/ is intentionally excluded: fixture files contain known duplicates
+      // by design, and test helpers share boilerplate setup code that is fine
+      // to repeat for readability without extraction.
+      final config = LoamConfig(
+        ruleToggles: const {},
+        ignoreGlobs: const ['test/**'],
+      );
+      final runner = AnalysisRunner(config: config);
+      final allFindings = await runner.run(loamCliRoot);
+      final findings = allFindings
+          .where((f) => f.ruleId == 'code-duplicates')
+          .toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: code-duplicates reported ${findings.length} '
+          'unsuppressed finding(s) on loam_cli/lib/. Per PRD §12, either extract '
+          'the shared helper into a common utility or add a targeted '
+          '// loam-ignore: code-duplicates – <reason> on the function body.\n'
           'Details:\n$details',
         );
       }

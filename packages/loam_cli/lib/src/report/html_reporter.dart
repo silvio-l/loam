@@ -311,6 +311,7 @@ ${_js()}
 
   /// Converts [filePath] to a forward-slash-normalised path relative to
   /// [projectRoot]. Mirrors [JsonReporter._toRelativePath] (Windows safety).
+  // loam-ignore: code-duplicates – each reporter is a self-contained class; extracting _toRelativePath to a shared utility would couple unrelated reporters together.
   String _toRelativePath(String filePath, String projectRoot) {
     final rel = p.isAbsolute(filePath)
         ? p.relative(filePath, from: projectRoot)

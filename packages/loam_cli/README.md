@@ -21,19 +21,21 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.9.** Three rules are live end to end — `unused-public-exports`,
-> `circular-dependencies` and `complexity-hotspots` — plus the `loam health`
-> view. The remaining capabilities below are on the roadmap, each landing as its
-> own rule behind the same stable `Rule` interface.
+> **0.1.9.** Four rules are live end to end — `unused-public-exports`,
+> `circular-dependencies`, `code-duplicates` and `complexity-hotspots` — plus
+> the `loam health` view. The remaining capabilities below are on the roadmap,
+> each landing as its own rule behind the same stable `Rule` interface.
 
 ## What it catches
 
-**Available now (0.1.9) — three live rules:** project-wide **unused public API**
+**Available now (0.1.9) — four live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
-dependencies** between first-party libraries, and **complexity hotspots**
+dependencies** between first-party libraries, **code duplicates** (AST-normalised
+token hashing — exact and structurally identical copies; one Finding per cluster
+with all locations), and **complexity hotspots**
 (cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
 `bin/` by default — configure with `source_dirs` in `loam.yaml`) — emitted as
-findings behind the baseline/ratchet gate, in `human`, `sarif`, `json`,
+Findings behind the baseline/ratchet gate, in `human`, `sarif`, `json`,
 `markdown` or `html`.
 
 Everything else is the **target surface** (🚧 = planned):
@@ -42,7 +44,7 @@ Everything else is the **target surface** (🚧 = planned):
 |---|---|
 | ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks |
 | ✅ Circular dependencies | 🚧 Narrative filler comments |
-| 🚧 Code duplication (AST-normalised) | 🚧 Ungrounded `// ignore:` |
+| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` |
 | ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions |
 
@@ -102,11 +104,11 @@ positional path when both are given.
 
 ## Status
 
-Functional release — three analysis rules live (`unused-public-exports`,
-`circular-dependencies`, `complexity-hotspots`) plus the `loam health` view; the
-remaining capabilities land as individual rules behind the same `Rule` interface.
-Founding spec, domain glossary and architecture decisions
-live in the [repository](https://github.com/silvio-l/loam).
+Functional release — four analysis rules live (`unused-public-exports`,
+`circular-dependencies`, `code-duplicates`, `complexity-hotspots`) plus the
+`loam health` view; the remaining capabilities land as individual rules behind
+the same `Rule` interface. Founding spec, domain glossary and architecture
+decisions live in the [repository](https://github.com/silvio-l/loam).
 
 ## License
 

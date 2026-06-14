@@ -22,7 +22,7 @@ const cleanLabel = t(lang, 'rules.clean.label');
     <p class="lead">
       loam.dev ships six analysis capabilities, all behind one stable
       <code>Rule</code> interface. Adding a new rule never changes the pipeline —
-      only the rule list. Three rules are live today; three are planned and will
+      only the rule list. Four rules are live today; two are planned and will
       ship as post-MVP iterations. Status is always honest.
     </p>
 
@@ -72,6 +72,29 @@ import 'a.dart'; // ← cycle: a → b → a`}
 // lib/shared.dart  (no imports from a or b)
 // lib/a.dart  imports shared.dart
 // lib/b.dart  imports shared.dart`}
+      />
+
+      <RuleCard
+        ruleId="code-duplicates"
+        title="Code duplicates"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="loam.dev finds duplicated code blocks using AST-normalised token hashing — exact copies (Type-1) and structurally identical blocks with renamed identifiers or literals (Type-2). Each Finding covers one cluster with all occurrence locations, so the baseline tracks the whole group as a single entry. A classic AI-agent side effect: helpers copy-pasted rather than extracted."
+        slopCode={`// feature_a/utils.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// feature_b/helpers.dart  ← near-duplicate
+String renderDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';`}
+        cleanCode={`// lib/shared/date_format.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// both features import the shared helper
+// loam-ignore: code-duplicates – intentional symmetry`}
       />
 
       <RuleCard
@@ -129,32 +152,10 @@ Future<void> _syncOne(Item item) async { … }`}
       <h2>Planned</h2>
 
       <p class="section-intro">
-        These three rules are on the post-MVP roadmap. Each is a separate plugin
+        These two rules are on the post-MVP roadmap. Each is a separate plugin
         behind the same <code>Rule</code> interface — the pipeline will not
         change when they ship.
       </p>
-
-      <RuleCard
-        ruleId="code-duplicates"
-        title="Code duplicates"
-        status="planned"
-        badgeLabel={planned}
-        slopLabel={slopLabel}
-        cleanLabel={cleanLabel}
-        description="Finds structurally similar code blocks using AST-normalised token hashing. Flags helpers that were copy-pasted rather than extracted — a classic AI-agent side effect."
-        slopCode={`// feature_a/utils.dart
-String formatDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';
-
-// feature_b/helpers.dart  ← near-duplicate
-String renderDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';`}
-        cleanCode={`// lib/shared/date_format.dart
-String formatDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';
-
-// both features import the shared helper`}
-      />
 
       <RuleCard
         ruleId="architecture-boundaries"

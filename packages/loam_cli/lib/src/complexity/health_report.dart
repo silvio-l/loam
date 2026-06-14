@@ -69,6 +69,7 @@ final class HealthReport {
   static bool _listEquals(
     List<FunctionComplexity> a,
     List<FunctionComplexity> b,
+    // loam-ignore: code-duplicates – per-class equality helper; extracting a shared generic would require a new dependency and obscure the type specificity.
   ) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {

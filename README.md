@@ -47,9 +47,11 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.9) — three live rules:** project-wide **unused public API**
+**Available now (0.1.9) — four live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
-dependencies** between first-party libraries, and **complexity hotspots**
+dependencies** between first-party libraries, **code duplicates** (AST-normalised
+token hashing — exact and structurally identical copies; one Finding per cluster
+with all locations), and **complexity hotspots**
 (cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
 `bin/` by default — configure with `source_dirs` in `loam.yaml`). All on the
 resolved Dart element model — not regex — behind the baseline/ratchet gate.
@@ -62,7 +64,7 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 |---|---|
 | ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks |
 | ✅ Circular dependencies | 🚧 Narrative filler comments |
-| 🚧 Code duplication (AST-normalised) | 🚧 Ungrounded `// ignore:` |
+| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` |
 | ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions |
 
@@ -88,9 +90,10 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ## Quick start
 
-> **0.1.9.** Three analysis rules are live — `unused-public-exports`,
-> `circular-dependencies`, `complexity-hotspots` — plus the `loam health` view.
-> Commands marked *coming soon* are wired in `loam --help` but not yet implemented.
+> **0.1.9.** Four analysis rules are live — `unused-public-exports`,
+> `circular-dependencies`, `code-duplicates`, `complexity-hotspots` — plus the
+> `loam health` view. Commands marked *coming soon* are wired in `loam --help`
+> but not yet implemented.
 
 ### Install
 
@@ -139,7 +142,7 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 
 ### Use
 
-Available now (three live rules — unused exports, circular deps, complexity hotspots):
+Available now (four live rules — unused exports, circular deps, code duplicates, complexity hotspots):
 
 ```bash
 loam scan                          # full audit: all active rules, whole repo
@@ -211,9 +214,10 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-**0.1.9** — three rules live end to end (`unused-public-exports`,
-`circular-dependencies`, `complexity-hotspots`) plus the `loam health` view; the
-remaining capabilities land as individual rules behind the same `Rule` interface.
+**0.1.9** — four rules live end to end (`unused-public-exports`,
+`circular-dependencies`, `code-duplicates`, `complexity-hotspots`) plus the
+`loam health` view; the remaining capabilities land as individual rules behind
+the same `Rule` interface.
 
 For a detailed walkthrough of concepts, CLI commands, output formats, and codegen
 handling, see the **[Developer & Tool Guide](./docs/developer-guide.md)**.

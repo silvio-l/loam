@@ -22,8 +22,8 @@ const cleanLabel = t(lang, 'rules.clean.label');
     <p class="lead">
       loam.dev bietet sechs Analyse-Fähigkeiten, alle hinter einem stabilen
       <code>Rule</code>-Interface. Eine neue Rule hinzuzufügen ändert die
-      Pipeline nicht — nur die Rule-Liste. Drei Rules sind heute live,
-      drei sind geplant und erscheinen als Post-MVP-Iterationen.
+      Pipeline nicht — nur die Rule-Liste. Vier Rules sind heute live,
+      zwei sind geplant und erscheinen als Post-MVP-Iterationen.
       Der Status ist immer ehrlich angegeben.
     </p>
 
@@ -73,6 +73,29 @@ import 'a.dart'; // ← Zyklus: a → b → a`}
 // lib/shared.dart  (importiert weder a noch b)
 // lib/a.dart  importiert shared.dart
 // lib/b.dart  importiert shared.dart`}
+      />
+
+      <RuleCard
+        ruleId="code-duplicates"
+        title="Code-Duplikate"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="loam.dev findet Duplikate im Code per AST-normalisiertem Token-Hashing — exakte Kopien (Typ-1) und strukturell identische Blöcke mit umbenannten Bezeichnern oder Literalen (Typ-2). Jedes Finding beschreibt einen vollständigen Cluster mit allen Fundstellen, sodass die Baseline die gesamte Gruppe als einen Eintrag verfolgt. Ein klassischer KI-Agent-Nebeneffekt: Hilfsfunktionen, die kopiert statt extrahiert wurden."
+        slopCode={`// feature_a/utils.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// feature_b/helpers.dart  ← Beinahe-Duplikat
+String renderDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';`}
+        cleanCode={`// lib/shared/date_format.dart
+String formatDate(DateTime d) =>
+    '\${d.day}.\${d.month}.\${d.year}';
+
+// beide Features importieren den gemeinsamen Helper
+// loam-ignore: code-duplicates – bewusste Symmetrie`}
       />
 
       <RuleCard
@@ -130,32 +153,10 @@ Future<void> _syncOne(Item item) async { … }`}
       <h2>Geplant</h2>
 
       <p class="section-intro">
-        Diese drei Rules stehen auf der Post-MVP-Roadmap. Jede ist ein
+        Diese zwei Rules stehen auf der Post-MVP-Roadmap. Jede ist ein
         eigenständiges Plugin hinter demselben <code>Rule</code>-Interface —
         die Pipeline ändert sich beim Erscheinen nicht.
       </p>
-
-      <RuleCard
-        ruleId="code-duplicates"
-        title="Code-Duplikate"
-        status="planned"
-        badgeLabel={planned}
-        slopLabel={slopLabel}
-        cleanLabel={cleanLabel}
-        description="Findet strukturell ähnliche Code-Blöcke per AST-normalisiertem Token-Hashing. Markiert Hilfsfunktionen, die kopiert statt extrahiert wurden — ein klassischer KI-Agent-Nebeneffekt."
-        slopCode={`// feature_a/utils.dart
-String formatDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';
-
-// feature_b/helpers.dart  ← Beinahe-Duplikat
-String renderDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';`}
-        cleanCode={`// lib/shared/date_format.dart
-String formatDate(DateTime d) =>
-    '\${d.day}.\${d.month}.\${d.year}';
-
-// beide Features importieren den gemeinsamen Helper`}
-      />
 
       <RuleCard
         ruleId="architecture-boundaries"
