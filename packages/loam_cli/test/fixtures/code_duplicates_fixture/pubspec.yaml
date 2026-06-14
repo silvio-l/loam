@@ -1,0 +1,6 @@
+name: code_duplicates_fixture
+description: "Test fixture for DuplicateCodeCollector tests."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0
