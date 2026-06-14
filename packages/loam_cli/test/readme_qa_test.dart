@@ -106,4 +106,81 @@ void main() {
       expect('${r.stdout}', contains('bogus-rule'));
     });
   });
+
+  group('pubspec-rules check (description ⊇ live-rules, selbst-erzwingend)', () {
+    final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
+    final qa = File('${repoRoot}tool/docs-attest.sh');
+    final pubspec = File('${repoRoot}packages/loam_cli/pubspec.yaml');
+
+    /// Führt `docs-attest.sh check` mit einer temporären pubspec-Kopie als
+    /// Override (LOAM_PUBSPEC_OVERRIDE) aus — die eingecheckte Datei bleibt
+    /// unangetastet. Optionale Extra-Env (z. B. LOAM_EXTRA_LIVE_RULE).
+    ProcessResult runWithPubspec(
+      String pubspecContents, {
+      Map<String, String> extraEnv = const {},
+    }) {
+      final tmp = File(
+        '${Directory.systemTemp.path}/loam_pubspec_${DateTime.now().microsecondsSinceEpoch}.yaml',
+      );
+      tmp.writeAsStringSync(pubspecContents);
+      try {
+        return Process.runSync(
+          'bash',
+          ['tool/docs-attest.sh', 'check'],
+          workingDirectory: repoRoot,
+          environment: {'LOAM_PUBSPEC_OVERRIDE': tmp.path, ...extraEnv},
+        );
+      } finally {
+        if (tmp.existsSync()) tmp.deleteSync();
+      }
+    }
+
+    test(
+      'fehlendes Stichwort einer Live-Rule in der description erzwingt Rot',
+      () {
+        if (!qa.existsSync() || !pubspec.existsSync()) {
+          markTestSkipped('Repo-only-Test übersprungen (Tool/pubspec fehlt)');
+          return;
+        }
+        // Entferne das "unused"-Stichwort aus der description (temporäre Kopie).
+        final mutated = pubspec.readAsStringSync().replaceAll(
+          'finds unused public API',
+          'finds public API',
+        );
+        final r = runWithPubspec(mutated);
+        expect(
+          r.exitCode,
+          isNot(0),
+          reason: 'Fehlendes Stichwort muss den Check rot machen:\n${r.stdout}',
+        );
+        expect('${r.stdout}', contains('pubspec-rules'));
+        expect('${r.stdout}', contains('unused-public-exports'));
+      },
+    );
+
+    test(
+      'Live-Rule ohne Eintrag in der Abbildung erzwingt Rot (Selbst-Erzwingung)',
+      () {
+        if (!qa.existsSync() || !pubspec.existsSync()) {
+          markTestSkipped('Repo-only-Test übersprungen (Tool/pubspec fehlt)');
+          return;
+        }
+        // Injiziere eine zusätzliche Live-Rule ohne Stichwort-Eintrag. Die echte
+        // pubspec wird über die unveränderte Kopie genutzt; nur die Live-Rule-Liste
+        // wird via Env-Seam ergänzt.
+        final r = runWithPubspec(
+          pubspec.readAsStringSync(),
+          extraEnv: const {'LOAM_EXTRA_LIVE_RULE': 'bogus-rule'},
+        );
+        expect(
+          r.exitCode,
+          isNot(0),
+          reason:
+              'Live-Rule ohne Abbildung muss den Check rot machen:\n${r.stdout}',
+        );
+        expect('${r.stdout}', contains('pubspec-rules'));
+        expect('${r.stdout}', contains('bogus-rule'));
+      },
+    );
+  });
 }

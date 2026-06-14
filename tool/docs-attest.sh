@@ -469,15 +469,75 @@ check_devguide_rules() {
   return 0
 }
 
+check_pubspec_rules() {
+  # Drift-Klasse: die pub.dev-`description` (Prosa) verschweigt eine Live-Rule.
+  # Die description ist KEINE Rule-ID-Liste, darum eine explizite, HIER gepflegte
+  # Abbildung Rule-ID → Beschreibungs-Stichwort. Pro Live-Rule wird case-insensitiv
+  # geprüft, ob ihr Stichwort in der description vorkommt. EINE Quelle der
+  # Live-Rules: live_rule_ids (fullRegistryIds).
+  #
+  # Selbst-erzwingend: hat eine Live-Rule KEINEN Eintrag in dieser Abbildung, ist
+  # das selbst ein harter Fehler — so kann die Abbildung nicht still hinter neuen
+  # Rules zurückfallen.
+  #
+  # Test-Seams: LOAM_PUBSPEC_OVERRIDE prüft eine temporäre pubspec-Kopie ohne die
+  # eingecheckte Datei anzufassen; LOAM_EXTRA_LIVE_RULE injiziert eine zusätzliche
+  # Live-Rule-ID (für den „Live-Rule ohne Abbildung"-Negativtest). Beide sind
+  # produktiv inert, solange die Env-Vars nicht gesetzt sind.
+  local pubspec="${LOAM_PUBSPEC_OVERRIDE:-$PUBSPEC}"
+  [ -f "$pubspec" ] || { note "pubspec-rules: pubspec.yaml fehlt: ${pubspec#$ROOT/}"; return 0; }
+
+  # Abbildung Rule-ID → erwartetes Beschreibungs-Stichwort (unmittelbar bei der
+  # Check-Funktion gepflegt). Neue Live-Rule → hier einen Eintrag ergänzen. Als
+  # case statt assoziativem Array, damit der Check auf bash 3.2 (macOS) läuft.
+  # Leerer Rückgabewert = kein Stichwort hinterlegt (Selbst-Erzwingung greift).
+  rule_keyword() {
+    case "$1" in
+      unused-public-exports) echo "unused" ;;
+      circular-dependencies) echo "circular" ;;
+      code-duplicates)       echo "duplicat" ;;
+      complexity-hotspots)   echo "complexity" ;;
+      *)                     echo "" ;;
+    esac
+  }
+
+  local live_rules; live_rules="$(live_rule_ids)"
+  [ -n "${LOAM_EXTRA_LIVE_RULE:-}" ] && live_rules="$(printf '%s\n%s\n' "$live_rules" "$LOAM_EXTRA_LIVE_RULE")"
+
+  # description extrahieren (gleiche Logik wie check_pub: quoted line, dann
+  # gefalteter Block als Fallback).
+  local desc
+  desc="$(sed -nE 's/^description:[[:space:]]*"(.*)"[[:space:]]*$/\1/p' "$pubspec")"
+  if [ -z "$desc" ]; then
+    desc="$(awk '/^description:/{c=1;next} c==1{ if($0 ~ /^[^[:space:]]/){c=0} else {l=$0; sub(/^[[:space:]]+/,"",l); printf "%s ",l} }' "$pubspec")"
+  fi
+  local desc_lc; desc_lc="$(printf '%s' "$desc" | tr '[:upper:]' '[:lower:]')"
+
+  local rid
+  while IFS= read -r rid; do
+    [ -z "$rid" ] && continue
+    local kw; kw="$(rule_keyword "$rid")"
+    if [ -z "$kw" ]; then
+      note "pubspec-rules: kein Description-Stichwort für Live-Rule '$rid' hinterlegt — Abbildung in check_pubspec_rules ($(basename "${BASH_SOURCE[0]}")) ergänzen"
+      continue
+    fi
+    case "$desc_lc" in
+      *"$kw"*) : ;;
+      *) note "pubspec-rules: Live-Rule '$rid' fehlt in der pubspec description (erwartetes Stichwort \"$kw\") — description in ${pubspec#$ROOT/} ergänzen" ;;
+    esac
+  done <<< "$live_rules"
+  return 0
+}
+
 cmd_check() {
   fail=0
   # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
   # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
   # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
-  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_devguide_rules; check_pubdev_docs; check_i18n; check_privacy_footer; check_shipped_status
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_devguide_rules; check_pubspec_rules; check_pubdev_docs; check_i18n; check_privacy_footer; check_shipped_status
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · devguide-rules · pub-points · i18n · privacy-footer · dist-regression-guard · shipped-status)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · devguide-rules · pubspec-rules · pub-points · i18n · privacy-footer · dist-regression-guard · shipped-status)"
 }
 
 cmd_attest() {
