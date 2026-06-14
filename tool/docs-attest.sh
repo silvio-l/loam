@@ -36,6 +36,17 @@ antivocab() { perl -ne "print \"  \$.: \$_\" if /$ANTIVOCAB/" "$1" 2>/dev/null |
 fail=0
 note() { echo "  ✗ $1"; fail=1; }
 
+# Live-Rule-IDs aus fullRegistryIds in analysis_runner.dart (die EINE Quelle für
+# „welche Rule ist aktiv"). Gibt die sortierten, eindeutigen IDs (eine pro Zeile)
+# auf stdout aus. Fehlt die Runner-Datei (Fresh Clone), liefert sie eine leere
+# Liste — set -euo pipefail-safe, ohne zu crashen.
+live_rule_ids() {
+  local RUNNER="$ROOT/packages/loam_cli/lib/src/runner/analysis_runner.dart"
+  [ -f "$RUNNER" ] || return 0
+  awk '/fullRegistryIds = \[/{f=1;next} f&&/\]/{f=0} f' "$RUNNER" \
+    | grep -oE "'[a-z][a-z-]*'" | tr -d "'" | sort -u
+}
+
 check_readme() {
   # Pflicht-Marker aus der Spec (Single Source of Truth für den Aufbau)
   # Verwende den exakten Kommentar-Marker (<!-- required:start -->) damit andere
@@ -357,14 +368,11 @@ check_shipped_status() {
   # ein AUSGELIEFERTES Feature wird öffentlich noch als planned/🚧/coming-soon
   # geführt — ODER etwas wird als live/✅ ausgegeben, das im Code nicht steckt.
   # EINE Quelle der Wahrheit: fullRegistryIds (Rules) + notImplemented-Stubs (CLI).
-  local RUNNER="$ROOT/packages/loam_cli/lib/src/runner/analysis_runner.dart"
   local RULESEN="$ROOT/web/src/pages/rules.astro"
   local RULESDE="$ROOT/web/src/pages/de/rules.astro"
 
   # Live-Rule-IDs aus fullRegistryIds (die EINE Quelle für „welche Rule ist aktiv").
-  local live_rules=""
-  [ -f "$RUNNER" ] && live_rules="$(awk '/fullRegistryIds = \[/{f=1;next} f&&/\]/{f=0} f' "$RUNNER" \
-                                    | grep -oE "'[a-z][a-z-]*'" | tr -d "'" | sort -u)"
+  local live_rules; live_rules="$(live_rule_ids)"
 
   # (A) Website-Rules-Seite (EN+DE): jede RuleCard-Status-Angabe MUSS fullRegistryIds
   #     spiegeln. Bidirektional — fängt „shipped, aber planned" UND „live behauptet,
