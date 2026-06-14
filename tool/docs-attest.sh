@@ -432,15 +432,52 @@ check_shipped_status() {
   return 0
 }
 
+check_devguide_rules() {
+  # Drift-Klasse: die „Currently active rules"-Tabelle im Developer-Guide hinkt
+  # den Live-Rules hinterher (eine ausgelieferte Rule fehlt) ODER listet eine
+  # Rule-ID, die nicht (mehr) ausgeliefert ist. Bidirektional, im Geist von
+  # check_shipped_status. EINE Quelle der Wahrheit: live_rule_ids (fullRegistryIds).
+  #
+  # Test-Seam: LOAM_DEVGUIDE_OVERRIDE erlaubt es Negativ-Tests, eine temporäre
+  # Kopie des Guides zu prüfen, ohne die eingecheckte Datei anzufassen.
+  local guide="${LOAM_DEVGUIDE_OVERRIDE:-$DEVGUIDE}"
+  [ -f "$guide" ] || { note "devguide-rules: Developer-Guide fehlt: ${guide#$ROOT/}"; return 0; }
+
+  local live_rules; live_rules="$(live_rule_ids)"
+
+  # Backtick-umrahmte Rule-IDs aus den Tabellenzeilen der Rules-Tabelle. Region:
+  # ab „Currently active rules:" bis zur nächsten ###-Überschrift — damit die
+  # gleich aufgebauten Backtick-IDs der Formats-/Gate-Tabellen (`human`, `sarif`,
+  # …) NICHT mitzählen (analog zur RuleCard-Region in check_shipped_status).
+  local table_rules; table_rules="$(awk '/Currently active rules:/{f=1;next} f&&/^### /{f=0} f' "$guide" \
+                                    | grep -E '^\|' | grep -oE '`[a-z][a-z-]*`' | tr -d '`' | sort -u || true)"
+
+  # (A) Jede Live-Rule MUSS in der Guide-Tabelle stehen.
+  local rid
+  while IFS= read -r rid; do
+    [ -z "$rid" ] && continue
+    printf '%s\n' "$table_rules" | grep -qx -- "$rid" \
+      || note "devguide-rules: Live-Rule '$rid' (fullRegistryIds) fehlt in der „Currently active rules\"-Tabelle von ${guide#$ROOT/} — Tabelle ergänzen"
+  done <<< "$live_rules"
+
+  # (B) Jede Tabellen-Rule-ID MUSS ausgeliefert sein (bidirektional).
+  while IFS= read -r rid; do
+    [ -z "$rid" ] && continue
+    printf '%s\n' "$live_rules" | grep -qx -- "$rid" \
+      || note "devguide-rules: ${guide#$ROOT/} listet Rule '$rid' als aktiv, sie steht aber nicht in fullRegistryIds (nicht ausgeliefert) — nicht-ausgelieferte Rule aus der Tabelle entfernen"
+  done <<< "$table_rules"
+  return 0
+}
+
 cmd_check() {
   fail=0
   # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
   # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
   # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
-  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_pubdev_docs; check_i18n; check_privacy_footer; check_shipped_status
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_devguide_rules; check_pubdev_docs; check_i18n; check_privacy_footer; check_shipped_status
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · pub-points · i18n · privacy-footer · dist-regression-guard · shipped-status)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · devguide-rules · pub-points · i18n · privacy-footer · dist-regression-guard · shipped-status)"
 }
 
 cmd_attest() {
