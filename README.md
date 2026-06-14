@@ -19,6 +19,12 @@
   <img alt="Status: early preview" src="https://img.shields.io/badge/status-early%20preview-A2635A">
 </p>
 
+<p align="center">
+  <a href="https://getloam.dev"><strong>getloam.dev</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/silvio-l/loam">github.com/silvio-l/loam</a>
+</p>
+
 > **loam.dev** is the product; **`loam`** is the CLI command and the pub.dev
 > package name. Built on the Dart `analyzer` package — semantically accurate,
 > project-wide, offline by default.

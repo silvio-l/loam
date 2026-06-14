@@ -34,6 +34,9 @@ function rehypeRewriteRelativeRepoLinks() {
   return (/** @type {any} */ tree) => walk(tree);
 }
 
+// Ein Zeitstempel pro Build, für alle Sitemap-Einträge identisch.
+const BUILD_TIMESTAMP = new Date().toISOString();
+
 export default defineConfig({
   site: 'https://getloam.dev',
   output: 'static',
@@ -56,7 +59,12 @@ export default defineConfig({
       // @astrojs/sitemap erzeugt en/de-hreflang-Alternates, aber kein x-default.
       // Das HTML rendert ein <link hreflang="x-default"> (EN) — hier in die
       // Sitemap gespiegelt, damit beide SEO-Signale übereinstimmen.
-      /** @param {{ url: string; links?: Array<{ lang: string; url: string }> }} item */
+      //
+      // lastmod fehlte bisher ganz; ohne Datumsquelle setzt @astrojs/sitemap
+      // keins. Als Crawl-Priorisierungssignal (gerade für eine junge Domain mit
+      // knappem Crawl-Budget) wird der Build-Zeitstempel gespiegelt — ein fester
+      // Wert pro Build, kein Pseudo-Zufall.
+      /** @param {{ url: string; lastmod?: string; links?: Array<{ lang: string; url: string }> }} item */
       serialize(item) {
         if (item.links && item.links.length > 0) {
           const en = item.links.find((l) => l.lang === 'en');
@@ -64,6 +72,7 @@ export default defineConfig({
             item.links.push({ lang: 'x-default', url: en.url });
           }
         }
+        if (!item.lastmod) item.lastmod = BUILD_TIMESTAMP;
         return item;
       },
     }),
