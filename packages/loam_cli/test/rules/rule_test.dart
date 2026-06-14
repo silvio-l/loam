@@ -11,6 +11,9 @@ class _DummyRule implements Rule {
   String get ruleId => 'dummy-rule';
 
   @override
+  RuleCategory get category => RuleCategory.drift;
+
+  @override
   List<Finding> run(ProjectLoadResult result) {
     final fingerprint = computeFingerprint(
       ruleId: ruleId,

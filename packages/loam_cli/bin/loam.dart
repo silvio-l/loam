@@ -9,11 +9,12 @@ import 'package:loam/src/complexity/function_complexity_collector.dart';
 import 'package:loam/src/complexity/health_score.dart';
 import 'package:loam/src/config/config_loader.dart';
 import 'package:loam/src/config/config_scaffold.dart';
-import 'package:loam/src/config/loam_config.dart';
+import 'package:loam/src/config/loam_config.dart' show LoamConfig;
 import 'package:loam/src/gate/gate_engine.dart';
 import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/loader/sdk_locator.dart';
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/model/rule_category.dart';
 import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
@@ -28,8 +29,8 @@ import 'package:path/path.dart' as p;
 
 /// loam.dev CLI entrypoint (command: `loam`).
 ///
-/// Wires the full command surface — scan, health, gate, baseline and init are
-/// live; slop and fix are stubs (coming soon).
+/// Wires the full command surface — scan, health, gate, baseline, a11y and
+/// init are live; slop and fix are stubs (coming soon).
 Future<void> main(List<String> args) async {
   exit(await run(args));
 }
@@ -49,6 +50,7 @@ Future<int> run(List<String> args) async {
         ..addCommand(_GateCommand())
         ..addCommand(_BaselineCommand())
         ..addCommand(_SlopCommand())
+        ..addCommand(_A11yCommand())
         ..addCommand(_InitCommand())
         ..addCommand(_FixCommand());
 
@@ -186,15 +188,24 @@ Future<int> run(List<String> args) async {
 /// (Invariant 4).
 class ScanCommand extends LoamCommand {
   ScanCommand() {
-    argParser.addOption(
-      'project-root',
-      abbr: 'p',
-      help:
-          'Root directory of the Dart project to analyse. '
-          'Overrides the positional [path] argument when both are given. '
-          'Defaults to the current working directory.',
-      defaultsTo: null,
-    );
+    argParser
+      ..addOption(
+        'project-root',
+        abbr: 'p',
+        help:
+            'Root directory of the Dart project to analyse. '
+            'Overrides the positional [path] argument when both are given. '
+            'Defaults to the current working directory.',
+        defaultsTo: null,
+      )
+      ..addFlag(
+        'no-a11y',
+        negatable: false,
+        help:
+            'Exclude accessibility-category rules from this scan. '
+            'CLI override for `a11y: false` in loam.yaml. '
+            'Use `loam a11y` to run accessibility checks in isolation.',
+      );
   }
 
   @override
@@ -223,7 +234,20 @@ class ScanCommand extends LoamCommand {
     final format = (globalResults?['format'] as String?) ?? 'human';
 
     // Load project config (loam.yaml) — missing file returns defaults.
-    final config = await _loadConfig(projectRoot);
+    final yamlConfig = await _loadConfig(projectRoot);
+
+    // --no-a11y CLI flag overrides the loam.yaml a11y setting.
+    // Precedence: --no-a11y (CLI) > a11y: false (loam.yaml) > default (on).
+    final noA11y = argResults?.flag('no-a11y') ?? false;
+    final config = noA11y && yamlConfig.includeA11y
+        ? LoamConfig(
+            ruleToggles: yamlConfig.ruleToggles,
+            ignoreGlobs: yamlConfig.ignoreGlobs,
+            sourceDirs: yamlConfig.sourceDirs,
+            updateCheck: yamlConfig.updateCheck,
+            includeA11y: false,
+          )
+        : yamlConfig;
 
     // For HTML format: load the project once and share it between the
     // AnalysisRunner (findings) and FunctionComplexityCollector (health sidecar).
@@ -570,6 +594,105 @@ class _SlopCommand extends LoamCommand {
   Future<int> run() => notImplemented(
     'slop-focused rules: empty catch, filler comments, dead guards',
   );
+}
+
+/// Accessibility audit: runs accessibility-category rules across the whole
+/// project.
+///
+/// Currently no accessibility rules are registered — the command exists to
+/// establish the [RuleCategory.accessibility] category seam and to let CI
+/// workflows wire `loam a11y` before the first WCAG rules land.
+///
+/// Exit code `1` when any accessibility findings are present; `0` when clean.
+/// The reporter is a pure renderer — it has no influence on the exit code
+/// (Invariant 4).
+class _A11yCommand extends LoamCommand {
+  _A11yCommand() {
+    argParser.addOption(
+      'project-root',
+      abbr: 'p',
+      help:
+          'Root directory of the Dart project to analyse. '
+          'Overrides the positional [path] argument when both are given. '
+          'Defaults to the current working directory.',
+      defaultsTo: null,
+    );
+  }
+
+  @override
+  final String name = 'a11y';
+  @override
+  String get invocation => 'loam a11y [path] [options]';
+  @override
+  final String description =
+      'Accessibility audit: run accessibility-focused rules across the whole '
+      'project.\n\n'
+      '[path] — optional positional path to the project root '
+      '(defaults to the current directory). '
+      '-p/--project-root overrides [path] when both are given.';
+
+  @override
+  Future<int> run() async {
+    // Resolve project root via shared resolver (positional or --project-root).
+    final rootResult = TargetRootResolver.resolve(argResults);
+    if (rootResult is RootUsageError) {
+      stderr.writeln(rootResult.message);
+      return 64; // EX_USAGE
+    }
+    final projectRoot = (rootResult as ResolvedRoot).root;
+
+    // Resolve the format from the global --format option.
+    final format = (globalResults?['format'] as String?) ?? 'human';
+
+    // Load project config (loam.yaml) — missing file returns defaults.
+    final config = await _loadConfig(projectRoot);
+
+    // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
+    final Reporter reporter;
+    try {
+      reporter = reporterFor(format);
+    } on FormatNotImplementedError catch (e) {
+      stderr.writeln(e.toString());
+      return 64; // EX_USAGE
+    }
+
+    // Run with accessibility-category filter only.
+    // categoryFilter restricts instantiation to accessibility rules (none yet),
+    // so the result is trivially empty — Exit 0.
+    final outcome = await AnalysisRunner(
+      config: config,
+      categoryFilter: RuleCategory.accessibility,
+    ).analyze(projectRoot);
+
+    // Diagnostic line for human-readable output: identifies this as an
+    // accessibility-focused scan (analogous to the stack: diagnostic in scan).
+    if (format == 'human') {
+      stdout.writeln('loam a11y  Accessibility scan');
+    }
+
+    final payload = ReportPayload(
+      findings: outcome.findings,
+      projectRoot: projectRoot,
+      rulesetVersion: AnalysisRunner.rulesetVersionForCategory(
+        RuleCategory.accessibility,
+        config,
+      ),
+      toolVersion: loamVersion,
+      isTty: stdout.hasTerminal,
+      suppressedCount: outcome.suppressedCount,
+      stats: outcome.stats,
+    );
+
+    await _emitReport(
+      rendered: reporter.render(payload),
+      format: format,
+      commandName: name,
+      outputOption: outputPath,
+      noOpen: noOpen,
+    );
+
+    return outcome.findings.isNotEmpty ? 1 : 0;
+  }
 }
 
 /// Initialises loam.dev configuration in the current project.

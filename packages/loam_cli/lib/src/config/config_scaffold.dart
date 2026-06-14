@@ -50,6 +50,16 @@ abstract final class ConfigScaffold {
 # update_check: true
 
 # ---------------------------------------------------------------------------
+# a11y — include accessibility-category rules in `loam scan` (bool, default true)
+#
+# true  = accessibility rules run as part of `loam scan` (default, Zero-Config).
+# false = exclude all accessibility-category rules from `loam scan`.
+#         Equivalent to passing --no-a11y on the command line.
+#         Use `loam a11y` to run accessibility checks in isolation.
+# ---------------------------------------------------------------------------
+# a11y: true
+
+# ---------------------------------------------------------------------------
 # rules — per-rule on/off switches (ruleId: true/false)
 #
 # true  = rule is active (default for every rule).

@@ -55,6 +55,9 @@ class CodeDuplicatesRule implements Rule {
   String get ruleId => 'code-duplicates';
 
   @override
+  RuleCategory get category => RuleCategory.drift;
+
+  @override
   List<Finding> run(ProjectLoadResult result) {
     final clusters = _collector.collect(
       result,

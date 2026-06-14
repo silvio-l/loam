@@ -18,26 +18,31 @@ const List<String> kDefaultSourceDirs = ['lib', 'bin'];
 ///   universal complexity scan (defaults to [kDefaultSourceDirs]).
 /// - [updateCheck]: whether the update-availability check is enabled
 ///   repo-wide (`true` by default, `false` = opt-out for this project).
+/// - [includeA11y]: whether accessibility-category rules are included in
+///   `loam scan` (`true` by default). Corresponds to `a11y: false` in
+///   `loam.yaml` and the `--no-a11y` CLI flag on `loam scan`.
 ///
 /// Zero-Config is the Normalfall: [LoamConfig.defaults] returns an empty
 /// config so that `loam` works out-of-the-box without a `loam.yaml`.
 class LoamConfig {
   /// Creates a [LoamConfig] with explicit [ruleToggles], [ignoreGlobs],
-  /// [sourceDirs] and [updateCheck].
+  /// [sourceDirs], [updateCheck] and [includeA11y].
   const LoamConfig({
     required this.ruleToggles,
     required this.ignoreGlobs,
     this.sourceDirs = kDefaultSourceDirs,
     this.updateCheck = true,
+    this.includeA11y = true,
   });
 
   /// Returns the zero-config default: all rules enabled, no ignore globs,
-  /// default source dirs, update check enabled.
+  /// default source dirs, update check enabled, a11y included.
   const LoamConfig.defaults()
     : ruleToggles = const {},
       ignoreGlobs = const [],
       sourceDirs = kDefaultSourceDirs,
-      updateCheck = true;
+      updateCheck = true,
+      includeA11y = true;
 
   /// Per-rule toggle map. `true` = enabled (default), `false` = disabled.
   ///
@@ -67,6 +72,18 @@ class LoamConfig {
   /// `update_check: false` (config) > default (on).
   final bool updateCheck;
 
+  /// Whether accessibility-category rules are included in `loam scan`.
+  ///
+  /// Default is `true` (Zero-Config — a11y rules run in scan by default).
+  /// Set to `false` via `a11y: false` in `loam.yaml` or `--no-a11y` on the
+  /// `loam scan` CLI flag to exclude all accessibility rules from the scan.
+  ///
+  /// When `false`, accessibility rules are removed from the active registry
+  /// before the runner is instantiated — they produce no findings, no side
+  /// effects and no wasted computation (registry-level filter, not a
+  /// post-filter on findings).
+  final bool includeA11y;
+
   /// Returns `true` when [ruleId] is explicitly disabled in [ruleToggles].
   bool isRuleDisabled(String ruleId) => ruleToggles[ruleId] == false;
 
@@ -77,7 +94,8 @@ class LoamConfig {
           _mapsEqual(ruleToggles, other.ruleToggles) &&
           _listsEqual(ignoreGlobs, other.ignoreGlobs) &&
           _listsEqual(sourceDirs, other.sourceDirs) &&
-          updateCheck == other.updateCheck;
+          updateCheck == other.updateCheck &&
+          includeA11y == other.includeA11y;
 
   @override
   int get hashCode => Object.hash(
@@ -85,6 +103,7 @@ class LoamConfig {
     Object.hashAll(ignoreGlobs),
     Object.hashAll(sourceDirs),
     updateCheck,
+    includeA11y,
   );
 
   static bool _mapsEqual(Map<String, bool> a, Map<String, bool> b) {

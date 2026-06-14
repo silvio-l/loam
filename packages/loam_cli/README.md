@@ -94,11 +94,13 @@ loam gate                          # CI: ratchet — only new findings fail (exi
 loam gate /path/to/project         # same, positional path to project root
 loam health                        # cyclomatic/cognitive complexity distribution view
 loam init                          # scaffold loam.yaml config in the project
+loam a11y                          # accessibility audit: WCAG-focused rules only
+loam a11y /path/to/project         # same, positional path to project root
 ```
 
-All five commands (`scan`, `gate`, `health`, `init`, `baseline`) accept an optional positional
-`[path]` as the project root. The explicit `-p`/`--project-root` option overrides the
-positional path when both are given.
+All six commands (`scan`, `gate`, `health`, `init`, `baseline`, `a11y`) accept an
+optional positional `[path]` as the project root. The explicit `-p`/`--project-root`
+option overrides the positional path when both are given.
 
 `loam --help` lists every command; planned ones are marked *(coming soon)*.
 

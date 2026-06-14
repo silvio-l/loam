@@ -43,6 +43,9 @@ class CircularDependenciesRule implements Rule {
   String get ruleId => 'circular-dependencies';
 
   @override
+  RuleCategory get category => RuleCategory.drift;
+
+  @override
   List<Finding> run(ProjectLoadResult result) {
     // Build the directed library graph (import edges only — exports are
     // re-exports, not functional dependencies; first-party lib/ only, no

@@ -209,6 +209,37 @@ files excluded by the collector) stays active.
 AI-slop audit: runs slop-focused rules only (empty `catch`, filler comments, dead
 guards, …). Not yet implemented.
 
+### `loam a11y`
+
+Accessibility audit: runs accessibility-category rules across the whole project.
+
+```bash
+loam a11y                          # analyse current directory
+loam a11y /path/to/project         # positional project root
+loam a11y -p /path/to/proj         # --project-root override
+loam a11y --format json            # machine-readable output
+```
+
+Exit code `1` when any accessibility Findings are present; `0` when clean.
+
+Accessibility rules target WCAG-relevant Flutter-widget patterns (missing semantic
+labels, missing tooltips on icon buttons, missing labels on form fields, …). The
+`a11y` category is run-isolated from drift and slop categories — `loam a11y` only
+ever executes `accessibility`-category rules; drift and slop rules are not touched.
+
+`loam scan` includes the accessibility category **default-on**. To exclude it:
+
+```bash
+loam scan --no-a11y                # skip all accessibility-category rules
+```
+
+Or add `a11y: false` to `loam.yaml` for a repo-wide default. Precedence:
+`--no-a11y` (CLI) > `a11y: false` (loam.yaml) > default (on).
+
+> **Note:** No accessibility rules are registered yet — `loam a11y` returns 0
+> findings and exits with code 0. The command exists to establish the
+> category seam ahead of the first WCAG rules.
+
 ### `loam init`
 
 Scaffold a `loam.yaml` configuration in the current project.

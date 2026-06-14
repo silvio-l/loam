@@ -128,6 +128,9 @@ class ComplexityHotspotsRule implements Rule {
   String get ruleId => 'complexity-hotspots';
 
   @override
+  RuleCategory get category => RuleCategory.drift;
+
+  @override
   List<Finding> run(ProjectLoadResult result) {
     final complexities = collector.collect(
       result,

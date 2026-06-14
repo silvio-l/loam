@@ -83,6 +83,7 @@ abstract final class ConfigLoader {
       ignoreGlobs: List.unmodifiable(_parseIgnoreGlobs(doc)),
       sourceDirs: _parseSourceDirs(doc),
       updateCheck: _parseUpdateCheck(doc),
+      includeA11y: _parseIncludeA11y(doc),
     );
   }
 
@@ -179,5 +180,22 @@ abstract final class ConfigLoader {
       );
     }
     return rawUpdateCheck;
+  }
+
+  /// Parses the `a11y` boolean toggle for the accessibility-rules category.
+  ///
+  /// Absent field → `true` (a11y rules are included in scan by default —
+  /// Zero-Config is the Normalfall). `a11y: false` excludes all
+  /// accessibility-category rules from `loam scan`.
+  static bool _parseIncludeA11y(YamlMap doc) {
+    final rawA11y = doc['a11y'];
+    if (rawA11y == null) return true;
+    if (rawA11y is! bool) {
+      throw ConfigLoadException(
+        '$fileName: "a11y" must be a boolean value (true/false), '
+        'got: $rawA11y.',
+      );
+    }
+    return rawA11y;
   }
 }

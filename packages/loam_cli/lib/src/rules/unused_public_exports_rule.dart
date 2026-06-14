@@ -52,6 +52,9 @@ class UnusedPublicExportsRule implements Rule {
   String get ruleId => 'unused-public-exports';
 
   @override
+  RuleCategory get category => RuleCategory.drift;
+
+  @override
   List<Finding> run(ProjectLoadResult result) {
     // Read publishability from the stack profile — do NOT re-parse pubspec.
     // StackProfile is populated by ProjectLoader and carried on ProjectLoadResult.

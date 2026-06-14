@@ -7,6 +7,7 @@ import '../config/loam_config.dart';
 import '../duplicates/duplicate_code_collector.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
+import '../model/rule_category.dart';
 import '../report/reporter.dart' show ScanStats;
 import '../rules/circular_dependencies_rule.dart';
 import '../rules/code_duplicates_rule.dart';
@@ -62,17 +63,36 @@ class AnalysisOutcome {
 /// All consumers — `scan`, `gate`, `baseline` — call exactly this runner.
 /// There is no second code path (ADR-0003 / D10).
 ///
-/// [config] controls which rules are active (Rule-Toggles from `loam.yaml`).
-/// When omitted, [LoamConfig.defaults] is used (all rules enabled).
+/// [config] controls which rules are active (Rule-Toggles from `loam.yaml`
+/// and the `a11y`/`includeA11y` category toggle). When omitted,
+/// [LoamConfig.defaults] is used (all rules enabled).
+///
+/// [categoryFilter] restricts the run to a single [RuleCategory] (e.g.
+/// [RuleCategory.accessibility] for `loam a11y`). Category membership is
+/// looked up in [_ruleCategories] — never via ruleId string prefixes
+/// (Invariant 1: semantics over syntax).
 class AnalysisRunner {
   /// Creates an [AnalysisRunner]; [config] defaults to all rules enabled.
-  const AnalysisRunner({this.config = const LoamConfig.defaults()});
+  ///
+  /// [categoryFilter]: when set, only rules belonging to this category are run.
+  /// Defaults to `null` (all categories active, subject to [config]).
+  const AnalysisRunner({
+    this.config = const LoamConfig.defaults(),
+    this.categoryFilter,
+  });
 
   /// The [LoamConfig] that controls Rule-Toggles and ignore globs.
   ///
   /// Defaults to [LoamConfig.defaults] so that existing call sites that
   /// construct `AnalysisRunner()` without a config remain unchanged.
   final LoamConfig config;
+
+  /// When set, only rules belonging to this [RuleCategory] are run.
+  ///
+  /// `null` (default) means all categories are active, subject to [config].
+  /// Category membership is determined by [_ruleCategories] — not by ruleId
+  /// string prefixes (Invariant 1: semantics over syntax).
+  final RuleCategory? categoryFilter;
 
   /// The canonical full registry of all known rule IDs, sorted lexicographically.
   ///
@@ -85,6 +105,18 @@ class AnalysisRunner {
     'unused-public-exports',
   ];
 
+  /// Maps every rule ID in [fullRegistryIds] to its [RuleCategory].
+  ///
+  /// This is the authoritative category mapping — category membership is
+  /// determined here, never by ruleId string prefixes (Invariant 1). When a
+  /// new rule is registered, add its ID to both [fullRegistryIds] and here.
+  static const Map<String, RuleCategory> _ruleCategories = {
+    'circular-dependencies': RuleCategory.drift,
+    'code-duplicates': RuleCategory.drift,
+    'complexity-hotspots': RuleCategory.drift,
+    'unused-public-exports': RuleCategory.drift,
+  };
+
   /// The config-independent active rule IDs (full registry, no config applied).
   ///
   /// Kept for backwards compatibility with existing callers and tests that
@@ -93,15 +125,33 @@ class AnalysisRunner {
   /// When no [LoamConfig] is in scope, this is the correct set to use.
   static const List<String> activeRuleIds = fullRegistryIds;
 
-  /// Returns the active rule IDs after applying [config]'s Rule-Toggles.
+  /// Returns the active rule IDs belonging to [cat] in the full registry,
+  /// sorted lexicographically.
+  ///
+  /// Derived from [fullRegistryIds] × [_ruleCategories] — does NOT use ruleId
+  /// string prefixes (Invariant 1: semantics over syntax).
+  static List<String> activeIdsForCategory(RuleCategory cat) {
+    return (fullRegistryIds.where((id) => _ruleCategories[id] == cat).toList()
+      ..sort());
+  }
+
+  /// Returns the active rule IDs after applying [config]'s Rule-Toggles and
+  /// the [LoamConfig.includeA11y] category toggle.
   ///
   /// Rules explicitly disabled (`ruleId → false`) in [config.ruleToggles]
-  /// are removed from the full registry. The result is sorted lexicographically
-  /// for determinism (Invariant 5).
+  /// are removed. When [config.includeA11y] is `false`, all rules belonging
+  /// to [RuleCategory.accessibility] are also removed.
+  ///
+  /// The result is sorted lexicographically for determinism (Invariant 5).
   static List<String> activeRuleIdsForConfig(LoamConfig config) {
-    final ids =
-        fullRegistryIds.where((id) => !config.isRuleDisabled(id)).toList()
-          ..sort();
+    final ids = fullRegistryIds.where((id) {
+      if (config.isRuleDisabled(id)) return false;
+      if (!config.includeA11y &&
+          _ruleCategories[id] == RuleCategory.accessibility) {
+        return false;
+      }
+      return true;
+    }).toList()..sort();
     return List.unmodifiable(ids);
   }
 
@@ -125,6 +175,19 @@ class AnalysisRunner {
   /// version — they filter findings, not the active rule set.
   static String rulesetVersionForConfig(LoamConfig config) {
     return _computeVersion(activeRuleIdsForConfig(config));
+  }
+
+  /// Returns the content-addressed version string for the subset of rules
+  /// belonging to [cat] and active under [config].
+  ///
+  /// Category membership is determined by [_ruleCategories] (not ruleId
+  /// prefixes). Config-disabled rules are excluded. When there are no
+  /// rules for [cat], returns the hash of the empty set.
+  static String rulesetVersionForCategory(RuleCategory cat, LoamConfig config) {
+    final ids = activeIdsForCategory(
+      cat,
+    ).where((id) => !config.isRuleDisabled(id)).toList()..sort();
+    return _computeVersion(ids);
   }
 
   static String _computeVersion(List<String> ids) {
@@ -165,7 +228,18 @@ class AnalysisRunner {
     ProjectLoadResult loadResult,
   ) {
     final root = p.normalize(p.absolute(projectRoot));
-    final effectiveIds = activeRuleIdsForConfig(config);
+
+    // Compute config-filtered IDs, then apply the optional category filter.
+    // Both filters are applied here (registry-level, before instantiation) —
+    // not as a post-run filter on findings (Invariant 1 / issue AC spec).
+    final configIds = activeRuleIdsForConfig(config);
+    final effectiveIds = categoryFilter == null
+        ? configIds
+        : (configIds
+              .where((id) => _ruleCategories[id] == categoryFilter)
+              .toList()
+            ..sort());
+
     final rawFindings = _collectRaw(root, loadResult, effectiveIds);
 
     final inlineDirectives = InlineSuppressionScanner.scan(loadResult, root);

@@ -166,9 +166,16 @@ loam health                        # cyclomatic/cognitive complexity distributio
 loam health /path/to/project       # same, positional path to project root
 ```
 
-All five commands (`scan`, `gate`, `health`, `init`, `baseline`) accept an optional
-positional `[path]` as the project root. The explicit `-p`/`--project-root` option
-overrides the positional path when both are given.
+Accessibility scan:
+
+```bash
+loam a11y                          # accessibility audit: WCAG-focused rules only
+loam a11y /path/to/project         # same, positional path to project root
+```
+
+All six commands (`scan`, `gate`, `health`, `init`, `baseline`, `a11y`) accept an
+optional positional `[path]` as the project root. The explicit `-p`/`--project-root`
+option overrides the positional path when both are given.
 
 Coming soon (wired in `loam --help`, not yet implemented):
 
