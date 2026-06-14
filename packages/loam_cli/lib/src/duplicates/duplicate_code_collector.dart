@@ -22,9 +22,12 @@ export 'duplicate_cluster.dart';
 /// - **Type-1 clones** — exact duplicates (whitespace / comment independent,
 ///   because the analysis is AST-based).
 /// - **Type-2 clones** — structurally identical blocks where identifier names
-///   and/or literal values differ. Normalisation maps every identifier to the
-///   placeholder `«id»` and every literal to `«lit»`, making both clone types
-///   produce the same normalised sequence.
+///   and/or literal values differ. Consistent (alpha) renaming assigns each
+///   *distinct* identifier within a block a stable fragment-local slot index
+///   (`ID#0`, `ID#1`, …) and does the same for literals (`LIT#0`, `LIT#1`, …).
+///   Two blocks match only if they share the same repetition pattern of slots —
+///   genuine renames produce the same pattern; parallel boilerplate with
+///   different leaf-value repetitions does not.
 ///
 /// **What is NOT detected:**
 /// - **Type-3 clones** — blocks with inserted/deleted lines. Out of scope for
@@ -75,11 +78,17 @@ class DuplicateCodeCollector {
     }
 
     // Step 2: group blocks by their normalised token sequence (exact match
-    // covers Type-1 and Type-2 simultaneously because normalisation erases
-    // identifier/literal differences).
+    // covers Type-1 and Type-2 simultaneously because consistent renaming
+    // preserves the repetition pattern of identifier/literal slots).
+    //
+    // Two pre-filters guard against false positives before clustering:
+    //  • kMinDuplicateTokens — short blocks (getters, trivial helpers) excluded.
+    //  • kMinDistinctTokenTypes — low-diversity blocks (repetitive fill,
+    //    data-initialisation, pure x+x+…+x patterns) excluded.
     final bySequence = <String, List<_Block>>{};
     for (final block in blocks) {
       if (block.tokens.length < kMinDuplicateTokens) continue;
+      if (block.tokens.toSet().length < kMinDistinctTokenTypes) continue;
       final key = block.tokens.join(' ');
       (bySequence[key] ??= []).add(block);
     }
@@ -159,11 +168,17 @@ class _Block {
   /// 1-based end line of the body in the source file.
   final int endLine;
 
-  /// Normalised token sequence.
+  /// Normalised token sequence produced by consistent (alpha) renaming.
   ///
-  /// Identifiers → `«id»`, literals → `«lit»`, all other tokens → their
-  /// string representation. Comments and whitespace are never emitted by the
-  /// token stream, so they are implicitly ignored.
+  /// Within this block, each distinct identifier name is mapped to a stable
+  /// fragment-local slot: first occurrence → `ID#0`, second distinct name →
+  /// `ID#1`, and so on. Literals are handled identically (`LIT#0`, `LIT#1`,
+  /// …). The same name always maps to the same slot within the same block,
+  /// which preserves the repetition pattern. All other tokens (keywords,
+  /// punctuation, operators) are kept verbatim as structural skeleton.
+  ///
+  /// Comments and whitespace are never emitted by the token stream, so they
+  /// are implicitly ignored.
   final List<String> tokens;
 }
 
@@ -230,13 +245,30 @@ class _BodyCollector extends RecursiveAstVisitor<void> {
     );
   }
 
-  /// Produces the normalised token sequence for [body].
+  /// Produces the normalised token sequence for [body] using consistent
+  /// (alpha) renaming.
   ///
-  /// Walks the raw token stream anchored inside [body]'s source range,
-  /// replacing identifiers with `«id»` and literals with `«lit»`. All other
-  /// token types (keywords, punctuation, operators) are kept as-is, preserving
-  /// the structural skeleton that distinguishes different AST shapes.
+  /// Walks the raw token stream anchored inside [body]'s source range.
+  /// For each token:
+  ///
+  /// - **Identifiers**: the first distinct name encountered maps to `ID#0`,
+  ///   the next new name to `ID#1`, and so on. Repeated occurrences of the
+  ///   same name emit the same slot index. This preserves the repetition
+  ///   pattern within the block — genuine Type-2 renames produce identical
+  ///   normalised sequences, while parallel boilerplate that reuses different
+  ///   identifiers at the same positions does not.
+  /// - **Literals**: same slot-based scheme independently (`LIT#0`, `LIT#1`,
+  ///   …). The actual literal values are not compared.
+  /// - **Keywords, punctuation, operators**: kept verbatim as structural
+  ///   skeleton so different AST shapes produce different sequences.
+  ///
+  /// Comments and whitespace are never emitted by the Dart token stream.
   List<String> _normaliseBody(FunctionBody body) {
+    final idMap = <String, int>{};
+    var idCounter = 0;
+    final litMap = <String, int>{};
+    var litCounter = 0;
+
     final result = <String>[];
     Token? tok = body.beginToken;
     final endOffset = body.end;
@@ -244,9 +276,11 @@ class _BodyCollector extends RecursiveAstVisitor<void> {
     while (tok != null && tok.offset < endOffset) {
       if (tok.isEof) break;
       if (tok.type == TokenType.IDENTIFIER) {
-        result.add('«id»');
+        final slot = idMap.putIfAbsent(tok.lexeme, () => idCounter++);
+        result.add('ID#$slot');
       } else if (_isLiteral(tok.type)) {
-        result.add('«lit»');
+        final slot = litMap.putIfAbsent(tok.lexeme, () => litCounter++);
+        result.add('LIT#$slot');
       } else {
         // Keywords, punctuation, operators — keep as structural skeleton.
         result.add(tok.lexeme);

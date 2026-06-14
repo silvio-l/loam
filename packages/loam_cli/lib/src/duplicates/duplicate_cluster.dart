@@ -12,6 +12,27 @@ library;
 /// trust in the tool.
 const int kMinDuplicateTokens = 50;
 
+/// The minimum number of *distinct* normalised token strings a code block must
+/// contain before it is considered a duplicate candidate.
+///
+/// After consistent (alpha) renaming, each identifier occurrence becomes
+/// `ID#<slot>` and each literal becomes `LIT#<slot>`. The distinct-token-type
+/// count measures how many unique such strings appear in the normalised
+/// sequence — e.g. `{`, `if`, `(`, `ID#0`, `ID#1`, `return`, `LIT#0`, `;`,
+/// `}` = 9 distinct types.
+///
+/// Rationale (Koschke / Bazrafshan): the number of distinct token types is
+/// the strongest single discriminator against false-positive structural
+/// boilerplate. A block whose normalised sequence uses fewer than 8 distinct
+/// strings contains too little structural variety to represent a meaningful
+/// logic unit — it is almost certainly a repetitive fill or data-initialisation
+/// pattern, not a clone worth reporting. Real algorithmic duplicates routinely
+/// exceed 20 distinct types. Setting the threshold at 8 provides a conservative
+/// safety margin above the lowest-diversity degenerate case (pure `x + x + …`
+/// repetitions reach only ~6 distinct strings) while leaving all real clones
+/// well above the cut.
+const int kMinDistinctTokenTypes = 8;
+
 /// A single source location within a [DuplicateCluster].
 ///
 /// Identifies a contiguous range of code (start line – end line) inside

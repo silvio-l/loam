@@ -1,0 +1,6 @@
+name: parallel_boilerplate_fixture
+description: "Fixture for consistent-renaming and distinct-token-gate tests."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0

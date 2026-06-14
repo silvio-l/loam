@@ -16,6 +16,15 @@ final _fixturePath = p.normalize(
   p.join(Directory.current.path, 'test', 'fixtures', 'code_duplicates_fixture'),
 );
 
+final _parallelFixturePath = p.normalize(
+  p.join(
+    Directory.current.path,
+    'test',
+    'fixtures',
+    'parallel_boilerplate_fixture',
+  ),
+);
+
 /// Loads the fixture and returns a fresh [ProjectLoadResult].
 Future<ProjectLoadResult> _loadFixture() async {
   final loader = const ProjectLoader();
@@ -26,6 +35,13 @@ Future<ProjectLoadResult> _loadFixture() async {
 Future<List<DuplicateCluster>> _collectFromFixture() async {
   final result = await _loadFixture();
   return const DuplicateCodeCollector().collect(result, _fixturePath);
+}
+
+/// Loads the parallel-boilerplate fixture and collects clusters.
+Future<List<DuplicateCluster>> _collectFromParallelFixture() async {
+  final loader = const ProjectLoader();
+  final result = await loader.load(_parallelFixturePath);
+  return const DuplicateCodeCollector().collect(result, _parallelFixturePath);
 }
 
 // ---------------------------------------------------------------------------
@@ -340,5 +356,112 @@ void main() {
         expect(clusters, isA<List<DuplicateCluster>>());
       },
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // AC3/AC4/AC5 — parallel-boilerplate fixture
+  // -------------------------------------------------------------------------
+
+  group('parallel_boilerplate_fixture — consistent renaming + gate', () {
+    late List<DuplicateCluster> clusters;
+
+    setUpAll(() async {
+      clusters = await _collectFromParallelFixture();
+    });
+
+    // AC3: parallel boilerplate with a different identifier repetition pattern
+    // must NOT cluster, even though the structural skeleton is identical.
+    //
+    // gamma.dart: computeWeightedSum — uses value*value and ends with
+    //             result+value  (pattern has ID#0 reused at slot-0 positions).
+    // delta.dart: computeScaledSum  — uses base*scale and ends with
+    //             result+scale  (pattern has ID#1 reused at those positions).
+    //
+    // With blind «id» normalisation both would collapse to the same sequence.
+    // With consistent renaming the slot patterns differ → no cluster.
+    test(
+      'parallel boilerplate with different repetition pattern does not cluster (AC3)',
+      () {
+        final gammaDeltaClusters = clusters.where((c) {
+          final paths = c.locations.map((l) => l.filePath).toSet();
+          return paths.contains('lib/gamma.dart') &&
+              paths.contains('lib/delta.dart');
+        }).toList();
+
+        expect(
+          gammaDeltaClusters,
+          isEmpty,
+          reason:
+              'gamma.dart and delta.dart have the same skeleton but different '
+              'identifier repetition patterns — consistent renaming must prevent '
+              'them from clustering',
+        );
+      },
+    );
+
+    // AC5: a genuine Type-2 clone where only one literal value differs and the
+    // identifier repetition pattern is the same MUST still be detected.
+    //
+    // epsilon.dart: decodeAsBool  — throws FormatException('AsBool: unexpected type')
+    // zeta.dart:    decodeAsDouble — throws FormatException('AsDouble: unexpected type')
+    //
+    // All identifier names differ between the two functions, but the slot
+    // repetition pattern is identical. Only the last error message literal
+    // differs in value — both map to LIT#3 in their respective fragments.
+    test(
+      'Type-2 clone with one differing literal value is recognised (AC5)',
+      () {
+        final type2Clusters = clusters.where((c) {
+          final paths = c.locations.map((l) => l.filePath).toSet();
+          return paths.contains('lib/epsilon.dart') &&
+              paths.contains('lib/zeta.dart');
+        }).toList();
+
+        expect(
+          type2Clusters,
+          isNotEmpty,
+          reason:
+              'epsilon.dart and zeta.dart are Type-2 clones with the same '
+              'slot-repetition pattern — they must still be clustered even '
+              'though one error-message literal differs',
+        );
+      },
+    );
+
+    // AC4: low-diversity blocks (few distinct normalised token strings, below
+    // kMinDistinctTokenTypes) must be filtered before clustering.
+    //
+    // lowdiv.dart and lowdiv2.dart each contain a body with 50+ tokens but
+    // only 6 distinct normalised strings: `{`, `return`, `ID#0`, `+`, `;`, `}`.
+    // Under blind normalisation they would cluster; consistent renaming also
+    // produces the same pattern (both are `ID#0 + ID#0 + …`). The
+    // distinct-token-gate (kMinDistinctTokenTypes = 8) filters them first.
+    test(
+      'low-diversity blocks below kMinDistinctTokenTypes are not clustered (AC4)',
+      () {
+        final lowdivClusters = clusters.where((c) {
+          final paths = c.locations.map((l) => l.filePath).toSet();
+          return paths.contains('lib/lowdiv.dart') &&
+              paths.contains('lib/lowdiv2.dart');
+        }).toList();
+
+        expect(
+          lowdivClusters,
+          isEmpty,
+          reason:
+              'lowdiv.dart and lowdiv2.dart have only 6 distinct normalised '
+              'token types, which is below kMinDistinctTokenTypes ($kMinDistinctTokenTypes) '
+              '— the distinct-token-gate must filter them',
+        );
+      },
+    );
+
+    // AC4 (complementary): high-diversity real clones pass the gate.
+    // epsilon/zeta (27 distinct types) are already verified above (AC5).
+    // gamma and delta each also exceed the threshold individually.
+    test('kMinDistinctTokenTypes constant is exported and positive', () {
+      expect(kMinDistinctTokenTypes, greaterThan(0));
+      expect(kMinDistinctTokenTypes, greaterThan(6));
+    });
   });
 }
