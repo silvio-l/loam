@@ -10,9 +10,11 @@
   locations and points at the first occurrence, with a stable Fingerprint so the
   Baseline survives line shifts and only reacts when a copy is added or removed.
   Generated files are excluded, and a conservative minimum-token threshold keeps
-  short boilerplate out. It catches **Type-1** (exact, whitespace- and
-  comment-independent) and **Type-2** (renamed identifiers and literals)
-  duplicates; gapped duplicates are out of scope. The rule runs in `loam scan`,
+  short boilerplate out. Like `complexity-hotspots`, it scans `lib/` and `bin/`
+  by default — `test/`, `tool/` and `example/` duplicates are not reported
+  unless you widen `source_dirs` in `loam.yaml`. It catches **Type-1** (exact,
+  whitespace- and comment-independent) and **Type-2** (renamed identifiers and
+  literals) duplicates; gapped duplicates are out of scope. The rule runs in `loam scan`,
   `gate` and `baseline` and is visible in every reporter (`human`, `json`,
   `sarif`, `markdown`, `html`); suppress it per project via `loam.yaml` or inline
   with `// loam-ignore: code-duplicates`.

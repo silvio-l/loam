@@ -245,6 +245,7 @@ class AnalysisRunner {
         CodeDuplicatesRule(
           projectRoot: root,
           collector: const DuplicateCodeCollector(),
+          sourceDirs: config.sourceDirs,
         ),
       if (effectiveIds.contains('complexity-hotspots'))
         ComplexityHotspotsRule(

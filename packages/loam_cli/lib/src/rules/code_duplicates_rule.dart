@@ -1,3 +1,4 @@
+import '../config/loam_config.dart' show kDefaultSourceDirs;
 import '../duplicates/duplicate_code_collector.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
@@ -37,10 +38,16 @@ class CodeDuplicatesRule implements Rule {
   const CodeDuplicatesRule({
     required this.projectRoot,
     DuplicateCodeCollector? collector,
+    this.sourceDirs = kDefaultSourceDirs,
   }) : _collector = collector ?? const DuplicateCodeCollector();
 
   /// Absolute path of the project being analysed.
   final String projectRoot;
+
+  /// Top-level directories scanned for duplicates (default `lib`, `bin`).
+  /// `test/`, `tool/` and `example/` are excluded unless added via
+  /// `source_dirs` in `loam.yaml` — consistent with `complexity-hotspots`.
+  final List<String> sourceDirs;
 
   final DuplicateCodeCollector _collector;
 
@@ -49,7 +56,11 @@ class CodeDuplicatesRule implements Rule {
 
   @override
   List<Finding> run(ProjectLoadResult result) {
-    final clusters = _collector.collect(result, projectRoot);
+    final clusters = _collector.collect(
+      result,
+      projectRoot,
+      sourceDirs: sourceDirs,
+    );
 
     final findings = <Finding>[];
 

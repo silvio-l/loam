@@ -4,6 +4,7 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
 import 'package:path/path.dart' as p;
 
+import '../config/loam_config.dart' show kDefaultSourceDirs;
 import '../loader/project_loader.dart';
 import '../rules/generated_file.dart';
 import 'duplicate_cluster.dart';
@@ -58,15 +59,26 @@ class DuplicateCodeCollector {
   /// [projectRoot] is the absolute path of the analysed package root, used to
   /// compute POSIX-relative [DuplicateLocation.filePath] values.
   ///
+  /// [sourceDirs] are the top-level directories treated as production source
+  /// (default [kDefaultSourceDirs] = `lib`, `bin`). A file is scanned only when
+  /// its top-level directory (relative to [projectRoot]) is in this list — so
+  /// `test/`, `tool/` and `example/` duplicates are excluded by default, exactly
+  /// like `complexity-hotspots`. Widen it via `source_dirs` in `loam.yaml`.
+  ///
   /// Never throws. Returns an empty list when [result.resolved] is empty or
   /// when no blocks with ≥ [kMinDuplicateTokens] tokens are duplicated.
-  List<DuplicateCluster> collect(ProjectLoadResult result, String projectRoot) {
+  List<DuplicateCluster> collect(
+    ProjectLoadResult result,
+    String projectRoot, {
+    List<String> sourceDirs = kDefaultSourceDirs,
+  }) {
     // Step 1: extract normalised token sequences from every resolvable,
-    // non-generated file.
+    // non-generated source file (within sourceDirs).
     final blocks = <_Block>[];
 
     for (final file in result.resolved) {
       if (isGeneratedDartFile(file.path)) continue;
+      if (!_isUnderSourceDir(file.path, projectRoot, sourceDirs)) continue;
 
       final relPath = _toRelativePosix(file.path, projectRoot);
       final lineInfo = file.result.lineInfo;
@@ -142,6 +154,19 @@ class DuplicateCodeCollector {
   static String _toRelativePosix(String absolutePath, String projectRoot) {
     final rel = p.relative(absolutePath, from: projectRoot);
     return rel.replaceAll(r'\', '/');
+  }
+
+  /// Whether [filePath]'s top-level directory (relative to [projectRoot]) is
+  /// one of [sourceDirs]. A file directly at the root, or outside it, is not.
+  /// Mirrors `FunctionComplexityCollector` so both structural rules share the
+  /// same `source_dirs` scoping semantics.
+  static bool _isUnderSourceDir(
+    String filePath,
+    String projectRoot,
+    List<String> sourceDirs,
+  ) {
+    final segments = p.split(p.relative(filePath, from: projectRoot));
+    return segments.length > 1 && sourceDirs.contains(segments.first);
   }
 }
 

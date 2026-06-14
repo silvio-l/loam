@@ -464,4 +464,59 @@ void main() {
       expect(kMinDistinctTokenTypes, greaterThan(6));
     });
   });
+
+  // -------------------------------------------------------------------------
+  // source_dirs scoping — code-duplicates only scans production source dirs
+  // (default lib/ + bin/), exactly like complexity-hotspots, so test/, tool/
+  // and example/ duplicates are not reported by default.
+  // -------------------------------------------------------------------------
+  group('source_dirs scoping', () {
+    test('a file is scanned only when its top dir is in sourceDirs', () async {
+      final result = await _loadFixture();
+
+      // The fixture's duplicate lives under lib/. Narrowing the scope to bin/
+      // only (lib/ excluded) must drop it — proving the filter is applied per
+      // top-level directory. By the same mechanism, the default scope
+      // (lib + bin) excludes test/, tool/ and example/.
+      final binOnly = const DuplicateCodeCollector().collect(
+        result,
+        _fixturePath,
+        sourceDirs: const ['bin'],
+      );
+      expect(
+        binOnly,
+        isEmpty,
+        reason:
+            'the duplicate lives under lib/; scoping to bin/ only must exclude '
+            'it, the same way the default lib+bin scope excludes test/',
+      );
+
+      // Including lib/ (the default scope) finds the cluster again.
+      final withLib = const DuplicateCodeCollector().collect(
+        result,
+        _fixturePath,
+        sourceDirs: const ['lib'],
+      );
+      expect(withLib, isNotEmpty);
+    });
+
+    test('default scope (no sourceDirs argument) equals lib + bin', () async {
+      final result = await _loadFixture();
+
+      // The no-argument overload uses kDefaultSourceDirs (lib + bin). Since the
+      // fixture's duplicate is under lib/, the default and an explicit
+      // ['lib', 'bin'] scope must yield the same clusters.
+      final defaultScope = const DuplicateCodeCollector().collect(
+        result,
+        _fixturePath,
+      );
+      final explicitScope = const DuplicateCodeCollector().collect(
+        result,
+        _fixturePath,
+        sourceDirs: const ['lib', 'bin'],
+      );
+      expect(defaultScope.length, explicitScope.length);
+      expect(defaultScope, isNotEmpty);
+    });
+  });
 }
