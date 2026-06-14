@@ -529,15 +529,51 @@ check_pubspec_rules() {
   return 0
 }
 
+check_demo_report_fresh() {
+  # Drift-Klasse: der eingecheckte Demo-Report (web/public/demo-report.html) friert
+  # auf einem alten Stand ein — zeigt eine veraltete Version ODER verschweigt eine
+  # frisch ausgelieferte Rule. Bewusst REINE grep-Logik auf der eingecheckten Datei,
+  # KEIN Rebuild / kein `dart run` — das Always-on-Gate muss schnell bleiben. Der
+  # byte-genaue Rebuild-Abgleich bleibt der manuellen tool/gen-demo-report.sh-Ausführung
+  # vorbehalten. EINE Quelle der Live-Rules: live_rule_ids (fullRegistryIds); die
+  # Version über die bestehende pubspec-Extraktion (wie check_version_sync).
+  #
+  # Test-Seam: LOAM_DEMOREPORT_OVERRIDE prüft eine temporäre Kopie ohne die
+  # eingecheckte Datei anzufassen. Produktiv inert, solange die Env-Var nicht gesetzt ist.
+  local report="${LOAM_DEMOREPORT_OVERRIDE:-$ROOT/web/public/demo-report.html}"
+  [ -f "$report" ] || { note "demo-report-fresh: Demo-Report fehlt: ${report#$ROOT/}"; return 0; }
+  [ -f "$PUBSPEC" ] || return 0
+
+  local hint="tool/gen-demo-report.sh neu bauen"
+
+  # (a) aktuelle pubspec-Version (gleiche Extraktion wie check_version_sync).
+  local ver
+  ver="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*).*$/\1/p' "$PUBSPEC" | head -1)"
+  if [ -n "$ver" ]; then
+    grep -qF -- "$ver" "$report" \
+      || note "demo-report-fresh: ${report#$ROOT/} trägt nicht die aktuelle Version $ver — $hint"
+  fi
+
+  # (b) jede Live-Rule-ID muss im Demo-Report stehen.
+  local live_rules; live_rules="$(live_rule_ids)"
+  local rid
+  while IFS= read -r rid; do
+    [ -z "$rid" ] && continue
+    grep -qF -- "$rid" "$report" \
+      || note "demo-report-fresh: Live-Rule '$rid' (fullRegistryIds) fehlt in ${report#$ROOT/} — $hint"
+  done <<< "$live_rules"
+  return 0
+}
+
 cmd_check() {
   fail=0
   # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
   # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
   # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
   [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
-  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_devguide_rules; check_pubspec_rules; check_pubdev_docs; check_i18n; check_privacy_footer; check_shipped_status
+  check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_devguide_rules; check_pubspec_rules; check_demo_report_fresh; check_pubdev_docs; check_i18n; check_privacy_footer; check_shipped_status
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
-  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · devguide-rules · pubspec-rules · pub-points · i18n · privacy-footer · dist-regression-guard · shipped-status)"
+  echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · devguide-rules · pubspec-rules · demo-report-fresh · pub-points · i18n · privacy-footer · dist-regression-guard · shipped-status)"
 }
 
 cmd_attest() {

@@ -183,4 +183,80 @@ void main() {
       },
     );
   });
+
+  group('demo-report-fresh check (Version + Live-Rules präsent)', () {
+    final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
+    final qa = File('${repoRoot}tool/docs-attest.sh');
+    final report = File('${repoRoot}web/public/demo-report.html');
+
+    /// Führt `docs-attest.sh check` mit einer temporären Kopie des Demo-Reports
+    /// als Override (LOAM_DEMOREPORT_OVERRIDE) aus — die eingecheckte Datei bleibt
+    /// unangetastet. Liefert das Process-Ergebnis zurück.
+    ProcessResult runWithReport(String reportContents) {
+      final tmp = File(
+        '${Directory.systemTemp.path}/loam_demoreport_${DateTime.now().microsecondsSinceEpoch}.html',
+      );
+      tmp.writeAsStringSync(reportContents);
+      try {
+        return Process.runSync(
+          'bash',
+          ['tool/docs-attest.sh', 'check'],
+          workingDirectory: repoRoot,
+          environment: {'LOAM_DEMOREPORT_OVERRIDE': tmp.path},
+        );
+      } finally {
+        if (tmp.existsSync()) tmp.deleteSync();
+      }
+    }
+
+    /// Aktuelle pubspec-Version (für den Versions-Entfernungs-Test).
+    String? pubspecVersion() {
+      final pubspec = File('${repoRoot}packages/loam_cli/pubspec.yaml');
+      if (!pubspec.existsSync()) return null;
+      for (final l in pubspec.readAsLinesSync()) {
+        final m = RegExp(
+          r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+[^\s]*)',
+        ).firstMatch(l);
+        if (m != null) return m.group(1);
+      }
+      return null;
+    }
+
+    test('fehlende Version im Demo-Report erzwingt Rot', () {
+      if (!qa.existsSync() || !report.existsSync()) {
+        markTestSkipped('Repo-only-Test übersprungen (Tool/Demo-Report fehlt)');
+        return;
+      }
+      final ver = pubspecVersion();
+      expect(ver, isNotNull, reason: 'pubspec-Version nicht gefunden');
+      // Entferne jedes Vorkommen der aktuellen Version aus der temporären Kopie.
+      final mutated = report.readAsStringSync().replaceAll(ver!, 'X.Y.Z');
+      final r = runWithReport(mutated);
+      expect(
+        r.exitCode,
+        isNot(0),
+        reason: 'Fehlende Version muss den Check rot machen:\n${r.stdout}',
+      );
+      expect('${r.stdout}', contains('demo-report-fresh'));
+      expect('${r.stdout}', contains(ver));
+    });
+
+    test('fehlende Live-Rule-ID im Demo-Report erzwingt Rot', () {
+      if (!qa.existsSync() || !report.existsSync()) {
+        markTestSkipped('Repo-only-Test übersprungen (Tool/Demo-Report fehlt)');
+        return;
+      }
+      // Entferne jedes Vorkommen einer Live-Rule-ID aus der temporären Kopie.
+      const rid = 'unused-public-exports';
+      final mutated = report.readAsStringSync().replaceAll(rid, 'gone');
+      final r = runWithReport(mutated);
+      expect(
+        r.exitCode,
+        isNot(0),
+        reason: 'Fehlende Live-Rule muss den Check rot machen:\n${r.stdout}',
+      );
+      expect('${r.stdout}', contains('demo-report-fresh'));
+      expect('${r.stdout}', contains(rid));
+    });
+  });
 }
