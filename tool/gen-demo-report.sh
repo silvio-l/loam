@@ -2,8 +2,9 @@
 # Regenerates the interactive demo report embedded on the website
 # (web/public/demo-report.html). Scaffolds a small, deliberately-messy demo
 # Dart package ("shopcart") that triggers one finding of every live rule —
-# unused public API, a circular dependency and a complexity hotspot — then
-# runs loam from source to render the self-contained HTML report.
+# unused public API, a circular dependency, a complexity hotspot and a code
+# duplicate — then runs loam from source to render the self-contained HTML
+# report.
 #
 # Deterministic: same source + ruleset => byte-identical report. Re-run after
 # changing the report renderer or the rule set.
@@ -63,11 +64,55 @@ EOF
 cat > "$WORK/lib/services/checkout_service.dart" <<'EOF'
 import '../models/order.dart';
 import 'cart_service.dart';
+import 'order_notifier.dart';
 
 /// Finalizes an order. Imports CartService back -> circular dependency.
 class CheckoutService {
   CartService? boundCart;
-  Order finalize(Order o) => o;
+  final OrderNotifier _notifier = OrderNotifier();
+
+  Order finalize(Order o) {
+    _notifier.notifyPlaced(o);
+    _notifier.notifyShipped(o);
+    return o;
+  }
+}
+EOF
+
+cat > "$WORK/lib/services/order_notifier.dart" <<'EOF'
+import '../models/order.dart';
+
+/// Sends order notifications. Two handlers were copy-pasted instead of
+/// extracting a shared helper — a classic AI-agent side effect that
+/// `code-duplicates` reports as one cluster covering both locations.
+class OrderNotifier {
+  final List<Map<String, Object>> sent = [];
+
+  void notifyPlaced(Order order) {
+    final payload = <String, Object>{
+      'orderId': order.id,
+      'amountCents': order.totalCents,
+      'channel': 'email',
+      'template': 'order-update',
+      'retries': 0,
+      'highPriority': order.totalCents > 50000,
+    };
+    payload['queued'] = true;
+    sent.add(payload);
+  }
+
+  void notifyShipped(Order order) {
+    final payload = <String, Object>{
+      'orderId': order.id,
+      'amountCents': order.totalCents,
+      'channel': 'email',
+      'template': 'order-update',
+      'retries': 0,
+      'highPriority': order.totalCents > 50000,
+    };
+    payload['queued'] = true;
+    sent.add(payload);
+  }
 }
 EOF
 

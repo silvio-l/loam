@@ -321,15 +321,15 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
     <div class="topbar-right">
       <a class="sponsor-link" href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" title="Support loam.dev development">&#10084; Sponsor</a>
       <div class="chips">
-        <span class="chip">loam 0.1.8</span>
-        <span class="chip chip-ruleset">ruleset@15a5846b</span>
+        <span class="chip">loam 0.1.10</span>
+        <span class="chip chip-ruleset">ruleset@1fdd17fb</span>
       </div>
     </div>
   </header>
   <div class="health-badge-bar" aria-label="Health-Score">
     <div class="health-badge">
       <span class="health-label">Health-Score</span>
-      <span class="health-score">82<span class="health-max"> / 100</span></span>
+      <span class="health-score">88<span class="health-max"> / 100</span></span>
       <span class="health-grade grade-b" aria-label="Grade B">B</span>
     </div>
   </div>
@@ -366,12 +366,12 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
     <aside class="sidebar">
       <section class="card summary-card">
         <h2 class="card-title">Summary</h2>
-        <p class="total">6 findings</p>
+        <p class="total">3 findings</p>
         
-        <div class="sev-bar"><span class="seg seg-error" style="flex:0"></span><span class="seg seg-warning" style="flex:6"></span><span class="seg seg-info" style="flex:0"></span></div>
+        <div class="sev-bar"><span class="seg seg-error" style="flex:0"></span><span class="seg seg-warning" style="flex:3"></span><span class="seg seg-info" style="flex:0"></span></div>
         <ul class="sev-legend">
           <li><span class="dot dot-error"></span> error <b>0</b></li>
-          <li><span class="dot dot-warning"></span> warning <b>6</b></li>
+          <li><span class="dot dot-warning"></span> warning <b>3</b></li>
           <li><span class="dot dot-info"></span> info <b>0</b></li>
         </ul>
       </section>
@@ -379,9 +379,9 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
       <section class="card tooling-card">
         <h2 class="card-title">Toolchain</h2>
         <dl class="kv">
-          <dt>tool</dt><dd>loam 0.1.8</dd>
-          <dt>ruleset</dt><dd>ruleset@15a5846b</dd>
-          <dt>files</dt><dd>4 (4 under lib/)</dd><dt>lines</dt><dd>105</dd><dt>rules</dt><dd>circular-dependencies, complexity-hotspots, unused-public-exports</dd>
+          <dt>tool</dt><dd>loam 0.1.10</dd>
+          <dt>ruleset</dt><dd>ruleset@1fdd17fb</dd>
+          <dt>files</dt><dd>5 (5 under lib/)</dd><dt>lines</dt><dd>147</dd><dt>rules</dt><dd>circular-dependencies, code-duplicates, complexity-hotspots, unused-public-exports</dd>
           <dt>report</dt><dd>self-contained &middot; offline</dd>
         </dl>
         <ol class="howto">
@@ -419,27 +419,9 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
 <script type="application/json" id="loam-data">
 {
   "tool": "loam",
-  "toolVersion": "0.1.8",
-  "ruleset": "ruleset@15a5846b",
+  "toolVersion": "0.1.10",
+  "ruleset": "ruleset@1fdd17fb",
   "findings": [
-    {
-      "ruleId": "unused-public-exports",
-      "severity": "warning",
-      "filePath": "lib/models/order.dart",
-      "line": 4,
-      "column": null,
-      "message": "unused public field `id`",
-      "fingerprint": "4451b7fca8395589"
-    },
-    {
-      "ruleId": "unused-public-exports",
-      "severity": "warning",
-      "filePath": "lib/models/order.dart",
-      "line": 12,
-      "column": null,
-      "message": "unused public method `describe`",
-      "fingerprint": "7836e85b1ae41012"
-    },
     {
       "ruleId": "circular-dependencies",
       "severity": "warning",
@@ -450,22 +432,13 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
       "fingerprint": "864c044385133b2a"
     },
     {
-      "ruleId": "unused-public-exports",
+      "ruleId": "code-duplicates",
       "severity": "warning",
-      "filePath": "lib/services/cart_service.dart",
-      "line": 11,
+      "filePath": "lib/services/order_notifier.dart",
+      "line": 9,
       "column": null,
-      "message": "unused public method `place`",
-      "fingerprint": "eff0a50ffbc2ee1f"
-    },
-    {
-      "ruleId": "unused-public-exports",
-      "severity": "warning",
-      "filePath": "lib/services/checkout_service.dart",
-      "line": 6,
-      "column": null,
-      "message": "unused public field `boundCart`",
-      "fingerprint": "6de3a2c0e6d0443a"
+      "message": "2 occurrences of duplicated block (59 tokens): lib/services/order_notifier.dart:9, lib/services/order_notifier.dart:22",
+      "fingerprint": "037382f771fda0c4"
     },
     {
       "ruleId": "complexity-hotspots",

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.10
+
+- **New rule: `code-duplicates` — loam.dev now finds copy-pasted and
+  structurally identical code across your whole project.** It enumerates code
+  blocks over the resolved AST, normalises each into a token sequence, and
+  clusters recurring blocks project-wide with a Rabin-Karp rolling hash. Every
+  cluster becomes exactly **one** Finding (`Severity.warning`) that lists all
+  locations and points at the first occurrence, with a stable Fingerprint so the
+  Baseline survives line shifts and only reacts when a copy is added or removed.
+  Generated files are excluded, and a conservative minimum-token threshold keeps
+  short boilerplate out. It catches **Type-1** (exact, whitespace- and
+  comment-independent) and **Type-2** (renamed identifiers and literals)
+  duplicates; gapped duplicates are out of scope. The rule runs in `loam scan`,
+  `gate` and `baseline` and is visible in every reporter (`human`, `json`,
+  `sarif`, `markdown`, `html`); suppress it per project via `loam.yaml` or inline
+  with `// loam-ignore: code-duplicates`.
+- **Fewer false positives on Flutter widget code.** The detector uses
+  *consistent* (alpha) renaming — each distinct identifier and literal gets a
+  stable per-block slot, preserving the repetition pattern — plus a
+  distinct-token-type gate. Together they stop reporting structurally identical
+  but semantically distinct widget boilerplate (parallel factories, builders and
+  state widgets) as duplicates, while still catching genuine renamed copies. The
+  hardening was validated on a real-world Flutter codebase: precision in
+  production code improved with **zero** new missed duplicates.
+
 ## 0.1.9
 
 - **`unused-public-exports` now reads the stack it runs on — far fewer false
