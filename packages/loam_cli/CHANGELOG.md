@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.1.11
+
+- **New: accessibility audits for Flutter — the `loam a11y` command and four
+  WCAG-grounded rules.** loam.dev now ships an `a11y` rule category and a
+  dedicated `loam a11y` command (plus a `--no-a11y` opt-out on the broader
+  scans) that flag missing accessible names and labels in Flutter widget trees.
+  Every rule analyses the resolved element model — local classes that merely
+  share a name with a Flutter widget are never flagged — and stays deliberately
+  AST-only (runtime contrast, focus order and touch-target sizes are out of
+  scope):
+  - **`a11y-image-label`** (WCAG 1.1.1) — `Image` / `Image.asset` /
+    `Image.network` / `.file` / `.memory` with no `semanticLabel` and no
+    `excludeFromSemantics: true`; an explicit empty label still counts as
+    missing.
+  - **`a11y-icon-button-label`** (WCAG 1.1.1 / 4.1.2) — `IconButton` with no
+    `tooltip` and no enclosing `Semantics(label: …)`, plus `GestureDetector` /
+    `InkWell` whose direct child is a bare `Icon`.
+  - **`a11y-form-field-label`** (WCAG 1.3.1 / 3.3.2 / 4.1.2) — `TextField` /
+    `TextFormField` with neither an `InputDecoration(labelText: …)` (nor
+    `hintText` as a fallback) nor an enclosing `Semantics(label: …)`.
+  - **`a11y-interactive-semantics`** (WCAG 4.1.2) — generic and custom
+    interactive widgets carrying `onTap` / `onPressed` / `onLongPress` but no
+    `Semantics(label: …)` ancestor. Flutter built-ins already covered by the
+    sibling rules are excluded, so the two never double-report.
+- **New: the `loam slop` command and the first three deterministic anti-AI-slop
+  rules.** A new `slop` rule category and a `loam slop` command surface the
+  low-effort patterns AI agents commonly leave behind. All three are
+  deterministic AST/token checks (no LLM, no token cost), skip generated files
+  automatically, and are suppressible per project via `loam.yaml` or inline with
+  `// loam-ignore: <rule> – <reason>`:
+  - **`slop-unjustified-ignore`** (info) — `// ignore:` and
+    `// ignore_for_file:` directives with no written justification, inline or on
+    the preceding line.
+  - **`slop-empty-catch`** (warning) — `catch` blocks whose body is empty or
+    contains only comments. Extends the built-in `empty_catches` lint to the
+    comment-only variant; bodies with a `rethrow`, `throw` or any logging call
+    are never flagged.
+  - **`slop-narrative-comment`** (info) — `//` comments immediately before a
+    declaration that merely restate its name (`// build` before `void build()`)
+    or use a fixed narrative phrase (`constructor`, `getter`, `setter`,
+    `build method`). Deliberately narrow: `///` Dartdoc and informative comments
+    are never flagged — precision over recall.
+- All seven new rules run in `loam scan`, `gate` and `baseline` and are visible
+  in every reporter (`human`, `json`, `sarif`, `markdown`, `html`), with stable,
+  line-shift-robust fingerprints so the baseline only reacts to genuinely new
+  findings.
+
 ## 0.1.10
 
 - **New rule: `code-duplicates` — loam.dev now finds copy-pasted and

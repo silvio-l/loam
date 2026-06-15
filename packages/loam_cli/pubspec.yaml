@@ -1,6 +1,6 @@
 name: loam
 description: "Codebase intelligence for Dart & Flutter: unused public API, circular deps, code duplicates, complexity hotspots, empty catch, unjustified ignores, narrative comments and a11y."
-version: 0.1.10
+version: 0.1.11
 repository: https://github.com/silvio-l/loam
 homepage: https://getloam.dev
 topics:
