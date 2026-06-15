@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.12
+
+- **`loam.yaml` is now discovered by walking up to your git repository root —
+  and monorepo configs layer.** Previously loam only read a `loam.yaml` sitting
+  exactly at the analysed project root. Now it searches upward from that root to
+  the enclosing git repository root (the directory holding `.git`), just like
+  Dart's own `analysis_options.yaml` — so a config at your repo root is honoured
+  even when you analyse a sub-package. Every `loam.yaml` on the way is layered
+  farthest→nearest: a repo-root file provides shared defaults and a nearer
+  (per-package) file builds on top of it. Merge rules, nearer wins: `rules` are
+  merged per ruleId, `ignore` lists are concatenated (farther first,
+  de-duplicated), and `source_dirs` / `update_check` / `a11y` override while an
+  omitted key inherits the farther value. `ignore` globs are still matched
+  relative to the analysed project root, regardless of which layer declared
+  them. The walk is **bounded at the git root**, so discovery stays
+  repo-relative and reproducible across machines and CI — a `loam.yaml` above
+  the repository (e.g. in `$HOME`) is never picked up. With no git root, only
+  `<projectRoot>/loam.yaml` is read. Fully backward compatible: a single
+  `loam.yaml` at the project root yields exactly the previous result.
+
 ## 0.1.11
 
 - **New: accessibility audits for Flutter — the `loam a11y` command and four
