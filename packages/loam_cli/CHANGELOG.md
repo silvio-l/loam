@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.13
+
+- **Fix: `ignore` globs and the gate now suppress correctly no matter which
+  directory you run loam from.** Path-based suppression matched the ignore
+  globs against a path that was accidentally resolved relative to the current
+  working directory, so running loam from a directory other than the analysed
+  project root — e.g. `loam gate --project-root packages/app` from a repo root,
+  or any CI job whose working directory differs from `--project-root` — silently
+  dropped all `ignore`-glob suppressions. Findings you had deliberately excluded
+  could reappear and fail the gate. Suppression is now matched against each
+  finding's project-relative path directly and is independent of the process
+  working directory. Inline `// loam-ignore:` suppression was unaffected.
+
 ## 0.1.12
 
 - **`loam.yaml` is now discovered by walking up to your git repository root —

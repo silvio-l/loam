@@ -47,7 +47,7 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.12) — eleven live rules:** project-wide **unused public API**
+**Available now (0.1.13) — eleven live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
@@ -97,7 +97,7 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ## Quick start
 
-> **0.1.12.** Eleven analysis rules are live — `unused-public-exports`,
+> **0.1.13.** Eleven analysis rules are live — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 > `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
 > `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
@@ -236,7 +236,7 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-**0.1.12** — eleven rules live end to end (`unused-public-exports`,
+**0.1.13** — eleven rules live end to end (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
 `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
