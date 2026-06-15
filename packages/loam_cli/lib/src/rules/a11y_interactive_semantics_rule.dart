@@ -21,15 +21,21 @@ import 'rule.dart';
 /// - has no enclosing `Semantics(label: …)` ancestor at any depth.
 ///
 /// **Overlap exclusion (conservative, no double-counting):**
-/// The following Flutter built-in classes are excluded even when they carry the
-/// matching callback arguments, because they are covered by dedicated sibling
-/// rules or are Flutter primitives whose accessibility is addressed elsewhere:
-/// - `IconButton`, `GestureDetector`, `InkWell` — covered (fully or partially)
-///   by `a11y-icon-button-label`.
+/// **All** Flutter built-in classes (library URI `package:flutter/…`) are
+/// excluded from this rule:
+/// - `IconButton`, `GestureDetector`, `InkWell` — covered by
+///   `a11y-icon-button-label`.
 /// - `TextField`, `TextFormField` — covered by `a11y-form-field-label`.
+/// - `ButtonStyleButton` subclasses (`ElevatedButton`, `TextButton`,
+///   `FilledButton`, `OutlinedButton`) — Flutter derives their accessible
+///   name from their `child:` text widget via automatic semantics merging.
+/// - `FloatingActionButton`, `ListTile` — similar: accessible name is
+///   provided through `child:` / `title:` semantics internally.
+/// - `Semantics` — is itself the accessibility provider; flagging it would
+///   be circular.
 ///
-/// This rule therefore targets **generic and custom widgets** — user-defined or
-/// third-party classes whose library URI is not `package:flutter`.
+/// This rule therefore targets **only user-defined and third-party widgets**
+/// — classes whose resolved library URI is NOT `package:flutter`.
 ///
 /// **What AST detection does NOT catch (documented limitations):**
 /// - Widgets that become interactive at runtime via inherited callbacks
@@ -134,17 +140,8 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
   /// Callback argument names that indicate an interactive widget.
   static const _callbackArgs = {'onTap', 'onPressed', 'onLongPress'};
 
-  /// Flutter built-in class names excluded from this rule.
-  ///
-  /// Membership is checked by class name AND resolved library URI — a local
-  /// class named `IconButton` in user code is NOT excluded (Invariant 1).
-  static const _excludedFlutterClassNames = {
-    'IconButton', // covered by a11y-icon-button-label
-    'GestureDetector', // covered (icon-only case) by a11y-icon-button-label
-    'InkWell', // covered (icon-only case) by a11y-icon-button-label
-    'TextField', // covered by a11y-form-field-label
-    'TextFormField', // covered by a11y-form-field-label
-  };
+  // (No exclusion name-list needed — all package:flutter classes are excluded
+  // by _isExcludedFlutterClass via the resolved library URI check.)
 
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
@@ -169,16 +166,16 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
     _addFinding(node, widgetName: classEl.name ?? '<unknown>');
   }
 
-  /// Returns `true` when [classEl] is one of the Flutter built-in widgets in
-  /// [_excludedFlutterClassNames].
+  /// Returns `true` when [classEl] is any Flutter built-in widget, i.e. its
+  /// resolved library URI is `package:flutter/…`.
   ///
-  /// Uses the resolved library URI — never a string/regex match on the source
-  /// (Invariant 1: semantics over syntax).
+  /// All Flutter built-in classes are excluded from this rule — they either
+  /// derive accessible names from their children automatically (buttons,
+  /// ListTile) or are themselves the accessibility primitive (Semantics).
+  /// Dedicated sibling rules cover the specific patterns (icon-button-label,
+  /// form-field-label). Uses the resolved library URI — never a string/regex
+  /// match on source text (Invariant 1: semantics over syntax).
   bool _isExcludedFlutterClass(InterfaceElement classEl) {
-    final className = classEl.name;
-    if (className == null || !_excludedFlutterClassNames.contains(className)) {
-      return false;
-    }
     final libUri = classEl.enclosingElement.uri;
     return libUri.scheme == 'package' &&
         libUri.pathSegments.isNotEmpty &&

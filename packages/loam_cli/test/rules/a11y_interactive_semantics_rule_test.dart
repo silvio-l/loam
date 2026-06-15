@@ -185,6 +185,30 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // AC3b: Regression — Flutter Material buttons and self-labelled Semantics
+  //        must NOT be flagged (FP root-fix for dogfood run 2025-06)
+  // ---------------------------------------------------------------------------
+
+  test(
+    'AC3b: ElevatedButton and TextButton (package:flutter) with onPressed → '
+    'no finding (ButtonStyleButton accessible name comes from child text)',
+    () {
+      final findings = makeRule().run(loadResult);
+      final buttonFindings = findings.where(
+        (f) => f.filePath.contains('flutter_builtin_buttons'),
+      );
+      expect(
+        buttonFindings,
+        isEmpty,
+        reason:
+            'flutter_builtin_buttons.dart uses ElevatedButton, TextButton, '
+            'and Semantics — all from package:flutter and excluded from this '
+            'rule. Zero findings expected.',
+      );
+    },
+  );
+
+  // ---------------------------------------------------------------------------
   // AC4: Alias/codegen — generated file → no finding
   // ---------------------------------------------------------------------------
 

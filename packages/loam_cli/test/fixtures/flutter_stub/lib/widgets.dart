@@ -155,7 +155,7 @@ class InkWell {
 /// non-null [label] as a sufficient accessible-name source.
 class Semantics {
   /// Creates a [Semantics] widget.
-  const Semantics({this.label, this.button, this.child});
+  const Semantics({this.label, this.button, this.child, this.onTap});
 
   /// A textual description of the widget subtree for accessibility.
   final String? label;
@@ -168,6 +168,45 @@ class Semantics {
   final bool? button;
 
   /// The widget below this widget in the tree.
+  final Object? child;
+
+  /// An optional tap callback (mirrors Semantics.onTap in real Flutter).
+  ///
+  /// Used in regression fixtures to verify that a [Semantics] widget carrying
+  /// both an [onTap] and a [label] is NOT flagged by `a11y-interactive-semantics`
+  /// (the widget IS the accessibility provider; flagging it would be circular).
+  final void Function()? onTap;
+}
+
+/// Stub of Flutter's `ElevatedButton` widget.
+///
+/// A `ButtonStyleButton` subclass that derives its accessible name from its
+/// `child:` text widget via Flutter's automatic semantics merging. The
+/// `a11y-interactive-semantics` rule must NOT flag this widget — it is from
+/// `package:flutter` and its accessibility is handled by the framework.
+class ElevatedButton {
+  /// Creates an [ElevatedButton].
+  const ElevatedButton({required this.onPressed, required this.child});
+
+  /// Called when the button is tapped or activated.
+  final void Function()? onPressed;
+
+  /// The label widget (typically a [Text]).
+  final Object? child;
+}
+
+/// Stub of Flutter's `TextButton` widget.
+///
+/// Like [ElevatedButton], derives its accessible name from `child:` text.
+/// The `a11y-interactive-semantics` rule must NOT flag this widget.
+class TextButton {
+  /// Creates a [TextButton].
+  const TextButton({required this.onPressed, required this.child});
+
+  /// Called when the button is tapped or activated.
+  final void Function()? onPressed;
+
+  /// The label widget (typically a [Text]).
   final Object? child;
 }
 
