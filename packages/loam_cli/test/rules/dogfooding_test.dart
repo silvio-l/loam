@@ -1,9 +1,13 @@
 @TestOn('vm')
 library;
 
-/// Self-dogfooding test: runs UnusedPublicExportsRule, CircularDependenciesRule,
-/// CodeDuplicatesRule, and ComplexityHotspotsRule over the loam_cli package
-/// itself (packages/loam_cli/) and asserts zero findings for each.
+/// Self-dogfooding test: runs every shipped rule — the four drift rules
+/// (UnusedPublicExportsRule, CircularDependenciesRule, CodeDuplicatesRule,
+/// ComplexityHotspotsRule) and the four accessibility rules (a11y-image-label,
+/// a11y-icon-button-label, a11y-form-field-label, a11y-interactive-semantics) —
+/// over the loam_cli package itself (packages/loam_cli/) and asserts zero
+/// findings on production code (lib/ + bin/) for each. loam is run against
+/// itself as a standing baseline, not only against external repos.
 ///
 /// This is the Slice A acceptance criterion (AC5): each rule must be
 /// conservative enough that it produces no false positives on the own
@@ -14,7 +18,10 @@ import 'dart:io';
 
 import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/loader/project_loader.dart';
+import 'package:loam/src/rules/a11y_form_field_label_rule.dart';
+import 'package:loam/src/rules/a11y_icon_button_label_rule.dart';
 import 'package:loam/src/rules/a11y_image_label_rule.dart';
+import 'package:loam/src/rules/a11y_interactive_semantics_rule.dart';
 import 'package:loam/src/rules/circular_dependencies_rule.dart';
 import 'package:loam/src/rules/complexity_hotspots_rule.dart';
 import 'package:loam/src/rules/unused_public_exports_rule.dart';
@@ -259,6 +266,102 @@ void main() {
           'Self-dogfooding failed: a11y-image-label reported '
           '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
           'Per PRD §12, tighten the library URI check rather than adding '
+          'suppression:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  test(
+    'dogfooding: a11y-icon-button-label reports 0 findings on loam_cli/lib + bin',
+    () {
+      final rule = A11yIconButtonLabelRule(projectRoot: loamCliRoot);
+      final rawFindings = rule.run(loadResult);
+
+      // Exclude test/fixtures/**: the a11y_icon_button_label_fixture
+      // intentionally contains Flutter IconButton/GestureDetector stubs (the
+      // rule's own test corpus). Only lib/ and bin/ must be clean.
+      final findings = rawFindings.where((f) {
+        final rel = f.filePath;
+        return !rel.startsWith('test${p.separator}fixtures') &&
+            !rel.startsWith('test/fixtures');
+      }).toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: a11y-icon-button-label reported '
+          '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
+          'Per PRD §12, tighten the element-model check rather than adding '
+          'suppression:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  test(
+    'dogfooding: a11y-form-field-label reports 0 findings on loam_cli/lib + bin',
+    () {
+      final rule = A11yFormFieldLabelRule(projectRoot: loamCliRoot);
+      final rawFindings = rule.run(loadResult);
+
+      // Exclude test/fixtures/**: the a11y_form_field_label_fixture
+      // intentionally contains Flutter TextField/TextFormField stubs (the
+      // rule's own test corpus). Only lib/ and bin/ must be clean.
+      final findings = rawFindings.where((f) {
+        final rel = f.filePath;
+        return !rel.startsWith('test${p.separator}fixtures') &&
+            !rel.startsWith('test/fixtures');
+      }).toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: a11y-form-field-label reported '
+          '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
+          'Per PRD §12, tighten the element-model check rather than adding '
+          'suppression:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  test(
+    'dogfooding: a11y-interactive-semantics reports 0 findings on loam_cli/lib + bin',
+    () {
+      final rule = A11yInteractiveSemanticsRule(projectRoot: loamCliRoot);
+      final rawFindings = rule.run(loadResult);
+
+      // Exclude test/fixtures/**: the a11y_interactive_semantics_fixture
+      // intentionally contains custom interactive-widget stubs (the rule's own
+      // test corpus). Only lib/ and bin/ (production code) must be clean.
+      // This is the standing guard against the 148-false-positive regression
+      // the productive test (issue 06) fixed: if the package:flutter exclusion
+      // ever re-broadens or breaks, this fails on loam_cli's own sources.
+      final findings = rawFindings.where((f) {
+        final rel = f.filePath;
+        return !rel.startsWith('test${p.separator}fixtures') &&
+            !rel.startsWith('test/fixtures');
+      }).toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: a11y-interactive-semantics reported '
+          '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
+          'Per PRD §12, tighten the element-model check rather than adding '
           'suppression:\n$details',
         );
       }
