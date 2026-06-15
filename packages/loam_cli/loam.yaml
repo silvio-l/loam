@@ -1,0 +1,14 @@
+# loam's own self-dogfood configuration.
+#
+# The dogfood gate (`loam gate --absolute --project-root .`, run by the
+# pre-push hook and the QA workflow) analyses this package with loam itself.
+# The a11y and slop rules scan every loaded source file — including the
+# test/fixtures/* mini-packages, which deliberately contain accessibility and
+# slop violations so the rules have something to detect. Those intentional
+# violations are test inputs, not shippable code, so they must not turn the
+# self-gate red.
+#
+# This mirrors exactly what `test/rules/dogfooding_test.dart` already applies
+# programmatically (`ignoreGlobs: ['test/**']`). Keep the two in lockstep.
+ignore:
+  - test/**

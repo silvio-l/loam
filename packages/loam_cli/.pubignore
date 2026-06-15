@@ -2,3 +2,8 @@
 # (no pubspec deps) — needed for `dart test`, not for consumers. Excluding
 # them keeps the published archive clean (no analysis warnings) and small.
 test/fixtures/
+
+# loam's own self-dogfood config (excludes test/** from the self-gate). It
+# configures loam analysing loam, not consumers analysing their projects, so
+# it has no place in the published archive.
+loam.yaml
