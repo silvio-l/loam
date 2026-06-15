@@ -151,6 +151,42 @@ Image.asset('assets/divider.png',
   excludeFromSemantics: true)`}
       />
 
+      <RuleCard
+        ruleId="a11y-icon-button-label"
+        title="Icon button without accessible name"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Flags Flutter IconButton widgets that have no tooltip and are not wrapped in a Semantics(label: …) ancestor, and GestureDetector/InkWell widgets whose direct child is a pure Icon widget with the same omission. WCAG 4.1.2 (Name, Role, Value) requires every interactive control to have a programmatically determinable name. Analysis runs on the resolved element model — local classes named IconButton are never flagged. AST-only: composite icon children and dynamic tooltip values are out of scope."
+        slopCode={`// no tooltip — screen reader announces nothing
+IconButton(
+  icon: Icon(Icons.close),
+  onPressed: () => Navigator.pop(context),
+)
+
+// GestureDetector with bare Icon child — same problem
+GestureDetector(
+  child: Icon(Icons.delete),
+  onTap: () => deleteItem(),
+)`}
+        cleanCode={`// tooltip provides the accessible name
+IconButton(
+  icon: Icon(Icons.close),
+  tooltip: 'Close',
+  onPressed: () => Navigator.pop(context),
+)
+
+// or wrap with Semantics for GestureDetector/InkWell
+Semantics(
+  label: 'Delete item',
+  child: GestureDetector(
+    child: Icon(Icons.delete),
+    onTap: () => deleteItem(),
+  ),
+)`}
+      />
+
       <div class="deeper-box">
         <h3>Going deeper</h3>
         <p>

@@ -29,4 +29,17 @@ class WcagRef {
     title: 'Non-text Content',
     url: 'https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html',
   );
+
+  /// WCAG 4.1.2 Name, Role, Value.
+  ///
+  /// For all user interface components, the name and role can be
+  /// programmatically determined; states, properties, and values that can be
+  /// set by the user can be programmatically set; and notification of changes
+  /// to these items is available to user agents, including assistive
+  /// technologies.
+  static const wcag412 = WcagRef(
+    number: '4.1.2',
+    title: 'Name, Role, Value',
+    url: 'https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html',
+  );
 }

@@ -53,6 +53,7 @@ Currently active rules:
 
 | Rule ID | What it finds |
 |---|---|
+| `a11y-icon-button-label` | Flutter `IconButton` without a `tooltip:` argument and without an enclosing `Semantics(label: …)`, and `GestureDetector`/`InkWell` whose direct `child:` argument is a pure `Icon` and that likewise lacks an enclosing `Semantics(label: …)` — WCAG 4.1.2 Name, Role, Value. Uses the resolved element model; local classes named `IconButton` are never flagged. AST-only: out of scope are composite icon children, dynamic tooltip values, and custom accessible-name mechanisms. |
 | `a11y-image-label` | Flutter `Image` widgets (`Image()`, `Image.asset`, `Image.network`, `Image.file`, `Image.memory`) without `semanticLabel` or `excludeFromSemantics: true` — WCAG 1.1.1 Non-text Content. Uses the resolved element model to identify Flutter's `Image`, not regex. AST-only: out of scope are runtime contrast, focus order, and touch-target sizes. |
 | `circular-dependencies` | Circular import/export chains between first-party `lib/` libraries — one finding per strongly connected component, naming all files in the loop. |
 | `code-duplicates` | Structurally identical code blocks over the resolved AST (token-normalised, Rabin-Karp clustered); detects Type-1 (exact) and Type-2 (renamed identifiers/literals) duplicates project-wide. One finding per cluster listing all locations, with a stable fingerprint that survives line shifts. |
@@ -237,9 +238,12 @@ loam scan --no-a11y                # skip all accessibility-category rules
 Or add `a11y: false` to `loam.yaml` for a repo-wide default. Precedence:
 `--no-a11y` (CLI) > `a11y: false` (loam.yaml) > default (on).
 
-The first accessibility rule is `a11y-image-label` (WCAG 1.1.1 Non-text Content),
-which flags Flutter `Image` widgets without `semanticLabel` or
-`excludeFromSemantics: true`. See the "Currently active rules" table above.
+Two accessibility rules are currently active: `a11y-image-label` (WCAG 1.1.1
+Non-text Content), which flags Flutter `Image` widgets without `semanticLabel`
+or `excludeFromSemantics: true`; and `a11y-icon-button-label` (WCAG 4.1.2 Name,
+Role, Value), which flags `IconButton` without `tooltip` and `GestureDetector`/
+`InkWell` with a pure `Icon` child when no `Semantics(label: …)` ancestor
+provides an accessible name. See the "Currently active rules" table above.
 
 ### `loam init`
 

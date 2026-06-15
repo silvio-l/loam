@@ -1,9 +1,8 @@
-/// Minimal stub of Flutter's Image widget for loam.dev test fixtures.
+/// Minimal stubs of Flutter widgets for loam.dev test fixtures.
 ///
-/// Only the named parameters relevant to the `a11y-image-label` rule are
-/// included — [semanticLabel] and [excludeFromSemantics]. All positional
-/// parameters are typed as [Object?] to avoid importing anything from the
-/// Flutter framework.
+/// Only the named parameters relevant to the accessibility rules are included.
+/// All positional parameters are typed as [Object?] to avoid importing
+/// anything from the Flutter framework.
 ///
 /// IMPORTANT: Named constructors (`Image.asset`, `Image.network`, `Image.file`,
 /// `Image.memory`) are declared as **factory constructors** (not static methods)
@@ -80,4 +79,86 @@ class Image {
       excludeFromSemantics: excludeFromSemantics,
     );
   }
+}
+
+/// Stub of Flutter's `Icon` widget.
+///
+/// Used by the `a11y-icon-button-label` rule to detect pure-icon children of
+/// interactive widgets ([GestureDetector], [InkWell]).
+class Icon {
+  /// Creates an [Icon].
+  const Icon(this.icon);
+
+  /// The icon data (e.g. an `IconData` instance in real Flutter).
+  final Object? icon;
+}
+
+/// Stub of Flutter's `IconButton` widget.
+///
+/// The loam.dev `a11y-icon-button-label` rule checks that every instantiation
+/// either carries a [tooltip] (accessible label for assistive technologies) or
+/// is enclosed in a [Semantics] widget with a non-null [Semantics.label].
+class IconButton {
+  /// Creates an [IconButton].
+  const IconButton({required this.icon, this.onPressed, this.tooltip});
+
+  /// The icon to display inside the button.
+  final Object icon;
+
+  /// Called when the button is tapped or activated.
+  final void Function()? onPressed;
+
+  /// Text displayed in a tooltip and used as the accessible label.
+  ///
+  /// When non-null, screen readers announce this text for the button.
+  final String? tooltip;
+}
+
+/// Stub of Flutter's `GestureDetector` widget.
+///
+/// The loam.dev `a11y-icon-button-label` rule flags a [GestureDetector] whose
+/// [child] resolves to a pure [Icon] and that is not enclosed in a [Semantics]
+/// widget with a non-null [Semantics.label].
+class GestureDetector {
+  /// Creates a [GestureDetector].
+  const GestureDetector({this.child, this.onTap});
+
+  /// The widget subtree to detect gestures on.
+  final Object? child;
+
+  /// Called when a tap occurs.
+  final void Function()? onTap;
+}
+
+/// Stub of Flutter's `InkWell` widget.
+///
+/// The loam.dev `a11y-icon-button-label` rule flags an [InkWell] whose [child]
+/// resolves to a pure [Icon] and that is not enclosed in a [Semantics] widget
+/// with a non-null [Semantics.label].
+class InkWell {
+  /// Creates an [InkWell].
+  const InkWell({this.child, this.onTap});
+
+  /// The widget subtree that receives ink splashes.
+  final Object? child;
+
+  /// Called when a tap occurs.
+  final void Function()? onTap;
+}
+
+/// Stub of Flutter's `Semantics` widget.
+///
+/// When [label] is non-null, this widget provides an accessible name to
+/// assistive technologies for its [child] subtree. The loam.dev
+/// `a11y-icon-button-label` rule treats any [Semantics] ancestor with a
+/// non-null [label] as a sufficient accessible-name source.
+class Semantics {
+  /// Creates a [Semantics] widget.
+  const Semantics({this.label, this.child});
+
+  /// A textual description of the widget subtree for accessibility.
+  final String? label;
+
+  /// The widget below this widget in the tree.
+  final Object? child;
 }
