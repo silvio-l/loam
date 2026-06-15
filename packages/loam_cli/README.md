@@ -21,15 +21,16 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.10.** Seven rules are live end to end — `unused-public-exports`,
+> **0.1.10.** Eight rules are live end to end — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-> `a11y-form-field-label`, `a11y-image-label` and `a11y-icon-button-label` —
-> plus the `loam health` view. The remaining capabilities below are on the
-> roadmap, each landing as its own rule behind the same stable `Rule` interface.
+> `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label` and
+> `a11y-interactive-semantics` — plus the `loam health` view. The remaining
+> capabilities below are on the roadmap, each landing as its own rule behind the
+> same stable `Rule` interface.
 
 ## What it catches
 
-**Available now (0.1.10) — six live rules:** project-wide **unused public API**
+**Available now (0.1.10) — eight live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
@@ -37,9 +38,10 @@ with all locations), **complexity hotspots**
 (cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
 `bin/` by default — configure with `source_dirs` in `loam.yaml`), and
 **accessibility** (WCAG 1.1.1 — Flutter images without a semantic label;
-WCAG 4.1.2 — icon buttons and gesture/ink-well widgets without an accessible
-name) — emitted as Findings behind the baseline/ratchet gate, in `human`,
-`sarif`, `json`, `markdown` or `html`.
+WCAG 4.1.2 — icon buttons, gesture/ink-well widgets with a pure icon child, and
+generic interactive widgets without an accessible name; WCAG 3.3.2 — form fields
+without a label) — emitted as Findings behind the baseline/ratchet gate, in
+`human`, `sarif`, `json`, `markdown` or `html`.
 
 Everything else is the **target surface** (🚧 = planned):
 
@@ -48,7 +50,7 @@ Everything else is the **target surface** (🚧 = planned):
 | ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
 | ✅ Circular dependencies | 🚧 Narrative filler comments | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
 | ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
-| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | |
+| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 
 ## What makes it different
@@ -109,10 +111,10 @@ option overrides the positional path when both are given.
 
 ## Status
 
-Functional release — seven analysis rules live (`unused-public-exports`,
+Functional release — eight analysis rules live (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-`a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`) plus
-the `loam health` view;
+`a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
+`a11y-interactive-semantics`) plus the `loam health` view;
 the remaining capabilities land as individual rules behind the same `Rule`
 interface. Founding spec, domain
 glossary and architecture decisions live in the

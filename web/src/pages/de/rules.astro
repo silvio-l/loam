@@ -20,9 +20,9 @@ const cleanLabel = t(lang, 'rules.clean.label');
     <h1>Rules</h1>
 
     <p class="lead">
-      loam.dev bietet sieben Analyse-Fähigkeiten, alle hinter einem stabilen
+      loam.dev bietet acht Analyse-Fähigkeiten, alle hinter einem stabilen
       <code>Rule</code>-Interface. Eine neue Rule hinzuzufügen ändert die
-      Pipeline nicht — nur die Rule-Liste. Fünf Rules sind heute live,
+      Pipeline nicht — nur die Rule-Liste. Sechs Rules sind heute live,
       zwei sind geplant und erscheinen als Post-MVP-Iterationen.
       Der Status ist immer ehrlich angegeben.
     </p>
@@ -217,6 +217,39 @@ Semantics(
     child: Icon(Icons.delete),
     onTap: () => deleteItem(),
   ),
+)`}
+      />
+
+      <RuleCard
+        ruleId="a11y-interactive-semantics"
+        title="Interaktives Widget ohne Semantik"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet generische und benutzerdefinierte (nicht-Flutter-)Widgets, die einen onTap-, onPressed- oder onLongPress-Callback tragen, aber keinen umschließenden Semantics(label: …)-Vorfahren haben. WCAG 4.1.2 (Name, Role, Value) verlangt, dass jedes interaktive Steuerelement einen programmatisch bestimmbaren Namen hat. Die Analyse läuft auf dem aufgelösten Element-Model — Flutter-Built-in-Widgets, die bereits von Geschwister-Rules erfasst werden (IconButton, GestureDetector, InkWell, TextField, TextFormField), sind aus dieser Rule ausgeschlossen. Rein AST-basiert: außerhalb des Scope sind Widgets, die über vererbte Callbacks interaktiv werden, benutzerdefinierte Gesture-Recognizer, die die genannten Parameternamen umgehen, und Accessible-Name-Mechanismen außer Semantics(label: …)."
+        slopCode={`// Custom-Karte ohne Semantics — Screen Reader hat keinen Namen
+CustomCard(
+  onTap: () => showDetails(item),
+)
+
+// Custom-Button mit onPressed — ebenfalls unbenannt
+ActionChip(
+  onPressed: () => doAction(),
+)`}
+        cleanCode={`// mit Semantics umschließen, um einen zugänglichen Namen zu geben
+Semantics(
+  label: 'Details anzeigen',
+  button: true,
+  child: CustomCard(
+    onTap: () => showDetails(item),
+  ),
+)
+
+// oder ein Widget wählen, das label nativ unterstützt
+ActionChip(
+  label: Text('Aktion ausführen'),
+  onPressed: () => doAction(),
 )`}
       />
 

@@ -12,6 +12,7 @@ import '../report/reporter.dart' show ScanStats;
 import '../rules/a11y_form_field_label_rule.dart';
 import '../rules/a11y_icon_button_label_rule.dart';
 import '../rules/a11y_image_label_rule.dart';
+import '../rules/a11y_interactive_semantics_rule.dart';
 import '../rules/circular_dependencies_rule.dart';
 import '../rules/code_duplicates_rule.dart';
 import '../rules/complexity_hotspots_rule.dart';
@@ -58,7 +59,8 @@ class AnalysisOutcome {
 /// sorted results.
 ///
 /// Active registry: [A11yFormFieldLabelRule], [A11yIconButtonLabelRule],
-/// [A11yImageLabelRule], [CircularDependenciesRule], [CodeDuplicatesRule],
+/// [A11yImageLabelRule], [A11yInteractiveSemanticsRule],
+/// [CircularDependenciesRule], [CodeDuplicatesRule],
 /// [ComplexityHotspotsRule], [UnusedPublicExportsRule].
 ///
 /// Sort key (stable, in order): [Finding.filePath], [Finding.line],
@@ -106,6 +108,7 @@ class AnalysisRunner {
     'a11y-form-field-label',
     'a11y-icon-button-label',
     'a11y-image-label',
+    'a11y-interactive-semantics',
     'circular-dependencies',
     'code-duplicates',
     'complexity-hotspots',
@@ -121,6 +124,7 @@ class AnalysisRunner {
     'a11y-form-field-label': RuleCategory.accessibility,
     'a11y-icon-button-label': RuleCategory.accessibility,
     'a11y-image-label': RuleCategory.accessibility,
+    'a11y-interactive-semantics': RuleCategory.accessibility,
     'circular-dependencies': RuleCategory.drift,
     'code-duplicates': RuleCategory.drift,
     'complexity-hotspots': RuleCategory.drift,
@@ -329,6 +333,8 @@ class AnalysisRunner {
         A11yIconButtonLabelRule(projectRoot: root),
       if (effectiveIds.contains('a11y-image-label'))
         A11yImageLabelRule(projectRoot: root),
+      if (effectiveIds.contains('a11y-interactive-semantics'))
+        A11yInteractiveSemanticsRule(projectRoot: root),
       if (effectiveIds.contains('circular-dependencies'))
         CircularDependenciesRule(projectRoot: root),
       if (effectiveIds.contains('code-duplicates'))

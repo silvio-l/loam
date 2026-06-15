@@ -20,9 +20,9 @@ const cleanLabel = t(lang, 'rules.clean.label');
     <h1>Rules</h1>
 
     <p class="lead">
-      loam.dev ships seven analysis capabilities, all behind one stable
+      loam.dev ships eight analysis capabilities, all behind one stable
       <code>Rule</code> interface. Adding a new rule never changes the pipeline —
-      only the rule list. Five rules are live today; two are planned and will
+      only the rule list. Six rules are live today; two are planned and will
       ship as post-MVP iterations. Status is always honest.
     </p>
 
@@ -216,6 +216,39 @@ Semantics(
     child: Icon(Icons.delete),
     onTap: () => deleteItem(),
   ),
+)`}
+      />
+
+      <RuleCard
+        ruleId="a11y-interactive-semantics"
+        title="Interactive widget without semantics"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Flags generic and custom (non-Flutter) interactive widgets that carry an onTap, onPressed, or onLongPress callback but have no enclosing Semantics(label: …) ancestor. WCAG 4.1.2 (Name, Role, Value) requires every interactive control to have a programmatically determinable name. Analysis runs on the resolved element model — Flutter built-in widgets already covered by sibling rules (IconButton, GestureDetector, InkWell, TextField, TextFormField) are excluded from this rule. AST-only: out of scope are widgets that become interactive via inherited callbacks, custom gesture recognisers that bypass the named parameters, and accessible-name mechanisms other than Semantics(label: …)."
+        slopCode={`// custom tappable card — screen reader has no label
+CustomCard(
+  onTap: () => showDetails(item),
+)
+
+// custom button with onPressed — also unnamed
+ActionChip(
+  onPressed: () => doAction(),
+)`}
+        cleanCode={`// wrap with Semantics to give it an accessible name
+Semantics(
+  label: 'Show item details',
+  button: true,
+  child: CustomCard(
+    onTap: () => showDetails(item),
+  ),
+)
+
+// or ensure the widget carries a label-providing property
+ActionChip(
+  label: Text('Do action'),
+  onPressed: () => doAction(),
 )`}
       />
 

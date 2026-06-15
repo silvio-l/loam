@@ -1,0 +1,11 @@
+name: a11y_interactive_semantics_fixture
+description: "Test fixture for A11yInteractiveSemanticsRule tests."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    path: ../flutter_stub

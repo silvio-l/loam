@@ -150,15 +150,22 @@ class InkWell {
 ///
 /// When [label] is non-null, this widget provides an accessible name to
 /// assistive technologies for its [child] subtree. The loam.dev
-/// `a11y-icon-button-label` and `a11y-form-field-label` rules treat any
-/// [Semantics] ancestor with a non-null [label] as a sufficient
-/// accessible-name source.
+/// `a11y-icon-button-label`, `a11y-form-field-label`, and
+/// `a11y-interactive-semantics` rules treat any [Semantics] ancestor with a
+/// non-null [label] as a sufficient accessible-name source.
 class Semantics {
   /// Creates a [Semantics] widget.
-  const Semantics({this.label, this.child});
+  const Semantics({this.label, this.button, this.child});
 
   /// A textual description of the widget subtree for accessibility.
   final String? label;
+
+  /// Whether the widget is a button.
+  ///
+  /// When `true`, assistive technologies announce the widget as a button.
+  /// Used alongside [label] in the remedy for `a11y-interactive-semantics`:
+  /// `Semantics(label: '…', button: true)`.
+  final bool? button;
 
   /// The widget below this widget in the tree.
   final Object? child;

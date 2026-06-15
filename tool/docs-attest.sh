@@ -493,9 +493,10 @@ check_pubspec_rules() {
   # Leerer Rückgabewert = kein Stichwort hinterlegt (Selbst-Erzwingung greift).
   rule_keyword() {
     case "$1" in
-      a11y-form-field-label) echo "a11y" ;;
-      a11y-icon-button-label) echo "a11y" ;;
-      a11y-image-label)      echo "a11y" ;;
+      a11y-form-field-label)          echo "a11y" ;;
+      a11y-icon-button-label)         echo "a11y" ;;
+      a11y-image-label)               echo "a11y" ;;
+      a11y-interactive-semantics)     echo "a11y" ;;
       unused-public-exports) echo "unused" ;;
       circular-dependencies) echo "circular" ;;
       code-duplicates)       echo "duplicat" ;;
