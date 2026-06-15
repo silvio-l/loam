@@ -112,9 +112,15 @@ abstract final class SuppressionEngine {
   ///
   /// Uses forward slashes so that patterns like `test/fixtures/**` work
   /// identically on all platforms (Invariant 5).
-  static String _relativise(String absolutePath, String projectRoot) {
-    // Normalise both paths before computing the relative path.
-    final rel = p.relative(absolutePath, from: projectRoot);
+  static String _relativise(String path, String projectRoot) {
+    // Findings carry a project-relative [Finding.filePath] (see the Finding
+    // doc and every rule). Only relativise when the path is absolute — calling
+    // p.relative() on an already-relative path would resolve it against the
+    // process CWD, silently breaking glob suppression whenever loam runs from a
+    // different directory than the analysed root (e.g. `loam gate
+    // --project-root sub` from the repo root, or in CI). Mirrors the reporter's
+    // `p.isAbsolute(rawPath) ? p.relative(...) : rawPath` logic.
+    final rel = p.isAbsolute(path) ? p.relative(path, from: projectRoot) : path;
     // Convert to forward-slash form for cross-platform glob matching.
     return p.posix.joinAll(p.split(rel));
   }

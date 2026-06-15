@@ -76,6 +76,32 @@ void main() {
       expect(result.first.filePath, equals(kept.filePath));
     });
 
+    test('suppresses RELATIVE finding paths regardless of process CWD '
+        '(findings carry project-relative paths; projectRoot != cwd)', () {
+      // Real findings carry a project-relative filePath (see Finding doc and
+      // every rule, e.g. A11yImageLabelRule stores p.relative(...)). The
+      // engine must match the glob against that relative path WITHOUT
+      // re-relativising it against the process CWD — otherwise suppression
+      // silently breaks whenever loam runs from a different directory than
+      // the analysed root (e.g. `loam gate --project-root sub` from the repo
+      // root, or in CI). projectRoot here is deliberately NOT the test's cwd.
+      final config = LoamConfig(
+        ruleToggles: const {},
+        ignoreGlobs: const ['test/**'],
+      );
+      final kept = _finding(filePath: 'lib/foo.dart');
+      final suppressed = _finding(filePath: 'test/fixtures/bar.dart');
+
+      final result = SuppressionEngine.filter(
+        [kept, suppressed],
+        config,
+        '/some/absolute/project/root/that/is/not/cwd',
+      );
+
+      expect(result, hasLength(1));
+      expect(result.first.filePath, equals('lib/foo.dart'));
+    });
+
     test('keeps findings in files NOT matched by any glob', () {
       final config = LoamConfig(
         ruleToggles: const {},
