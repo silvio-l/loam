@@ -113,6 +113,7 @@ String? resolveDartSdkPath({
       // Resolve symlinks so e.g. /opt/homebrew/bin/dart points at the real
       // <sdk>/bin/dart inside the Cellar/libexec.
       dartExe = File(dartExe).resolveSymbolicLinksSync();
+      // loam-ignore: slop-empty-catch – symlink resolution failure is non-fatal; fall back to the unresolved path as documented above.
     } on FileSystemException {
       // Fall back to the unresolved path if symlink resolution fails.
     }
@@ -169,6 +170,7 @@ String? _whichDart() {
         return out.split(RegExp(r'\r?\n')).first.trim();
       }
     }
+    // loam-ignore: slop-empty-catch – ProcessException means `which`/`where` is unavailable on this platform; falling through to null is the correct behaviour.
   } on ProcessException {
     // `which`/`where` unavailable — fall through to null.
   }

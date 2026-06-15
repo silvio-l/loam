@@ -98,6 +98,7 @@ class FileUpdateCheckCache implements UpdateCheckCache {
         'checkedAt': entry.checkedAt.toIso8601String(),
       });
       File(_cachePath).writeAsStringSync(content);
+      // loam-ignore: slop-empty-catch – cache write failure is non-fatal; silently swallow to avoid crashing the update-check on non-writable directories.
     } catch (_) {
       // Silently swallow write errors (non-writable directory, etc.).
     }

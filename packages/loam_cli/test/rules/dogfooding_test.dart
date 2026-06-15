@@ -5,7 +5,8 @@ library;
 /// (UnusedPublicExportsRule, CircularDependenciesRule, CodeDuplicatesRule,
 /// ComplexityHotspotsRule), the four accessibility rules (a11y-image-label,
 /// a11y-icon-button-label, a11y-form-field-label, a11y-interactive-semantics),
-/// and the first slop rule (slop-unjustified-ignore) —
+/// and all three slop rules (slop-unjustified-ignore, slop-empty-catch,
+/// slop-narrative-comment) —
 /// over the loam_cli package itself (packages/loam_cli/) and asserts zero
 /// findings on production code (lib/ + bin/) for each. loam is run against
 /// itself as a standing baseline, not only against external repos.
@@ -25,6 +26,8 @@ import 'package:loam/src/rules/a11y_image_label_rule.dart';
 import 'package:loam/src/rules/a11y_interactive_semantics_rule.dart';
 import 'package:loam/src/rules/circular_dependencies_rule.dart';
 import 'package:loam/src/rules/complexity_hotspots_rule.dart';
+import 'package:loam/src/rules/slop_empty_catch_rule.dart';
+import 'package:loam/src/rules/slop_narrative_comment_rule.dart';
 import 'package:loam/src/rules/slop_unjustified_ignore_rule.dart';
 import 'package:loam/src/rules/unused_public_exports_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
@@ -407,6 +410,99 @@ void main() {
           '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
           'Per PRD §12, add a justification comment or fix the underlying issue:\n'
           '$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // slop-empty-catch: 0 unsuppressed findings on loam_cli/lib + bin.
+  //
+  // The loam_cli production code has a handful of intentional comment-only
+  // catch blocks (symlink fallback, update-check swallow, cache-write swallow).
+  // Each carries a `// loam-ignore: slop-empty-catch – <reason>` directive
+  // on the line immediately before the `} catch` line. This test runs via
+  // AnalysisRunner so those inline suppressions are honoured.
+  //
+  // test/** is excluded via ignore_globs: the slop_empty_catch_fixture
+  // intentionally contains bare catch blocks as the rule's own test corpus.
+  //
+  // Per PRD §12: if this test fails, either add a loam-ignore with a
+  // documented reason, add real error handling, or rethrow the exception.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'dogfooding: slop-empty-catch reports 0 unsuppressed findings on loam_cli/lib + bin',
+    () async {
+      // AnalysisRunner honours inline suppressions; direct Rule.run does not.
+      // test/** excluded so the fixture corpus does not count.
+      final config = LoamConfig(
+        ruleToggles: const {},
+        ignoreGlobs: const ['test/**'],
+      );
+      final runner = AnalysisRunner(config: config);
+      final allFindings = await runner.run(loamCliRoot);
+      final findings = allFindings
+          .where((f) => f.ruleId == SlopEmptyCatchRule.ruleIdStatic)
+          .toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: slop-empty-catch reported '
+          '${findings.length} unsuppressed finding(s) on loam_cli/lib + bin. '
+          'Per PRD §12, either add a loam-ignore with a documented reason, '
+          'add real error handling, or rethrow the exception:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // slop-narrative-comment: 0 findings on loam_cli/lib + bin.
+  //
+  // loam_cli production code must carry no // comments that trivially restate
+  // a declaration name. Any such comment is either slop or should be turned
+  // into a /// Dart-doc comment with real documentation.
+  //
+  // test/fixtures/** is excluded because the slop_narrative_comment_fixture
+  // intentionally contains name-restatement comments as the rule's own
+  // test corpus.
+  //
+  // Per PRD §12: if this test fails, remove the trivial comment or replace it
+  // with a /// Dart-doc comment that adds real information.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'dogfooding: slop-narrative-comment reports 0 findings on loam_cli/lib + bin',
+    () {
+      final rule = SlopNarrativeCommentRule(projectRoot: loamCliRoot);
+      final rawFindings = rule.run(loadResult);
+
+      // Exclude test/fixtures/**: the slop_narrative_comment_fixture
+      // intentionally contains name-restatement comments as the rule's own
+      // test corpus. Only lib/ and bin/ (production code) must be clean.
+      final findings = rawFindings.where((f) {
+        final rel = f.filePath;
+        return !rel.startsWith('test${p.separator}fixtures') &&
+            !rel.startsWith('test/fixtures');
+      }).toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: slop-narrative-comment reported '
+          '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
+          'Per PRD §12, remove the trivial comment or replace it with a '
+          '/// Dart-doc comment that adds real information:\n$details',
         );
       }
 

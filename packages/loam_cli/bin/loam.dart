@@ -160,6 +160,7 @@ Future<int> run(List<String> args) async {
     try {
       final config = await _loadConfig(Directory.current.path);
       configUpdateCheck = config.updateCheck;
+      // loam-ignore: slop-empty-catch – config-load failure was already surfaced via ConfigLoadException above; swallowing here keeps the update-notice path non-blocking.
     } catch (_) {
       // Config load failure → use default (on). The command itself already
       // surfaced the error via the ConfigLoadException path above.
@@ -172,6 +173,7 @@ Future<int> run(List<String> args) async {
     if (notice != null) {
       stderr.writeln(formatUpdateNotice(notice));
     }
+    // loam-ignore: slop-empty-catch – update-check errors are non-fatal; the notice is optional and must never affect the exit code (ADR-0004).
   } catch (_) {
     // Silently swallow any unexpected error — notice is optional.
   }
