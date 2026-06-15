@@ -497,11 +497,12 @@ check_pubspec_rules() {
       a11y-icon-button-label)         echo "a11y" ;;
       a11y-image-label)               echo "a11y" ;;
       a11y-interactive-semantics)     echo "a11y" ;;
-      unused-public-exports) echo "unused" ;;
-      circular-dependencies) echo "circular" ;;
-      code-duplicates)       echo "duplicat" ;;
-      complexity-hotspots)   echo "complexity" ;;
-      *)                     echo "" ;;
+      unused-public-exports)   echo "unused" ;;
+      circular-dependencies)   echo "circular" ;;
+      code-duplicates)         echo "duplicat" ;;
+      complexity-hotspots)     echo "complexity" ;;
+      slop-unjustified-ignore) echo "ignore" ;;
+      *)                       echo "" ;;
     esac
   }
 

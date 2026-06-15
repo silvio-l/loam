@@ -16,6 +16,7 @@ import '../rules/a11y_interactive_semantics_rule.dart';
 import '../rules/circular_dependencies_rule.dart';
 import '../rules/code_duplicates_rule.dart';
 import '../rules/complexity_hotspots_rule.dart';
+import '../rules/slop_unjustified_ignore_rule.dart';
 import '../rules/unused_public_exports_rule.dart';
 import '../suppression/inline_suppression_scanner.dart';
 import '../suppression/suppression_engine.dart';
@@ -112,6 +113,7 @@ class AnalysisRunner {
     'circular-dependencies',
     'code-duplicates',
     'complexity-hotspots',
+    'slop-unjustified-ignore',
     'unused-public-exports',
   ];
 
@@ -128,6 +130,7 @@ class AnalysisRunner {
     'circular-dependencies': RuleCategory.drift,
     'code-duplicates': RuleCategory.drift,
     'complexity-hotspots': RuleCategory.drift,
+    'slop-unjustified-ignore': RuleCategory.slop,
     'unused-public-exports': RuleCategory.drift,
   };
 
@@ -348,6 +351,8 @@ class AnalysisRunner {
           projectRoot: root,
           sourceDirs: config.sourceDirs,
         ),
+      if (effectiveIds.contains('slop-unjustified-ignore'))
+        SlopUnjustifiedIgnoreRule(projectRoot: root),
       if (effectiveIds.contains('unused-public-exports'))
         UnusedPublicExportsRule(projectRoot: root),
     ];

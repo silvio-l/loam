@@ -106,9 +106,16 @@ void main() {
       }
     });
 
-    test('slop subcommand → exit 0 (stub)', () async {
-      final code = await cli.run(['slop']);
-      expect(code, equals(0));
+    // slop is now implemented: exit 0 only when no slop findings are present.
+    // Use a clean temporary project so the test is deterministic.
+    test('slop subcommand → exit 0 on clean project (implemented)', () async {
+      final dir = _makeCleanProject();
+      try {
+        final code = await cli.run(['slop', '--project-root', dir.path]);
+        expect(code, equals(0));
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
     });
 
     test(
@@ -140,8 +147,8 @@ void main() {
   group('CLI surface smoke test (AC1 + AC5)', () {
     // AC1: --help lists all 7 commands.
     // AC5 (stub commands only): all remaining stubs exit 0 + emit
-    // "not yet implemented". scan is now implemented and excluded from those
-    // expectations.
+    // "not yet implemented". scan, slop, baseline, gate, init, and health are
+    // now implemented and excluded from stub expectations.
     const allCommands = [
       'scan',
       'health',
@@ -152,8 +159,8 @@ void main() {
       'fix',
     ];
 
-    // Stub commands (everything except scan, baseline, gate, init, and health which are now implemented).
-    const stubCommands = ['slop', 'fix'];
+    // Stub commands (only fix remains unimplemented).
+    const stubCommands = ['fix'];
 
     test('all seven commands are registered (--help lists them)', () {
       final entrypoint = '${Directory.current.path}/bin/loam.dart';

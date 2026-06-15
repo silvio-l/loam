@@ -144,8 +144,8 @@ void main() {
         }
         // Entferne das "unused"-Stichwort aus der description (temporäre Kopie).
         final mutated = pubspec.readAsStringSync().replaceAll(
-          'finds unused public API',
-          'finds public API',
+          'unused public API',
+          'public API',
         );
         final r = runWithPubspec(mutated);
         expect(

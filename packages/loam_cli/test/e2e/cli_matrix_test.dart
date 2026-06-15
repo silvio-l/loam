@@ -150,10 +150,18 @@ environment:
     });
   });
 
-  group('stub commands → EX_USAGE (64)', () {
-    test('slop → exit 64', () async {
-      expect(await cli.run(['slop', '--project-root', fix]), 64);
+  group('slop', () {
+    // The unused_exports_fixture has // ignore: directives, but each is preceded
+    // by a doc comment (/// …) which the rule accepts as justification → 0 findings.
+    test('slop on fixture (all ignores justified) → exit 0', () async {
+      expect(await cli.run(['slop', '--project-root', fix]), 0);
     });
+    test('slop on clean project → exit 0', () async {
+      expect(await cli.run(['slop', '--project-root', clean.path]), 0);
+    });
+  });
+
+  group('stub commands → EX_USAGE (64)', () {
     test('fix → exit 64', () async {
       expect(await cli.run(['fix', '--project-root', fix]), 64);
     });

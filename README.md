@@ -47,18 +47,19 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.10) — eight live rules:** project-wide **unused public API**
+**Available now (0.1.10) — nine live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
 with all locations), **complexity hotspots**
 (cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
-`bin/` by default — configure with `source_dirs` in `loam.yaml`), and
-**accessibility** (WCAG 1.1.1 — Flutter images without a semantic label;
-WCAG 4.1.2 — icon buttons, gesture/ink-well with pure icon child, and generic
-interactive widgets without an accessible name; WCAG 3.3.2 — form fields without
-a label). All on the resolved Dart element model — not regex — behind the
-baseline/ratchet gate.
+`bin/` by default — configure with `source_dirs` in `loam.yaml`), **AI-slop**
+(`slop-unjustified-ignore` — `// ignore:` and `// ignore_for_file:` directives
+without a written justification), and **accessibility** (WCAG 1.1.1 — Flutter
+images without a semantic label; WCAG 4.1.2 — icon buttons, gesture/ink-well
+with pure icon child, and generic interactive widgets without an accessible name;
+WCAG 3.3.2 — form fields without a label). All on the resolved Dart element model
+— not regex — behind the baseline/ratchet gate.
 
 Everything else is the **target surface**: each lands as one plugin behind a
 single, stable `Rule` interface, so adding a feature never changes the pipeline
@@ -66,9 +67,9 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 | Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) | Accessibility (WCAG, semantic) |
 |---|---|---|
-| ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
-| ✅ Circular dependencies | 🚧 Narrative filler comments | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
-| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
+| ✅ Unused public exports, files, members | ✅ Ungrounded `// ignore:` (slop-unjustified-ignore) | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
+| ✅ Circular dependencies | 🚧 Empty / swallowing `catch` blocks | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
+| ✅ Code duplicates (AST-normalised) | 🚧 Narrative filler comments | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
 | ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 
@@ -94,8 +95,9 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ## Quick start
 
-> **0.1.10.** Eight analysis rules are live — `unused-public-exports`,
+> **0.1.10.** Nine analysis rules are live — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
+> `slop-unjustified-ignore`,
 > `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
 > `a11y-interactive-semantics` — plus the `loam health` view. Commands marked
 > *coming soon* are wired in `loam --help` but not yet implemented.
@@ -147,7 +149,7 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 
 ### Use
 
-Available now (eight live rules — unused exports, circular deps, code duplicates, complexity hotspots, a11y):
+Available now (nine live rules — unused exports, circular deps, code duplicates, complexity hotspots, slop, a11y):
 
 ```bash
 loam scan                          # full audit: all active rules, whole repo
@@ -178,14 +180,20 @@ loam a11y                          # accessibility audit: WCAG-focused rules onl
 loam a11y /path/to/project         # same, positional path to project root
 ```
 
-All six commands (`scan`, `gate`, `health`, `init`, `baseline`, `a11y`) accept an
+AI-slop scan:
+
+```bash
+loam slop                          # AI-slop audit: slop-focused rules only
+loam slop /path/to/project         # same, positional path to project root
+```
+
+All seven commands (`scan`, `gate`, `health`, `init`, `baseline`, `a11y`, `slop`) accept an
 optional positional `[path]` as the project root. The explicit `-p`/`--project-root`
 option overrides the positional path when both are given.
 
 Coming soon (wired in `loam --help`, not yet implemented):
 
 ```bash
-loam slop                          # AI-slop audit: slop-focused rules only
 loam fix --safe                    # apply mechanical fixes
 ```
 
@@ -226,8 +234,9 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-**0.1.10** — eight rules live end to end (`unused-public-exports`,
+**0.1.10** — nine rules live end to end (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
+`slop-unjustified-ignore`,
 `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
 `a11y-interactive-semantics`) plus the `loam health` view; the remaining
 capabilities land as individual rules behind the same `Rule` interface.

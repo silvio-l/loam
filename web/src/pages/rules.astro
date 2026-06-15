@@ -20,9 +20,9 @@ const cleanLabel = t(lang, 'rules.clean.label');
     <h1>Rules</h1>
 
     <p class="lead">
-      loam.dev ships eight analysis capabilities, all behind one stable
+      loam.dev ships nine analysis capabilities, all behind one stable
       <code>Rule</code> interface. Adding a new rule never changes the pipeline —
-      only the rule list. Six rules are live today; two are planned and will
+      only the rule list. Seven rules are live today; two are planned and will
       ship as post-MVP iterations. Status is always honest.
     </p>
 
@@ -252,6 +252,29 @@ ActionChip(
 )`}
       />
 
+      <RuleCard
+        ruleId="slop-unjustified-ignore"
+        title="Unjustified // ignore: directive"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Flags // ignore: and // ignore_for_file: directives that have no written justification — neither inline text after the lint names nor a comment on the preceding line. Groundless suppress directives are a common AI-agent shortcut: the agent silences the linter rather than fixing the root cause. Severity: info. Generated files (.g.dart, .freezed.dart, …) are skipped automatically."
+        slopCode={`// no reason given — why is this lint suppressed?
+// ignore: avoid_print
+print('debug output');
+
+// file-wide suppress with no justification
+// ignore_for_file: prefer_const_constructors`}
+        cleanCode={`// inline reason: tells reviewers why the suppress is intentional
+// ignore: avoid_print – CLI output path, not a debug statement
+print('done.');
+
+// reason on the line above is also accepted
+// Suppress: this file predates null-safety and is scheduled for migration.
+// ignore_for_file: avoid_print`}
+      />
+
       <div class="deeper-box">
         <h3>Going deeper</h3>
         <p>
@@ -276,7 +299,7 @@ ActionChip(
       <h2>Planned</h2>
 
       <p class="section-intro">
-        These two rules are on the post-MVP roadmap. Each is a separate plugin
+        These rules are on the post-MVP roadmap. Each is a separate plugin
         behind the same <code>Rule</code> interface — the pipeline will not
         change when they ship.
       </p>
@@ -305,7 +328,7 @@ import '../../services/user_repository.dart';`}
         badgeLabel={planned}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Detects AI-agent quality shortcuts: empty catch blocks, narrative filler comments, groundless // ignore: directives, dead guard clauses, and hallucinated abstractions. Deterministic AST patterns run first; an optional LLM layer handles intent-level slop via a verdict cache — the same code always produces the same verdict, zero token cost on repeats."
+        description="Detects AI-agent quality shortcuts: empty catch blocks, narrative filler comments, dead guard clauses, and hallucinated abstractions. (Groundless // ignore: directives are already live as slop-unjustified-ignore above.) Deterministic AST patterns run first; an optional LLM layer handles intent-level slop via a verdict cache — the same code always produces the same verdict, zero token cost on repeats."
         slopCode={`// empty catch — classic slop
 try {
   await fetchData();

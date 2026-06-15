@@ -60,9 +60,10 @@ Currently active rules:
 | `circular-dependencies` | Circular import/export chains between first-party `lib/` libraries — one finding per strongly connected component, naming all files in the loop. |
 | `code-duplicates` | Structurally identical code blocks over the resolved AST (token-normalised, Rabin-Karp clustered); detects Type-1 (exact) and Type-2 (renamed identifiers/literals) duplicates project-wide. One finding per cluster listing all locations, with a stable fingerprint that survives line shifts. |
 | `complexity-hotspots` | Cyclomatic and cognitive complexity per executable (function, method, constructor, accessor); flags hotspots above documented, conservative thresholds. Aggregated by `loam health` into a Health-Score (0–100) and Grade (A–F). |
+| `slop-unjustified-ignore` | `// ignore:` and `// ignore_for_file:` directives with no written justification — either inline (text after the lint names, separated by ` – ` or similar) or on the immediately preceding comment line. Severity: info. Category: slop. Generated files (.g.dart, .freezed.dart, etc.) are skipped automatically. What it deliberately does NOT catch: directives that have any non-empty text after the lint-name list (inline reason), directives whose preceding line contains any `//` comment (accepted as a reason), and directives in generated files. |
 | `unused-public-exports` | Public API members (classes, methods, getters/setters, fields, enums, typedefs) with no references anywhere in the project — on the resolved element model, not regex. |
 
-The remaining rules in the planned target surface (boundary violations, AI-slop detection, hardcoded secrets) are still to come (🚧).
+The remaining rules in the planned target surface (boundary violations, more AI-slop rules, hardcoded secrets) are still to come (🚧).
 
 ### Baseline
 
@@ -208,10 +209,26 @@ The health score is a diagnostic view: it always measures, regardless of whether
 `complexity-hotspots` is disabled in `loam.yaml`. The codegen exclusion (generated
 files excluded by the collector) stays active.
 
-### `loam slop` *(coming soon)*
+### `loam slop`
 
-AI-slop audit: runs slop-focused rules only (empty `catch`, filler comments, dead
-guards, …). Not yet implemented.
+AI-slop audit: runs slop-category rules only across the whole project.
+
+```bash
+loam slop                          # analyse current directory
+loam slop /path/to/project         # positional project root
+loam slop -p /path/to/proj         # --project-root override
+loam slop --format json            # machine-readable output
+```
+
+Exit code `1` when any slop Findings are present; `0` when clean.
+
+The `slop` category is run-isolated from drift and accessibility categories —
+`loam slop` only ever executes `slop`-category rules.
+
+`loam scan` includes slop rules **default-on**. Currently active slop rules: one
+(`slop-unjustified-ignore` — `// ignore:` and `// ignore_for_file:` without a
+written justification). Further slop rules (empty `catch`, filler comments, dead
+guards, …) are planned.
 
 ### `loam a11y`
 

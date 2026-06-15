@@ -49,9 +49,9 @@ void main() {
       expect(ids, contains('a11y-image-label'));
     });
 
-    test('slop category is empty (no slop rules registered yet)', () {
+    test('slop category contains slop-unjustified-ignore', () {
       final ids = AnalysisRunner.activeIdsForCategory(RuleCategory.slop);
-      expect(ids, isEmpty);
+      expect(ids, contains('slop-unjustified-ignore'));
     });
 
     test('drift IDs are sorted lexicographically', () {

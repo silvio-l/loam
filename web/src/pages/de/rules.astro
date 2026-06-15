@@ -20,9 +20,9 @@ const cleanLabel = t(lang, 'rules.clean.label');
     <h1>Rules</h1>
 
     <p class="lead">
-      loam.dev bietet acht Analyse-Fähigkeiten, alle hinter einem stabilen
+      loam.dev bietet neun Analyse-Fähigkeiten, alle hinter einem stabilen
       <code>Rule</code>-Interface. Eine neue Rule hinzuzufügen ändert die
-      Pipeline nicht — nur die Rule-Liste. Sechs Rules sind heute live,
+      Pipeline nicht — nur die Rule-Liste. Sieben Rules sind heute live,
       zwei sind geplant und erscheinen als Post-MVP-Iterationen.
       Der Status ist immer ehrlich angegeben.
     </p>
@@ -253,6 +253,29 @@ ActionChip(
 )`}
       />
 
+      <RuleCard
+        ruleId="slop-unjustified-ignore"
+        title="Unbegründete // ignore:-Direktive"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet // ignore:- und // ignore_for_file:-Direktiven ohne schriftliche Begründung — weder als Inline-Text nach den Lint-Namen noch als Kommentar in der vorherigen Zeile. Grundlose Unterdrückungsdirektiven sind ein häufiger KI-Agenten-Shortcut: der Agent bringt den Linter zum Schweigen, statt die eigentliche Ursache zu beheben. Schweregrad: info. Generierte Dateien (.g.dart, .freezed.dart, …) werden automatisch übersprungen."
+        slopCode={`// kein Grund angegeben — warum wird dieser Lint unterdrückt?
+// ignore: avoid_print
+print('debug output');
+
+// Datei-weite Unterdrückung ohne Begründung
+// ignore_for_file: prefer_const_constructors`}
+        cleanCode={`// Inline-Begründung: erklärt Reviewern, warum die Unterdrückung beabsichtigt ist
+// ignore: avoid_print – CLI-Ausgabepfad, kein Debug-Statement
+print('done.');
+
+// Begründung in der Zeile darüber wird ebenfalls akzeptiert
+// Unterdrückung: Diese Datei stammt aus vor Null-Safety und ist für die Migration vorgesehen.
+// ignore_for_file: avoid_print`}
+      />
+
       <div class="deeper-box">
         <h3>Mehr in die Tiefe</h3>
         <p>
@@ -277,7 +300,7 @@ ActionChip(
       <h2>Geplant</h2>
 
       <p class="section-intro">
-        Diese zwei Rules stehen auf der Post-MVP-Roadmap. Jede ist ein
+        Diese Rules stehen auf der Post-MVP-Roadmap. Jede ist ein
         eigenständiges Plugin hinter demselben <code>Rule</code>-Interface —
         die Pipeline ändert sich beim Erscheinen nicht.
       </p>
@@ -306,7 +329,7 @@ import '../../services/user_repository.dart';`}
         badgeLabel={planned}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Erkennt KI-typische Qualitätsmängel: leere catch-Blöcke, narrative Füll-Kommentare, grundlose // ignore:-Direktiven, tote Guard-Clauses und halluzinierte Abstraktionen. Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer erkennt Slop auf Intentionsebene — über einen Verdict-Cache deterministisch und kostenarm."
+        description="Erkennt KI-typische Qualitätsmängel: leere catch-Blöcke, narrative Füll-Kommentare, tote Guard-Clauses und halluzinierte Abstraktionen. (Grundlose // ignore:-Direktiven sind bereits als slop-unjustified-ignore live.) Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer erkennt Slop auf Intentionsebene — über einen Verdict-Cache deterministisch und kostenarm."
         slopCode={`// leerer catch — klassischer Slop
 try {
   await fetchData();

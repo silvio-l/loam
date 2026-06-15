@@ -3,8 +3,9 @@ library;
 
 /// Self-dogfooding test: runs every shipped rule — the four drift rules
 /// (UnusedPublicExportsRule, CircularDependenciesRule, CodeDuplicatesRule,
-/// ComplexityHotspotsRule) and the four accessibility rules (a11y-image-label,
-/// a11y-icon-button-label, a11y-form-field-label, a11y-interactive-semantics) —
+/// ComplexityHotspotsRule), the four accessibility rules (a11y-image-label,
+/// a11y-icon-button-label, a11y-form-field-label, a11y-interactive-semantics),
+/// and the first slop rule (slop-unjustified-ignore) —
 /// over the loam_cli package itself (packages/loam_cli/) and asserts zero
 /// findings on production code (lib/ + bin/) for each. loam is run against
 /// itself as a standing baseline, not only against external repos.
@@ -24,6 +25,7 @@ import 'package:loam/src/rules/a11y_image_label_rule.dart';
 import 'package:loam/src/rules/a11y_interactive_semantics_rule.dart';
 import 'package:loam/src/rules/circular_dependencies_rule.dart';
 import 'package:loam/src/rules/complexity_hotspots_rule.dart';
+import 'package:loam/src/rules/slop_unjustified_ignore_rule.dart';
 import 'package:loam/src/rules/unused_public_exports_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
@@ -363,6 +365,48 @@ void main() {
           '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
           'Per PRD §12, tighten the element-model check rather than adding '
           'suppression:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // slop-unjustified-ignore: 0 findings on loam_cli/lib + bin.
+  //
+  // The loam_cli production code must carry no unjustified // ignore: or
+  // // ignore_for_file: directives. Any such directive must either have an
+  // inline justification or a comment on the line above explaining why.
+  //
+  // Per PRD §12: if this test fails, either add a justification comment or fix
+  // the underlying issue. Do NOT suppress or disable the rule.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'dogfooding: slop-unjustified-ignore reports 0 findings on loam_cli/lib + bin',
+    () {
+      final rule = SlopUnjustifiedIgnoreRule(projectRoot: loamCliRoot);
+      final rawFindings = rule.run(loadResult);
+
+      // Exclude test/fixtures/**: fixture files intentionally contain
+      // unjustified // ignore: directives as part of the rule's test corpus.
+      // Only lib/ and bin/ (production code) must be clean.
+      final findings = rawFindings.where((f) {
+        final rel = f.filePath;
+        return !rel.startsWith('test${p.separator}fixtures') &&
+            !rel.startsWith('test/fixtures');
+      }).toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: slop-unjustified-ignore reported '
+          '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
+          'Per PRD §12, add a justification comment or fix the underlying issue:\n'
+          '$details',
         );
       }
 

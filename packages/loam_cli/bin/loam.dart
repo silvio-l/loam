@@ -29,8 +29,8 @@ import 'package:path/path.dart' as p;
 
 /// loam.dev CLI entrypoint (command: `loam`).
 ///
-/// Wires the full command surface — scan, health, gate, baseline, a11y and
-/// init are live; slop and fix are stubs (coming soon).
+/// Wires the full command surface — scan, health, gate, baseline, a11y, slop
+/// and init are live; fix is a stub (coming soon).
 Future<void> main(List<String> args) async {
   exit(await run(args));
 }
@@ -582,18 +582,98 @@ class _GateCommand extends LoamCommand {
 }
 
 /// AI-slop audit: runs slop-focused rules across the whole project.
+///
+/// Currently runs [SlopUnjustifiedIgnoreRule] (and any future slop rules) via
+/// [AnalysisRunner] with `categoryFilter: RuleCategory.slop`. Wired analogously
+/// to [_A11yCommand].
+///
+/// Exit code `1` when any slop findings are present; `0` when clean.
+/// The reporter is a pure renderer — it has no influence on the exit code
+/// (Invariant 4).
 class _SlopCommand extends LoamCommand {
+  _SlopCommand() {
+    argParser.addOption(
+      'project-root',
+      abbr: 'p',
+      help:
+          'Root directory of the Dart project to analyse. '
+          'Overrides the positional [path] argument when both are given. '
+          'Defaults to the current working directory.',
+      defaultsTo: null,
+    );
+  }
+
   @override
   final String name = 'slop';
   @override
+  String get invocation => 'loam slop [path] [options]';
+  @override
   final String description =
-      'AI-slop audit: run slop-focused rules across the whole project. '
-      '(coming soon)';
+      'AI-slop audit: run slop-focused rules across the whole project.\n\n'
+      '[path] — optional positional path to the project root '
+      '(defaults to the current directory). '
+      '-p/--project-root overrides [path] when both are given.';
 
   @override
-  Future<int> run() => notImplemented(
-    'slop-focused rules: empty catch, filler comments, dead guards',
-  );
+  // loam-ignore: code-duplicates – per-command boilerplate shared with _A11yCommand; each command's run() body is self-contained so that readers understand the command without jumping across the file.
+  Future<int> run() async {
+    // Resolve project root via shared resolver (positional or --project-root).
+    final rootResult = TargetRootResolver.resolve(argResults);
+    if (rootResult is RootUsageError) {
+      stderr.writeln(rootResult.message);
+      return 64; // EX_USAGE
+    }
+    final projectRoot = (rootResult as ResolvedRoot).root;
+
+    // Resolve the format from the global --format option.
+    final format = (globalResults?['format'] as String?) ?? 'human';
+
+    // Load project config (loam.yaml) — missing file returns defaults.
+    final config = await _loadConfig(projectRoot);
+
+    // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
+    final Reporter reporter;
+    try {
+      reporter = reporterFor(format);
+    } on FormatNotImplementedError catch (e) {
+      stderr.writeln(e.toString());
+      return 64; // EX_USAGE
+    }
+
+    // Run with slop-category filter only.
+    final outcome = await AnalysisRunner(
+      config: config,
+      categoryFilter: RuleCategory.slop,
+    ).analyze(projectRoot);
+
+    // Diagnostic line for human-readable output.
+    if (format == 'human') {
+      stdout.writeln('loam slop  AI-slop scan');
+    }
+
+    final payload = ReportPayload(
+      findings: outcome.findings,
+      projectRoot: projectRoot,
+      rulesetVersion: AnalysisRunner.rulesetVersionForCategory(
+        RuleCategory.slop,
+        config,
+      ),
+      toolVersion: loamVersion,
+      isTty: stdout.hasTerminal,
+      suppressedCount: outcome.suppressedCount,
+      stats: outcome.stats,
+    );
+
+    await _emitReport(
+      rendered: reporter.render(payload),
+      format: format,
+      commandName: name,
+      outputOption: outputPath,
+      noOpen: noOpen,
+    );
+
+    return outcome.findings.isNotEmpty ? 1 : 0;
+  }
 }
 
 /// Accessibility audit: runs accessibility-category rules across the whole
