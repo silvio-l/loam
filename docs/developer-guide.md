@@ -62,6 +62,7 @@ Currently active rules:
 | `complexity-hotspots` | Cyclomatic and cognitive complexity per executable (function, method, constructor, accessor); flags hotspots above documented, conservative thresholds. Aggregated by `loam health` into a Health-Score (0–100) and Grade (A–F). |
 | `slop-empty-catch` | catch blocks whose body is empty (`{}`) or contains only comments — both silently swallow exceptions. Severity: warning. Category: slop. Extends the built-in `empty_catches` lint (literal-empty only) to also flag the comment-only variant that AI agents commonly produce. Conservative allowlist: any rethrow, throw, or logging call in the body suppresses the finding (all produce at least one statement). Generated files are skipped automatically. What it deliberately does NOT catch: bodies with any non-comment statement (rethrow, throw, logging call, or any other executable code). |
 | `slop-unjustified-ignore` | `// ignore:` and `// ignore_for_file:` directives with no written justification — either inline (text after the lint names, separated by ` – ` or similar) or on the immediately preceding comment line. Severity: info. Category: slop. Generated files (.g.dart, .freezed.dart, etc.) are skipped automatically. What it deliberately does NOT catch: directives that have any non-empty text after the lint-name list (inline reason), directives whose preceding line contains any `//` comment (accepted as a reason), and directives in generated files. |
+| `slop-narrative-comment` | `//` comments immediately before a declaration whose normalised text restates the declaration name (e.g. `// build` before `void build()`) or belongs to a fixed restatement list ("constructor", "getter", "setter", "build method"). Also catches `the <name> method/widget` patterns. Severity: info. Category: slop. Generated files (.g.dart, .freezed.dart, etc.) are skipped automatically. What it deliberately does NOT catch: `///` Dart-doc comments (never flagged), block comments, `//` comments with informative text that does not match the name or fixed list, and comments not immediately adjacent to a declaration (blank line between). |
 | `unused-public-exports` | Public API members (classes, methods, getters/setters, fields, enums, typedefs) with no references anywhere in the project — on the resolved element model, not regex. |
 
 The remaining rules in the planned target surface (boundary violations, more AI-slop rules, hardcoded secrets) are still to come (🚧).
@@ -226,11 +227,12 @@ Exit code `1` when any slop Findings are present; `0` when clean.
 The `slop` category is run-isolated from drift and accessibility categories —
 `loam slop` only ever executes `slop`-category rules.
 
-`loam scan` includes slop rules **default-on**. Currently active slop rules: two —
+`loam scan` includes slop rules **default-on**. Currently active slop rules: three —
 `slop-empty-catch` (empty and comment-only `catch` bodies that silently swallow
-exceptions) and `slop-unjustified-ignore` (`// ignore:` and `// ignore_for_file:`
-without a written justification). Further slop rules (filler comments, dead guards,
-…) are planned.
+exceptions), `slop-unjustified-ignore` (`// ignore:` and `// ignore_for_file:`
+without a written justification), and `slop-narrative-comment` (`//` comments
+that restate the declaration name or use a fixed narrative phrase). Further slop
+rules (dead guards, …) are planned.
 
 ### `loam a11y`
 

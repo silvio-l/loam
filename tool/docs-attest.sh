@@ -502,6 +502,7 @@ check_pubspec_rules() {
       code-duplicates)         echo "duplicat" ;;
       complexity-hotspots)     echo "complexity" ;;
       slop-empty-catch)        echo "catch" ;;
+      slop-narrative-comment)  echo "narrative" ;;
       slop-unjustified-ignore) echo "ignore" ;;
       *)                       echo "" ;;
     esac

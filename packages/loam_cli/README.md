@@ -52,7 +52,7 @@ Everything else is the **target surface** (🚧 = planned):
 |---|---|---|
 | ✅ Unused public exports, files, members | ✅ Ungrounded `// ignore:` (slop-unjustified-ignore) | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
 | ✅ Circular dependencies | ✅ Empty / comment-only `catch` blocks (slop-empty-catch) | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
-| ✅ Code duplicates (AST-normalised) | 🚧 Narrative filler comments | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
+| ✅ Code duplicates (AST-normalised) | ✅ Narrative filler comments (slop-narrative-comment) | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
 | ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 

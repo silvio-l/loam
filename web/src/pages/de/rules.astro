@@ -311,6 +311,32 @@ print('done.');
 // ignore_for_file: avoid_print`}
       />
 
+      <RuleCard
+        ruleId="slop-narrative-comment"
+        title="Narrativer Füll-// Kommentar"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet // Kommentare unmittelbar vor einer Deklaration, deren Text den Namen wiederholt (z. B. // build vor void build()) oder einen festen narrativen Ausdruck verwendet (constructor, getter, setter, build method). Solche Füll-Kommentare fügen keine Information über den Bezeichner-Namen hinaus hinzu — ein typisches KI-Agenten-Ausgabemuster. Schweregrad: info. Generierte Dateien werden automatisch übersprungen."
+        slopCode={`// MyWidget
+class MyWidget extends StatelessWidget {
+  // build
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+
+  // constructor
+  const MyWidget();
+}`}
+        cleanCode={`class MyWidget extends StatelessWidget {
+  // Rendert als Platzhalter mit der Größe 0 während der Ladephase.
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+
+  const MyWidget();
+}`}
+      />
+
       <div class="deeper-box">
         <h3>Mehr in die Tiefe</h3>
         <p>
@@ -364,7 +390,7 @@ import '../../services/user_repository.dart';`}
         badgeLabel={planned}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Erkennt KI-typische Qualitätsmängel: narrative Füll-Kommentare, tote Guard-Clauses und halluzinierte Abstraktionen. (Grundlose // ignore:-Direktiven sind bereits als slop-unjustified-ignore live; leere und kommentar-only catch-Blöcke sind bereits als slop-empty-catch live.) Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer erkennt Slop auf Intentionsebene — über einen Verdict-Cache deterministisch und kostenarm."
+        description="Erkennt KI-typische Qualitätsmängel: tote Guard-Clauses und halluzinierte Abstraktionen. (Grundlose // ignore:-Direktiven sind bereits als slop-unjustified-ignore live; leere und kommentar-only catch-Blöcke sind bereits als slop-empty-catch live; narrative Füll-Kommentare sind bereits als slop-narrative-comment live.) Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer erkennt Slop auf Intentionsebene — über einen Verdict-Cache deterministisch und kostenarm."
         slopCode={`// narrativer Füll-Kommentar
 /// Diese Methode verarbeitet die Daten, indem sie
 /// über alle Elemente iteriert und die Transformation

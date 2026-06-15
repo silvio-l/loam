@@ -75,6 +75,7 @@ class SlopEmptyCatchRule implements Rule {
   RuleCategory get category => RuleCategory.slop;
 
   @override
+  // loam-ignore: code-duplicates – run() body is identical boilerplate across all Rule implementations; a shared mixin would couple unrelated rule files together.
   List<Finding> run(ProjectLoadResult result) {
     final findings = <Finding>[];
 

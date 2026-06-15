@@ -310,6 +310,32 @@ print('done.');
 // ignore_for_file: avoid_print`}
       />
 
+      <RuleCard
+        ruleId="slop-narrative-comment"
+        title="Narrative filler // comment"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Flags // comments immediately before a declaration whose text restates the name (e.g. // build before void build()) or uses a fixed narrative phrase (constructor, getter, setter, build method). Also catches the <name> method/widget patterns. These filler comments add no information beyond the identifier name — a common AI-agent output pattern. Severity: info. Generated files are skipped automatically."
+        slopCode={`// MyWidget
+class MyWidget extends StatelessWidget {
+  // build
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+
+  // constructor
+  const MyWidget();
+}`}
+        cleanCode={`class MyWidget extends StatelessWidget {
+  // Renders as a zero-size placeholder during the loading phase.
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+
+  const MyWidget();
+}`}
+      />
+
       <div class="deeper-box">
         <h3>Going deeper</h3>
         <p>
@@ -363,7 +389,7 @@ import '../../services/user_repository.dart';`}
         badgeLabel={planned}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Detects AI-agent quality shortcuts: narrative filler comments, dead guard clauses, and hallucinated abstractions. (Groundless // ignore: directives are already live as slop-unjustified-ignore; empty and comment-only catch blocks are already live as slop-empty-catch.) Deterministic AST patterns run first; an optional LLM layer handles intent-level slop via a verdict cache — the same code always produces the same verdict, zero token cost on repeats."
+        description="Detects AI-agent quality shortcuts: dead guard clauses and hallucinated abstractions. (Groundless // ignore: directives are already live as slop-unjustified-ignore; empty and comment-only catch blocks are already live as slop-empty-catch; narrative filler comments are already live as slop-narrative-comment.) Deterministic AST patterns run first; an optional LLM layer handles intent-level slop via a verdict cache — the same code always produces the same verdict, zero token cost on repeats."
         slopCode={`// narrative filler comment
 /// This method processes the data by iterating
 /// over all items and applying the transformation.
