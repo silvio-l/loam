@@ -501,6 +501,7 @@ check_pubspec_rules() {
       circular-dependencies)   echo "circular" ;;
       code-duplicates)         echo "duplicat" ;;
       complexity-hotspots)     echo "complexity" ;;
+      slop-empty-catch)        echo "catch" ;;
       slop-unjustified-ignore) echo "ignore" ;;
       *)                       echo "" ;;
     esac

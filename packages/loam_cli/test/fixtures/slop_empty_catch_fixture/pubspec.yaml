@@ -1,0 +1,7 @@
+name: slop_empty_catch_fixture
+description: "Test fixture for SlopEmptyCatchRule tests."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0

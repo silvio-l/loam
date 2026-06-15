@@ -13,16 +13,16 @@ const cleanLabel = t(lang, 'rules.clean.label');
 <Layout
   lang="de"
   title="Rules — loam.dev"
-  description="Der vollständige loam.dev-Regelkatalog: sieben Analyse-Fähigkeiten für Dart/Flutter-Projekte — fünf heute live, zwei geplant. Jede Rule zeigt ein Slop-vs.-sauber-Codebeispiel."
+  description="Der vollständige loam.dev-Regelkatalog: zehn Analyse-Fähigkeiten für Dart/Flutter-Projekte — acht heute live, zwei geplant. Jede Rule zeigt ein Slop-vs.-sauber-Codebeispiel."
   path="/de/rules"
 >
   <div class="prose-page">
     <h1>Rules</h1>
 
     <p class="lead">
-      loam.dev bietet neun Analyse-Fähigkeiten, alle hinter einem stabilen
+      loam.dev bietet zehn Analyse-Fähigkeiten, alle hinter einem stabilen
       <code>Rule</code>-Interface. Eine neue Rule hinzuzufügen ändert die
-      Pipeline nicht — nur die Rule-Liste. Sieben Rules sind heute live,
+      Pipeline nicht — nur die Rule-Liste. Acht Rules sind heute live,
       zwei sind geplant und erscheinen als Post-MVP-Iterationen.
       Der Status ist immer ehrlich angegeben.
     </p>
@@ -254,6 +254,41 @@ ActionChip(
       />
 
       <RuleCard
+        ruleId="slop-empty-catch"
+        title="Leerer oder nur-Kommentar-catch-Block"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet catch-Blöcke, deren Body leer ist ({}) oder nur Kommentare enthält — beide verschlucken Exceptions stillschweigend. Dies erweitert den eingebauten empty_catches-Lint (der nur den buchstäblich leeren Fall erkennt) um die Kommentar-only-Variante, die KI-Agenten häufig produzieren, wenn sie einen catch-Block mit einem Füll-Kommentar unterdrücken. Schweregrad: warning. Bodys mit einem rethrow, throw oder einem Logging-Aufruf werden nie gemeldet (konservative Allowlist). Generierte Dateien (.g.dart, .freezed.dart, …) werden automatisch übersprungen."
+        slopCode={`// buchstäblich leer — Exception verschwindet
+try {
+  await fetchData();
+} catch (e) {}
+
+// nur Kommentar — gleiches Problem, von empty_catches übersehen
+try {
+  await fetchData();
+} catch (e) {
+  // TODO: behandeln
+}`}
+        cleanCode={`// loggen und weiterwerfen — Kontext bleibt erhalten
+try {
+  await fetchData();
+} catch (e, st) {
+  log('fetchData fehlgeschlagen', error: e, stackTrace: st);
+  rethrow;
+}
+
+// oder in einen Domain-Error einwickeln
+try {
+  await fetchData();
+} catch (e) {
+  throw DataLoadException(cause: e);
+}`}
+      />
+
+      <RuleCard
         ruleId="slop-unjustified-ignore"
         title="Unbegründete // ignore:-Direktive"
         status="live"
@@ -329,27 +364,14 @@ import '../../services/user_repository.dart';`}
         badgeLabel={planned}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Erkennt KI-typische Qualitätsmängel: leere catch-Blöcke, narrative Füll-Kommentare, tote Guard-Clauses und halluzinierte Abstraktionen. (Grundlose // ignore:-Direktiven sind bereits als slop-unjustified-ignore live.) Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer erkennt Slop auf Intentionsebene — über einen Verdict-Cache deterministisch und kostenarm."
-        slopCode={`// leerer catch — klassischer Slop
-try {
-  await fetchData();
-} catch (e) {} // ← schluckt alle Fehler
-
-// narrativer Füll-Kommentar
+        description="Erkennt KI-typische Qualitätsmängel: narrative Füll-Kommentare, tote Guard-Clauses und halluzinierte Abstraktionen. (Grundlose // ignore:-Direktiven sind bereits als slop-unjustified-ignore live; leere und kommentar-only catch-Blöcke sind bereits als slop-empty-catch live.) Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer erkennt Slop auf Intentionsebene — über einen Verdict-Cache deterministisch und kostenarm."
+        slopCode={`// narrativer Füll-Kommentar
 /// Diese Methode verarbeitet die Daten, indem sie
 /// über alle Elemente iteriert und die Transformation
 /// anwendet.
 List<String> process(List<String> items) =>
     items.map((i) => i.toUpperCase()).toList();`}
-        cleanCode={`// mit Kontext behandeln oder weiterwerfen
-try {
-  await fetchData();
-} catch (e, st) {
-  log.error('fetchData failed', e, st);
-  rethrow;
-}
-
-// Doku-Kommentar mit Mehrwert, nicht Rauschen
+        cleanCode={`// Doku-Kommentar mit Mehrwert, nicht Rauschen
 /// Gibt [items] in Großbuchstaben zurück.
 List<String> process(List<String> items) =>
     items.map((i) => i.toUpperCase()).toList();`}

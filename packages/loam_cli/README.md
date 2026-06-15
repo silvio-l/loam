@@ -21,9 +21,9 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.10.** Nine rules are live end to end — `unused-public-exports`,
+> **0.1.10.** Ten rules are live end to end — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-> `slop-unjustified-ignore`,
+> `slop-empty-catch`, `slop-unjustified-ignore`,
 > `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label` and
 > `a11y-interactive-semantics` — plus the `loam health` view. The remaining
 > capabilities below are on the roadmap, each landing as its own rule behind the
@@ -31,14 +31,15 @@ red on day one.
 
 ## What it catches
 
-**Available now (0.1.10) — nine live rules:** project-wide **unused public API**
+**Available now (0.1.10) — ten live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
 with all locations), **complexity hotspots**
 (cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
 `bin/` by default — configure with `source_dirs` in `loam.yaml`), **AI-slop**
-(`slop-unjustified-ignore` — `// ignore:` and `// ignore_for_file:` directives
+(`slop-empty-catch` — empty and comment-only `catch` bodies;
+`slop-unjustified-ignore` — `// ignore:` and `// ignore_for_file:` directives
 without a written justification), and **accessibility** (WCAG 1.1.1 — Flutter
 images without a semantic label; WCAG 4.1.2 — icon buttons, gesture/ink-well
 widgets with a pure icon child, and generic interactive widgets without an
@@ -50,7 +51,7 @@ Everything else is the **target surface** (🚧 = planned):
 | Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) | Accessibility (WCAG, semantic) |
 |---|---|---|
 | ✅ Unused public exports, files, members | ✅ Ungrounded `// ignore:` (slop-unjustified-ignore) | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
-| ✅ Circular dependencies | 🚧 Empty / swallowing `catch` blocks | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
+| ✅ Circular dependencies | ✅ Empty / comment-only `catch` blocks (slop-empty-catch) | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
 | ✅ Code duplicates (AST-normalised) | 🚧 Narrative filler comments | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
 | ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
@@ -115,9 +116,9 @@ option overrides the positional path when both are given.
 
 ## Status
 
-Functional release — nine analysis rules live (`unused-public-exports`,
+Functional release — ten analysis rules live (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-`slop-unjustified-ignore`,
+`slop-empty-catch`, `slop-unjustified-ignore`,
 `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
 `a11y-interactive-semantics`) plus the `loam health` view;
 the remaining capabilities land as individual rules behind the same `Rule`

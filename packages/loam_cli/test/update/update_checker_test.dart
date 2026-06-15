@@ -833,6 +833,7 @@ class _InjectableDirCache implements UpdateCheckCache {
       final content =
           '{"latest":"${entry.latest}","checkedAt":"${entry.checkedAt.toIso8601String()}"}';
       File(_cachePath).writeAsStringSync(content);
+      // loam-ignore: slop-empty-catch – swallowing cache write errors is intentional; the cache is best-effort and must never crash the caller
     } catch (_) {
       // Silently swallow write errors.
     }
