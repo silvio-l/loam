@@ -47,7 +47,7 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.10) — ten live rules:** project-wide **unused public API**
+**Available now (0.1.11) — eleven live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
@@ -97,7 +97,7 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ## Quick start
 
-> **0.1.10.** Eleven analysis rules are live — `unused-public-exports`,
+> **0.1.11.** Eleven analysis rules are live — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 > `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
 > `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
@@ -151,7 +151,7 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 
 ### Use
 
-Available now (ten live rules — unused exports, circular deps, code duplicates, complexity hotspots, slop, a11y):
+Available now (eleven live rules — unused exports, circular deps, code duplicates, complexity hotspots, slop, a11y):
 
 ```bash
 loam scan                          # full audit: all active rules, whole repo
@@ -236,7 +236,7 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-**0.1.10** — eleven rules live end to end (`unused-public-exports`,
+**0.1.11** — eleven rules live end to end (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
 `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,

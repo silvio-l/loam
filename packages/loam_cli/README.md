@@ -21,9 +21,9 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.10.** Ten rules are live end to end — `unused-public-exports`,
+> **0.1.11.** Eleven rules are live end to end — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-> `slop-empty-catch`, `slop-unjustified-ignore`,
+> `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
 > `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label` and
 > `a11y-interactive-semantics` — plus the `loam health` view. The remaining
 > capabilities below are on the roadmap, each landing as its own rule behind the
@@ -31,7 +31,7 @@ red on day one.
 
 ## What it catches
 
-**Available now (0.1.10) — ten live rules:** project-wide **unused public API**
+**Available now (0.1.11) — eleven live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
@@ -40,7 +40,8 @@ with all locations), **complexity hotspots**
 `bin/` by default — configure with `source_dirs` in `loam.yaml`), **AI-slop**
 (`slop-empty-catch` — empty and comment-only `catch` bodies;
 `slop-unjustified-ignore` — `// ignore:` and `// ignore_for_file:` directives
-without a written justification), and **accessibility** (WCAG 1.1.1 — Flutter
+without a written justification; `slop-narrative-comment` — `//` comments that
+merely restate the declaration name), and **accessibility** (WCAG 1.1.1 — Flutter
 images without a semantic label; WCAG 4.1.2 — icon buttons, gesture/ink-well
 widgets with a pure icon child, and generic interactive widgets without an
 accessible name; WCAG 3.3.2 — form fields without a label) — emitted as Findings
@@ -116,9 +117,9 @@ option overrides the positional path when both are given.
 
 ## Status
 
-Functional release — ten analysis rules live (`unused-public-exports`,
+Functional release — eleven analysis rules live (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-`slop-empty-catch`, `slop-unjustified-ignore`,
+`slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
 `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
 `a11y-interactive-semantics`) plus the `loam health` view;
 the remaining capabilities land as individual rules behind the same `Rule`
