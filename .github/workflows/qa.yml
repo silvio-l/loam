@@ -60,5 +60,8 @@ jobs:
       - name: Test (inkl. Self-Dogfooding + Public-Docs-QS)
         run: dart test
 
+      - name: DIAG (temporary) — config discovery in CI
+        run: dart run bin/_diag.dart
+
       - name: Dogfood-Gate — loam prüft loam
         run: dart run bin/loam.dart gate --absolute --project-root .
