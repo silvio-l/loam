@@ -30,6 +30,27 @@ class WcagRef {
     url: 'https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html',
   );
 
+  /// WCAG 1.3.1 Info and Relationships.
+  ///
+  /// Information, structure, and relationships conveyed through presentation
+  /// can be programmatically determined or are available in text.
+  static const wcag131 = WcagRef(
+    number: '1.3.1',
+    title: 'Info and Relationships',
+    url:
+        'https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html',
+  );
+
+  /// WCAG 3.3.2 Labels or Instructions.
+  ///
+  /// Labels or instructions are provided when content requires user input.
+  static const wcag332 = WcagRef(
+    number: '3.3.2',
+    title: 'Labels or Instructions',
+    url:
+        'https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html',
+  );
+
   /// WCAG 4.1.2 Name, Role, Value.
   ///
   /// For all user interface components, the name and role can be

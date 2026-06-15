@@ -65,7 +65,7 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 |---|---|---|
 | ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
 | ✅ Circular dependencies | 🚧 Narrative filler comments | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
-| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` | |
+| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
 | ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 
@@ -91,11 +91,11 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ## Quick start
 
-> **0.1.10.** Six analysis rules are live — `unused-public-exports`,
+> **0.1.10.** Seven analysis rules are live — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-> `a11y-image-label`, `a11y-icon-button-label` — plus the `loam health` view.
-> Commands marked *coming soon* are wired in `loam --help` but not yet
-> implemented.
+> `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label` — plus
+> the `loam health` view. Commands marked *coming soon* are wired in
+> `loam --help` but not yet implemented.
 
 ### Install
 
@@ -223,11 +223,11 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-**0.1.10** — six rules live end to end (`unused-public-exports`,
+**0.1.10** — seven rules live end to end (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-`a11y-image-label`, `a11y-icon-button-label`) plus the `loam health` view;
-the remaining capabilities land as individual rules behind the same `Rule`
-interface.
+`a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`) plus
+the `loam health` view; the remaining capabilities land as individual rules
+behind the same `Rule` interface.
 
 For a detailed walkthrough of concepts, CLI commands, output formats, and codegen
 handling, see the **[Developer & Tool Guide](./docs/developer-guide.md)**.

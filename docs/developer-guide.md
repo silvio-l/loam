@@ -53,6 +53,7 @@ Currently active rules:
 
 | Rule ID | What it finds |
 |---|---|
+| `a11y-form-field-label` | Flutter `TextField` and `TextFormField` without a visible or accessible label — neither `decoration: InputDecoration(labelText: …)` nor `InputDecoration(hintText: …)` (accepted as fallback) nor an enclosing `Semantics(label: …)` ancestor. WCAG 1.3.1 Info and Relationships / 3.3.2 Labels or Instructions / 4.1.2 Name, Role, Value. Uses the resolved element model; local classes named `TextField` are never flagged. Conservative: a `decoration:` that is not a literal `InputDecoration(…)` creation is left alone. AST-only: out of scope are runtime contrast, focus order, touch-target sizes, and dynamic decoration values. |
 | `a11y-icon-button-label` | Flutter `IconButton` without a `tooltip:` argument and without an enclosing `Semantics(label: …)`, and `GestureDetector`/`InkWell` whose direct `child:` argument is a pure `Icon` and that likewise lacks an enclosing `Semantics(label: …)` — WCAG 4.1.2 Name, Role, Value. Uses the resolved element model; local classes named `IconButton` are never flagged. AST-only: out of scope are composite icon children, dynamic tooltip values, and custom accessible-name mechanisms. |
 | `a11y-image-label` | Flutter `Image` widgets (`Image()`, `Image.asset`, `Image.network`, `Image.file`, `Image.memory`) without `semanticLabel` or `excludeFromSemantics: true` — WCAG 1.1.1 Non-text Content. Uses the resolved element model to identify Flutter's `Image`, not regex. AST-only: out of scope are runtime contrast, focus order, and touch-target sizes. |
 | `circular-dependencies` | Circular import/export chains between first-party `lib/` libraries — one finding per strongly connected component, naming all files in the loop. |
@@ -238,12 +239,16 @@ loam scan --no-a11y                # skip all accessibility-category rules
 Or add `a11y: false` to `loam.yaml` for a repo-wide default. Precedence:
 `--no-a11y` (CLI) > `a11y: false` (loam.yaml) > default (on).
 
-Two accessibility rules are currently active: `a11y-image-label` (WCAG 1.1.1
-Non-text Content), which flags Flutter `Image` widgets without `semanticLabel`
-or `excludeFromSemantics: true`; and `a11y-icon-button-label` (WCAG 4.1.2 Name,
-Role, Value), which flags `IconButton` without `tooltip` and `GestureDetector`/
-`InkWell` with a pure `Icon` child when no `Semantics(label: …)` ancestor
-provides an accessible name. See the "Currently active rules" table above.
+Three accessibility rules are currently active: `a11y-form-field-label` (WCAG
+1.3.1 / 3.3.2 / 4.1.2), which flags Flutter `TextField` and `TextFormField`
+widgets without a `decoration: InputDecoration(labelText: …)` (or `hintText`
+fallback) and without an enclosing `Semantics(label: …)` ancestor;
+`a11y-image-label` (WCAG 1.1.1 Non-text Content), which flags Flutter `Image`
+widgets without `semanticLabel` or `excludeFromSemantics: true`; and
+`a11y-icon-button-label` (WCAG 4.1.2 Name, Role, Value), which flags
+`IconButton` without `tooltip` and `GestureDetector`/`InkWell` with a pure
+`Icon` child when no `Semantics(label: …)` ancestor provides an accessible
+name. See the "Currently active rules" table above.
 
 ### `loam init`
 

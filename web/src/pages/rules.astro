@@ -129,6 +129,38 @@ Future<void> _syncOne(Item item) async { … }`}
       />
 
       <RuleCard
+        ruleId="a11y-form-field-label"
+        title="Form field without label"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Flags Flutter TextField and TextFormField widgets that have neither a decoration: InputDecoration(labelText: …) (nor hintText as a fallback) nor an enclosing Semantics(label: …) ancestor. WCAG 1.3.1 (Info and Relationships), 3.3.2 (Labels or Instructions), and 4.1.2 (Name, Role, Value) all require form fields to have a programmatically determinable label. Analysis runs on the resolved element model — local classes named TextField are never flagged. Conservative: a decoration: that is not a literal InputDecoration(…) creation is left alone. AST-only: runtime contrast, focus order, touch-target sizes, and dynamic decoration values are out of scope."
+        slopCode={`// no decoration at all — screen reader has no label to announce
+TextField()
+
+// InputDecoration present but no labelText or hintText — still missing
+TextField(
+  decoration: InputDecoration(),
+)`}
+        cleanCode={`// labelText provides the primary accessible label
+TextField(
+  decoration: InputDecoration(labelText: 'Email address'),
+)
+
+// hintText accepted as fallback (e.g. search fields)
+TextField(
+  decoration: InputDecoration(hintText: 'Search…'),
+)
+
+// or wrap with Semantics for custom label delivery
+Semantics(
+  label: 'Email address',
+  child: TextField(),
+)`}
+      />
+
+      <RuleCard
         ruleId="a11y-image-label"
         title="Image without semantic label"
         status="live"

@@ -21,11 +21,11 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.10.** Six rules are live end to end — `unused-public-exports`,
+> **0.1.10.** Seven rules are live end to end — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-> `a11y-image-label` and `a11y-icon-button-label` — plus the `loam health` view.
-> The remaining capabilities below are on the roadmap, each landing as its own
-> rule behind the same stable `Rule` interface.
+> `a11y-form-field-label`, `a11y-image-label` and `a11y-icon-button-label` —
+> plus the `loam health` view. The remaining capabilities below are on the
+> roadmap, each landing as its own rule behind the same stable `Rule` interface.
 
 ## What it catches
 
@@ -47,7 +47,7 @@ Everything else is the **target surface** (🚧 = planned):
 |---|---|---|
 | ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
 | ✅ Circular dependencies | 🚧 Narrative filler comments | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
-| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` | |
+| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
 | ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 
@@ -109,9 +109,10 @@ option overrides the positional path when both are given.
 
 ## Status
 
-Functional release — six analysis rules live (`unused-public-exports`,
+Functional release — seven analysis rules live (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-`a11y-image-label`, `a11y-icon-button-label`) plus the `loam health` view;
+`a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`) plus
+the `loam health` view;
 the remaining capabilities land as individual rules behind the same `Rule`
 interface. Founding spec, domain
 glossary and architecture decisions live in the

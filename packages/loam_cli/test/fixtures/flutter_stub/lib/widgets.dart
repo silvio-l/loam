@@ -150,8 +150,9 @@ class InkWell {
 ///
 /// When [label] is non-null, this widget provides an accessible name to
 /// assistive technologies for its [child] subtree. The loam.dev
-/// `a11y-icon-button-label` rule treats any [Semantics] ancestor with a
-/// non-null [label] as a sufficient accessible-name source.
+/// `a11y-icon-button-label` and `a11y-form-field-label` rules treat any
+/// [Semantics] ancestor with a non-null [label] as a sufficient
+/// accessible-name source.
 class Semantics {
   /// Creates a [Semantics] widget.
   const Semantics({this.label, this.child});
@@ -161,4 +162,53 @@ class Semantics {
 
   /// The widget below this widget in the tree.
   final Object? child;
+}
+
+/// Stub of Flutter's `InputDecoration` class.
+///
+/// Used by the loam.dev `a11y-form-field-label` rule to detect [TextField]
+/// and [TextFormField] widgets without a visible or screen-reader-accessible
+/// label. A decoration with either [labelText] or [hintText] is treated as
+/// sufficient.
+class InputDecoration {
+  /// Creates an [InputDecoration].
+  const InputDecoration({this.labelText, this.hintText});
+
+  /// The primary label text shown floating above the input field.
+  ///
+  /// When non-null, the `a11y-form-field-label` rule accepts this as a
+  /// sufficient accessible label.
+  final String? labelText;
+
+  /// Helper text shown inside the field when it is empty.
+  ///
+  /// Accepted as an accessible fallback by `a11y-form-field-label` when
+  /// [labelText] is absent.
+  final String? hintText;
+}
+
+/// Stub of Flutter's `TextField` widget.
+///
+/// The loam.dev `a11y-form-field-label` rule checks that every instantiation
+/// either supplies a [decoration] whose [InputDecoration.labelText] or
+/// [InputDecoration.hintText] is non-null, or is enclosed in a [Semantics]
+/// widget with a non-null [Semantics.label].
+class TextField {
+  /// Creates a [TextField].
+  const TextField({this.decoration});
+
+  /// The visual decoration and label configuration for this field.
+  final InputDecoration? decoration;
+}
+
+/// Stub of Flutter's `TextFormField` widget.
+///
+/// Behaves identically to [TextField] for the purposes of the loam.dev
+/// `a11y-form-field-label` rule.
+class TextFormField {
+  /// Creates a [TextFormField].
+  const TextFormField({this.decoration});
+
+  /// The visual decoration and label configuration for this field.
+  final InputDecoration? decoration;
 }
