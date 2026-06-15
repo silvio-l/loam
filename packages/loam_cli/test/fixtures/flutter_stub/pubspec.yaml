@@ -1,0 +1,7 @@
+name: flutter
+description: "Minimal Flutter stub for loam.dev test fixtures."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0

@@ -53,12 +53,13 @@ Currently active rules:
 
 | Rule ID | What it finds |
 |---|---|
+| `a11y-image-label` | Flutter `Image` widgets (`Image()`, `Image.asset`, `Image.network`, `Image.file`, `Image.memory`) without `semanticLabel` or `excludeFromSemantics: true` — WCAG 1.1.1 Non-text Content. Uses the resolved element model to identify Flutter's `Image`, not regex. AST-only: out of scope are runtime contrast, focus order, and touch-target sizes. |
 | `circular-dependencies` | Circular import/export chains between first-party `lib/` libraries — one finding per strongly connected component, naming all files in the loop. |
 | `code-duplicates` | Structurally identical code blocks over the resolved AST (token-normalised, Rabin-Karp clustered); detects Type-1 (exact) and Type-2 (renamed identifiers/literals) duplicates project-wide. One finding per cluster listing all locations, with a stable fingerprint that survives line shifts. |
 | `complexity-hotspots` | Cyclomatic and cognitive complexity per executable (function, method, constructor, accessor); flags hotspots above documented, conservative thresholds. Aggregated by `loam health` into a Health-Score (0–100) and Grade (A–F). |
 | `unused-public-exports` | Public API members (classes, methods, getters/setters, fields, enums, typedefs) with no references anywhere in the project — on the resolved element model, not regex. |
 
-The remaining rules in the planned target surface (boundary violations, AI-slop detection, hardcoded secrets, accessibility) are still to come (🚧).
+The remaining rules in the planned target surface (boundary violations, AI-slop detection, hardcoded secrets) are still to come (🚧).
 
 ### Baseline
 
@@ -236,9 +237,9 @@ loam scan --no-a11y                # skip all accessibility-category rules
 Or add `a11y: false` to `loam.yaml` for a repo-wide default. Precedence:
 `--no-a11y` (CLI) > `a11y: false` (loam.yaml) > default (on).
 
-> **Note:** No accessibility rules are registered yet — `loam a11y` returns 0
-> findings and exits with code 0. The command exists to establish the
-> category seam ahead of the first WCAG rules.
+The first accessibility rule is `a11y-image-label` (WCAG 1.1.1 Non-text Content),
+which flags Flutter `Image` widgets without `semanticLabel` or
+`excludeFromSemantics: true`. See the "Currently active rules" table above.
 
 ### `loam init`
 

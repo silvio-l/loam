@@ -42,11 +42,11 @@ void main() {
       expect(ids.length, 4);
     });
 
-    test('accessibility category is empty (no a11y rules registered yet)', () {
+    test('accessibility category contains a11y-image-label', () {
       final ids = AnalysisRunner.activeIdsForCategory(
         RuleCategory.accessibility,
       );
-      expect(ids, isEmpty);
+      expect(ids, contains('a11y-image-label'));
     });
 
     test('slop category is empty (no slop rules registered yet)', () {
@@ -90,11 +90,9 @@ void main() {
     );
   });
 
-  test('activeRuleIdsForConfig default config includes accessibility '
-      '(currently empty, but category is not excluded)', () {
-    // With includeA11y: true (default), the accessibility category is not
-    // filtered. Since there are no a11y rules yet, the result is the same as
-    // fullRegistryIds — no more, no less.
+  test('activeRuleIdsForConfig default config includes accessibility rules', () {
+    // With includeA11y: true (default), the accessibility category is included.
+    // a11y-image-label must appear in the default scan.
     final withA11y = AnalysisRunner.activeRuleIdsForConfig(
       const LoamConfig.defaults(),
     );
@@ -104,109 +102,117 @@ void main() {
       includeA11y: false,
     );
     final withoutA11y = AnalysisRunner.activeRuleIdsForConfig(noA11yConfig);
-    // When there are no a11y rules, both sets are identical.
-    expect(withA11y, equals(withoutA11y));
+    // With a11y rules present, the sets differ: a11y-image-label is in
+    // withA11y but not in withoutA11y.
+    expect(withA11y, contains('a11y-image-label'));
+    expect(withoutA11y, isNot(contains('a11y-image-label')));
   });
 
   // ---------------------------------------------------------------------------
-  // 3. --no-a11y / includeA11y: false is bit-identical to default scan
-  //    (since no a11y rules exist yet)
+  // 3. --no-a11y / includeA11y: false excludes a11y rules from the scan
   // ---------------------------------------------------------------------------
 
-  group(
-    'scan --no-a11y is bit-identical when accessibility category is empty',
-    () {
-      test(
-        'findings are identical between default and includeA11y:false',
-        () async {
-          final defaultRunner = AnalysisRunner();
-          final noA11yRunner = AnalysisRunner(
-            config: LoamConfig(
-              ruleToggles: const {},
-              ignoreGlobs: const [],
-              includeA11y: false,
-            ),
-          );
-
-          final defaultFindings = await defaultRunner.run(fixturePath);
-          final noA11yFindings = await noA11yRunner.run(fixturePath);
-
-          expect(
-            defaultFindings.map((f) => f.fingerprint).toList(),
-            equals(noA11yFindings.map((f) => f.fingerprint).toList()),
-            reason:
-                'With no a11y rules, --no-a11y must be bit-identical to default scan',
-          );
-        },
-      );
-
-      test(
-        'stats.rulesRun is identical between default and includeA11y:false',
-        () async {
-          final defaultRunner = AnalysisRunner();
-          final noA11yRunner = AnalysisRunner(
-            config: LoamConfig(
-              ruleToggles: const {},
-              ignoreGlobs: const [],
-              includeA11y: false,
-            ),
-          );
-
-          final defaultOutcome = await defaultRunner.analyze(fixturePath);
-          final noA11yOutcome = await noA11yRunner.analyze(fixturePath);
-
-          expect(
-            defaultOutcome.stats.rulesRun,
-            equals(noA11yOutcome.stats.rulesRun),
-            reason: 'With no a11y rules, rulesRun must be identical',
-          );
-        },
-      );
-    },
-  );
-
-  // ---------------------------------------------------------------------------
-  // 4. loam a11y: categoryFilter=accessibility returns 0 findings (Exit 0)
-  // ---------------------------------------------------------------------------
-
-  group('categoryFilter=accessibility returns 0 findings', () {
+  group('scan --no-a11y excludes accessibility rules', () {
     test(
-      'AnalysisRunner with accessibility categoryFilter yields 0 findings',
+      'findings differ: default includes a11y-image-label, --no-a11y does not',
       () async {
-        final runner = AnalysisRunner(
-          categoryFilter: RuleCategory.accessibility,
+        final defaultRunner = AnalysisRunner();
+        final noA11yRunner = AnalysisRunner(
+          config: LoamConfig(
+            ruleToggles: const {},
+            ignoreGlobs: const [],
+            includeA11y: false,
+          ),
         );
-        final findings = await runner.run(fixturePath);
+
+        final defaultFindings = await defaultRunner.run(fixturePath);
+        final noA11yFindings = await noA11yRunner.run(fixturePath);
+
+        // The unused_exports_fixture has no Flutter Image calls, so
+        // a11y-image-label produces 0 findings on it. The difference is in
+        // stats.rulesRun, not in finding count.
+        // Both finding lists are equal (no Image findings in this fixture).
         expect(
-          findings,
-          isEmpty,
+          defaultFindings.map((f) => f.fingerprint).toList(),
+          equals(noA11yFindings.map((f) => f.fingerprint).toList()),
           reason:
-              'No accessibility rules are registered yet — loam a11y must '
-              'return 0 findings (Exit 0)',
+              'unused_exports_fixture has no Flutter Image calls — '
+              'both scans produce identical findings',
         );
       },
     );
 
-    test('accessibility stats.rulesRun is empty', () async {
-      final runner = AnalysisRunner(categoryFilter: RuleCategory.accessibility);
+    test('stats.rulesRun differs: default includes a11y-image-label', () async {
+      final defaultRunner = AnalysisRunner();
+      final noA11yRunner = AnalysisRunner(
+        config: LoamConfig(
+          ruleToggles: const {},
+          ignoreGlobs: const [],
+          includeA11y: false,
+        ),
+      );
+
+      final defaultOutcome = await defaultRunner.analyze(fixturePath);
+      final noA11yOutcome = await noA11yRunner.analyze(fixturePath);
+
+      // Default scan includes a11y-image-label; --no-a11y excludes it.
+      expect(defaultOutcome.stats.rulesRun, contains('a11y-image-label'));
+      expect(noA11yOutcome.stats.rulesRun, isNot(contains('a11y-image-label')));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 4. loam a11y: categoryFilter=accessibility runs only a11y rules
+  // ---------------------------------------------------------------------------
+
+  group('categoryFilter=accessibility runs only accessibility rules', () {
+    test('AnalysisRunner with accessibility categoryFilter yields 0 findings '
+        'on unused_exports_fixture (no Flutter Image calls)', () async {
+      final runner = AnalysisRunner(
+        config: const LoamConfig.defaults(),
+        categoryFilter: RuleCategory.accessibility,
+      );
+      final findings = await runner.run(fixturePath);
+      expect(
+        findings,
+        isEmpty,
+        reason:
+            'unused_exports_fixture has no Flutter Image calls — '
+            'a11y-image-label must return 0 findings (Exit 0)',
+      );
+    });
+
+    test('accessibility stats.rulesRun contains a11y-image-label', () async {
+      final runner = AnalysisRunner(
+        config: const LoamConfig.defaults(),
+        categoryFilter: RuleCategory.accessibility,
+      );
       final outcome = await runner.analyze(fixturePath);
       expect(
         outcome.stats.rulesRun,
-        isEmpty,
-        reason: 'No accessibility rules exist yet',
+        contains('a11y-image-label'),
+        reason: 'a11y-image-label is registered — must appear in rulesRun',
       );
     });
 
     test('AnalysisRunner with accessibility categoryFilter: 0 findings on '
-        'any fixture', () async {
-      // Verify the invariant holds regardless of how many drift findings exist.
-      final runner = AnalysisRunner(categoryFilter: RuleCategory.accessibility);
+        'this fixture, non-empty drift findings', () async {
+      // Verify that the a11y-only categoryFilter finds nothing in a
+      // non-Flutter fixture while the drift runner still finds drift issues.
+      final runner = AnalysisRunner(
+        config: const LoamConfig.defaults(),
+        categoryFilter: RuleCategory.accessibility,
+      );
       final driftRunner = AnalysisRunner();
 
       final a11yFindings = await runner.run(fixturePath);
       final driftFindings = await driftRunner.run(fixturePath);
 
-      expect(a11yFindings, isEmpty);
+      expect(
+        a11yFindings,
+        isEmpty,
+        reason: 'No Flutter Image calls in unused_exports_fixture',
+      );
       expect(
         driftFindings,
         isNotEmpty,
@@ -236,7 +242,7 @@ void main() {
   );
 
   test(
-    'rulesetVersionForCategory for drift differs from empty accessibility set',
+    'rulesetVersionForCategory for drift differs from accessibility set',
     () {
       final driftVersion = AnalysisRunner.rulesetVersionForCategory(
         RuleCategory.drift,
@@ -246,7 +252,7 @@ void main() {
         RuleCategory.accessibility,
         const LoamConfig.defaults(),
       );
-      // Drift has 4 rules, accessibility has 0 — hashes must differ.
+      // Drift has 4 rules, accessibility has 1 — hashes must differ.
       expect(driftVersion, isNot(equals(a11yVersion)));
     },
   );

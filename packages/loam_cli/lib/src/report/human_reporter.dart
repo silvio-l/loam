@@ -84,6 +84,16 @@ class HumanReporter implements Reporter {
         buf.writeln(
           '  ${loc.padRight(8)}$severityLabel  ${f.ruleId}  ${f.message}',
         );
+        // WCAG reference note — shown only for accessibility findings.
+        if (f.wcagRef != null) {
+          final ref = f.wcagRef!;
+          final note = '          WCAG ${ref.number} ${ref.title}: ${ref.url}';
+          if (tty) {
+            buf.writeln('$_grey$note$_reset');
+          } else {
+            buf.writeln(note);
+          }
+        }
       }
 
       buf.writeln();

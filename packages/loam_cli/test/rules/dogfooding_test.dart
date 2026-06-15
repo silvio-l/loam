@@ -14,6 +14,7 @@ import 'dart:io';
 
 import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/loader/project_loader.dart';
+import 'package:loam/src/rules/a11y_image_label_rule.dart';
 import 'package:loam/src/rules/circular_dependencies_rule.dart';
 import 'package:loam/src/rules/complexity_hotspots_rule.dart';
 import 'package:loam/src/rules/unused_public_exports_rule.dart';
@@ -217,6 +218,48 @@ void main() {
           'the shared helper into a common utility or add a targeted '
           '// loam-ignore: code-duplicates – <reason> on the function body.\n'
           'Details:\n$details',
+        );
+      }
+
+      expect(findings, isEmpty);
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // The a11y-image-label rule reports zero findings on the loam_cli codebase.
+  //
+  // loam_cli uses no Flutter widgets — it is a pure Dart CLI — so the rule
+  // must produce zero findings. Any finding here indicates a false positive
+  // (e.g. a class named Image in a non-flutter package being misidentified).
+  //
+  // Per PRD §12: if this test fails, make the rule more conservative (tighten
+  // the library URI check) rather than suppressing the finding.
+  // ---------------------------------------------------------------------------
+
+  test(
+    'dogfooding: a11y-image-label reports 0 findings on loam_cli/lib + bin',
+    () {
+      final rule = A11yImageLabelRule(projectRoot: loamCliRoot);
+      final rawFindings = rule.run(loadResult);
+
+      // Exclude test/fixtures/**: the a11y_image_label_fixture intentionally
+      // contains Flutter Image stubs (the rule's own test corpus). Only lib/
+      // and bin/ (production code) must be clean.
+      final findings = rawFindings.where((f) {
+        final rel = f.filePath;
+        return !rel.startsWith('test${p.separator}fixtures') &&
+            !rel.startsWith('test/fixtures');
+      }).toList();
+
+      if (findings.isNotEmpty) {
+        final details = findings
+            .map((f) => '  ${f.filePath}:${f.line} — ${f.message}')
+            .join('\n');
+        fail(
+          'Self-dogfooding failed: a11y-image-label reported '
+          '${findings.length} unexpected finding(s) on loam_cli/lib + bin. '
+          'Per PRD §12, tighten the library URI check rather than adding '
+          'suppression:\n$details',
         );
       }
 

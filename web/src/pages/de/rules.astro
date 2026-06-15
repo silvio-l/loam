@@ -13,16 +13,16 @@ const cleanLabel = t(lang, 'rules.clean.label');
 <Layout
   lang="de"
   title="Rules — loam.dev"
-  description="Der vollständige loam.dev-Regelkatalog: sechs Analyse-Fähigkeiten für Dart/Flutter-Projekte — vier heute live, zwei geplant. Jede Rule zeigt ein Slop-vs.-sauber-Codebeispiel."
+  description="Der vollständige loam.dev-Regelkatalog: sieben Analyse-Fähigkeiten für Dart/Flutter-Projekte — fünf heute live, zwei geplant. Jede Rule zeigt ein Slop-vs.-sauber-Codebeispiel."
   path="/de/rules"
 >
   <div class="prose-page">
     <h1>Rules</h1>
 
     <p class="lead">
-      loam.dev bietet sechs Analyse-Fähigkeiten, alle hinter einem stabilen
+      loam.dev bietet sieben Analyse-Fähigkeiten, alle hinter einem stabilen
       <code>Rule</code>-Interface. Eine neue Rule hinzuzufügen ändert die
-      Pipeline nicht — nur die Rule-Liste. Vier Rules sind heute live,
+      Pipeline nicht — nur die Rule-Liste. Fünf Rules sind heute live,
       zwei sind geplant und erscheinen als Post-MVP-Iterationen.
       Der Status ist immer ehrlich angegeben.
     </p>
@@ -127,6 +127,29 @@ Future<void> syncData(List<Item> items) async {
 }
 
 Future<void> _syncOne(Item item) async { … }`}
+      />
+
+      <RuleCard
+        ruleId="a11y-image-label"
+        title="Bild ohne semantisches Label"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet Flutter-Image/Image.asset/Image.network/Image.file/Image.memory-Widgets ohne semanticLabel, die nicht per excludeFromSemantics: true aus dem Accessibility-Tree ausgeschlossen sind. WCAG 1.1.1 (Non-text Content) verlangt für jedes nicht-dekorative Bild eine Textalternative. Die Analyse läuft auf dem aufgelösten Element-Model — lokale Klassen namens Image werden nie gemeldet."
+        slopCode={`// kein semantisches Label — Screen Reader liest nichts
+Image.asset('assets/hero.png')
+
+// explizit leeres Label wird ebenfalls gemeldet
+Image.network('https://example.com/photo.jpg',
+  semanticLabel: '',  // ← leer = fehlend`}
+        cleanCode={`// beschreibt, was das Bild vermittelt
+Image.asset('assets/hero.png',
+  semanticLabel: 'App-Hero-Illustration')
+
+// rein dekorativ: explizit ausschließen
+Image.asset('assets/divider.png',
+  excludeFromSemantics: true)`}
       />
 
       <div class="deeper-box">

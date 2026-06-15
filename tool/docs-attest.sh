@@ -44,7 +44,7 @@ live_rule_ids() {
   local RUNNER="$ROOT/packages/loam_cli/lib/src/runner/analysis_runner.dart"
   [ -f "$RUNNER" ] || return 0
   awk '/fullRegistryIds = \[/{f=1;next} f&&/\]/{f=0} f' "$RUNNER" \
-    | grep -oE "'[a-z][a-z-]*'" | tr -d "'" | sort -u
+    | grep -oE "'[a-z][a-z0-9-]*'" | tr -d "'" | sort -u
 }
 
 check_readme() {
@@ -450,7 +450,7 @@ check_devguide_rules() {
   # gleich aufgebauten Backtick-IDs der Formats-/Gate-Tabellen (`human`, `sarif`,
   # …) NICHT mitzählen (analog zur RuleCard-Region in check_shipped_status).
   local table_rules; table_rules="$(awk '/Currently active rules:/{f=1;next} f&&/^### /{f=0} f' "$guide" \
-                                    | grep -E '^\|' | grep -oE '`[a-z][a-z-]*`' | tr -d '`' | sort -u || true)"
+                                    | grep -E '^\|' | grep -oE '`[a-z][a-z0-9-]*`' | tr -d '`' | sort -u || true)"
 
   # (A) Jede Live-Rule MUSS in der Guide-Tabelle stehen.
   local rid
@@ -493,6 +493,7 @@ check_pubspec_rules() {
   # Leerer Rückgabewert = kein Stichwort hinterlegt (Selbst-Erzwingung greift).
   rule_keyword() {
     case "$1" in
+      a11y-image-label)      echo "a11y" ;;
       unused-public-exports) echo "unused" ;;
       circular-dependencies) echo "circular" ;;
       code-duplicates)       echo "duplicat" ;;

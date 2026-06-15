@@ -1,5 +1,7 @@
 import 'severity.dart';
+import 'wcag_ref.dart';
 export 'severity.dart';
+export 'wcag_ref.dart';
 
 /// A single result emitted by a `Rule`.
 ///
@@ -13,7 +15,7 @@ export 'severity.dart';
 /// have no meaningful column. When present, both are 1-based to match SARIF
 /// region semantics.
 class Finding {
-  /// Creates a [Finding]; [column], [kind] and [remedy] are optional.
+  /// Creates a [Finding]; [column], [kind], [remedy] and [wcagRef] are optional.
   const Finding({
     required this.ruleId,
     required this.severity,
@@ -24,6 +26,7 @@ class Finding {
     this.column,
     this.kind,
     this.remedy,
+    this.wcagRef,
   });
 
   /// Identifier of the rule that produced this finding.
@@ -59,6 +62,13 @@ class Finding {
   /// [kind] to make a finding hard to rationalise away. `null` only for
   /// findings predating the contract.
   final String? remedy;
+
+  /// A machine-readable WCAG reference (criterion number, short title, and
+  /// canonical Understanding URL) for accessibility-category findings.
+  ///
+  /// `null` for non-accessibility rules. All reporters pass this through so
+  /// consumers can link to WCAG documentation without parsing the message.
+  final WcagRef? wcagRef;
 
   /// Position-robust stable hash used by the baseline to diff findings across runs.
   final String fingerprint;

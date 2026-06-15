@@ -9,6 +9,7 @@ import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../model/rule_category.dart';
 import '../report/reporter.dart' show ScanStats;
+import '../rules/a11y_image_label_rule.dart';
 import '../rules/circular_dependencies_rule.dart';
 import '../rules/code_duplicates_rule.dart';
 import '../rules/complexity_hotspots_rule.dart';
@@ -54,8 +55,8 @@ class AnalysisOutcome {
 /// the active rule registry → collect all findings → return deterministically
 /// sorted results.
 ///
-/// Active registry: [CircularDependenciesRule], [CodeDuplicatesRule],
-/// [ComplexityHotspotsRule], [UnusedPublicExportsRule].
+/// Active registry: [A11yImageLabelRule], [CircularDependenciesRule],
+/// [CodeDuplicatesRule], [ComplexityHotspotsRule], [UnusedPublicExportsRule].
 ///
 /// Sort key (stable, in order): [Finding.filePath], [Finding.line],
 /// [Finding.fingerprint] — guarantees Invariant 5 (reproducibility).
@@ -99,6 +100,7 @@ class AnalysisRunner {
   /// This is the complete set before any config-driven toggles are applied.
   /// [activeRuleIds] is derived from this by removing disabled rules.
   static const List<String> fullRegistryIds = [
+    'a11y-image-label',
     'circular-dependencies',
     'code-duplicates',
     'complexity-hotspots',
@@ -111,6 +113,7 @@ class AnalysisRunner {
   /// determined here, never by ruleId string prefixes (Invariant 1). When a
   /// new rule is registered, add its ID to both [fullRegistryIds] and here.
   static const Map<String, RuleCategory> _ruleCategories = {
+    'a11y-image-label': RuleCategory.accessibility,
     'circular-dependencies': RuleCategory.drift,
     'code-duplicates': RuleCategory.drift,
     'complexity-hotspots': RuleCategory.drift,
@@ -313,6 +316,8 @@ class AnalysisRunner {
     List<String> effectiveIds,
   ) {
     final rules = [
+      if (effectiveIds.contains('a11y-image-label'))
+        A11yImageLabelRule(projectRoot: root),
       if (effectiveIds.contains('circular-dependencies'))
         CircularDependenciesRule(projectRoot: root),
       if (effectiveIds.contains('code-duplicates'))

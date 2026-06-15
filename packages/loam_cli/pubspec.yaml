@@ -1,5 +1,5 @@
 name: loam
-description: "Codebase intelligence for Dart & Flutter: finds unused public API, circular dependencies, code duplicates and complexity hotspots behind a baseline/ratchet CI gate."
+description: "Codebase intelligence for Dart & Flutter: finds unused public API, circular deps, code duplicates, complexity hotspots and a11y issues behind a baseline/ratchet CI gate."
 version: 0.1.10
 repository: https://github.com/silvio-l/loam
 homepage: https://getloam.dev

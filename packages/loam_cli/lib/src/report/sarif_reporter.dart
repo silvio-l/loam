@@ -85,13 +85,19 @@ class SarifReporter implements Reporter {
           },
         },
       ],
-      // Agent-proof message contract: expose the classifier and concrete next
-      // action in the SARIF property bag so tooling/agents read structure, not
-      // prose. Omitted entirely when absent (no null keys).
-      if (f.kind != null || f.remedy != null)
+      // Agent-proof message contract: expose the classifier, concrete next
+      // action, and WCAG reference in the SARIF property bag so tooling/agents
+      // read structure, not prose. Omitted entirely when all absent (no null keys).
+      if (f.kind != null || f.remedy != null || f.wcagRef != null)
         'properties': {
           if (f.kind != null) 'kind': f.kind,
           if (f.remedy != null) 'remedy': f.remedy,
+          if (f.wcagRef != null)
+            'wcagRef': {
+              'number': f.wcagRef!.number,
+              'title': f.wcagRef!.title,
+              'url': f.wcagRef!.url,
+            },
         },
     };
   }

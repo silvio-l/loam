@@ -21,32 +21,34 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.10.** Four rules are live end to end — `unused-public-exports`,
-> `circular-dependencies`, `code-duplicates` and `complexity-hotspots` — plus
-> the `loam health` view. The remaining capabilities below are on the roadmap,
-> each landing as its own rule behind the same stable `Rule` interface.
+> **0.1.10.** Five rules are live end to end — `unused-public-exports`,
+> `circular-dependencies`, `code-duplicates`, `complexity-hotspots` and
+> `a11y-image-label` — plus the `loam health` view. The remaining capabilities
+> below are on the roadmap, each landing as its own rule behind the same stable
+> `Rule` interface.
 
 ## What it catches
 
-**Available now (0.1.10) — four live rules:** project-wide **unused public API**
+**Available now (0.1.10) — five live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
-with all locations), and **complexity hotspots**
+with all locations), **complexity hotspots**
 (cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
-`bin/` by default — configure with `source_dirs` in `loam.yaml`) — emitted as
-Findings behind the baseline/ratchet gate, in `human`, `sarif`, `json`,
+`bin/` by default — configure with `source_dirs` in `loam.yaml`), and
+**accessibility** (WCAG 1.1.1 — Flutter images without a semantic label) — emitted
+as Findings behind the baseline/ratchet gate, in `human`, `sarif`, `json`,
 `markdown` or `html`.
 
 Everything else is the **target surface** (🚧 = planned):
 
-| Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) |
-|---|---|
-| ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks |
-| ✅ Circular dependencies | 🚧 Narrative filler comments |
-| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` |
-| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards |
-| 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions |
+| Structural drift (deterministic, semantic) | AI-slop (deterministic **+** optional LLM) | Accessibility (WCAG, semantic) |
+|---|---|---|
+| ✅ Unused public exports, files, members | 🚧 Empty / swallowing `catch` blocks | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
+| ✅ Circular dependencies | 🚧 Narrative filler comments | |
+| ✅ Code duplicates (AST-normalised) | 🚧 Ungrounded `// ignore:` | |
+| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | |
+| 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 
 ## What makes it different
 
@@ -106,11 +108,12 @@ option overrides the positional path when both are given.
 
 ## Status
 
-Functional release — four analysis rules live (`unused-public-exports`,
-`circular-dependencies`, `code-duplicates`, `complexity-hotspots`) plus the
-`loam health` view; the remaining capabilities land as individual rules behind
-the same `Rule` interface. Founding spec, domain glossary and architecture
-decisions live in the [repository](https://github.com/silvio-l/loam).
+Functional release — five analysis rules live (`unused-public-exports`,
+`circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
+`a11y-image-label`) plus the `loam health` view; the remaining capabilities land
+as individual rules behind the same `Rule` interface. Founding spec, domain
+glossary and architecture decisions live in the
+[repository](https://github.com/silvio-l/loam).
 
 ## License
 

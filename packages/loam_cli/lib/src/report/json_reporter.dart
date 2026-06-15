@@ -89,6 +89,13 @@ class JsonReporter implements Reporter {
       'kind': f.kind, // agent-proof classifier; null is serialised as JSON null
       'remedy':
           f.remedy, // concrete next action; null is serialised as JSON null
+      // WCAG reference for accessibility findings; omitted entirely when null.
+      if (f.wcagRef != null)
+        'wcagRef': {
+          'number': f.wcagRef!.number,
+          'title': f.wcagRef!.title,
+          'url': f.wcagRef!.url,
+        },
     };
   }
 
