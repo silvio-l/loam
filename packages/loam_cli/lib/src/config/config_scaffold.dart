@@ -35,6 +35,12 @@ abstract final class ConfigScaffold {
 # This file is optional — loam works out-of-the-box without it (Zero-Config).
 # All options below are shown with their defaults; uncomment to override.
 #
+# Discovery: loam searches for loam.yaml by walking up from the analysed
+# project root to the enclosing git repository root (like analysis_options.yaml).
+# In a monorepo, a repo-root loam.yaml provides shared defaults and a nearer
+# (per-package) loam.yaml layers on top of it (nearer wins; ignore lists are
+# additive). See docs/developer-guide.md → "Configuration & discovery".
+#
 # Schema: https://github.com/silvio-l/loam (see docs/PRD.md)
 
 # ---------------------------------------------------------------------------

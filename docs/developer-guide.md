@@ -119,6 +119,38 @@ even the LLM path is deterministic per code snapshot.
 
 ---
 
+## Configuration & discovery
+
+loam is Zero-Config: without a `loam.yaml` it works out of the box. To customise,
+scaffold one with `loam init` (writes a fully-commented `loam.yaml` to the project
+root; it never overwrites an existing file).
+
+**Discovery.** loam looks for `loam.yaml` by walking **up** from the analysed
+project root to — and including — the enclosing **git repository root** (the
+directory holding `.git`), exactly like Dart's own `analysis_options.yaml`. So a
+config at your repo root applies even when a sub-package is analysed. The walk is
+deliberately **bounded at the git root**: a `loam.yaml` above the repository (e.g.
+in `$HOME`) is never picked up, which keeps discovery repo-relative and
+reproducible across machines and CI. With no git root, only `<projectRoot>/loam.yaml`
+is read.
+
+**Layering (monorepos).** Every `loam.yaml` on the way is merged farthest→nearest,
+so the repo root provides shared defaults and a nearer (per-package) config builds
+on top of it. Merge rules — nearer wins:
+
+| Key | Merge behaviour |
+|---|---|
+| `rules` | merged per ruleId; the nearer value overrides |
+| `ignore` | concatenated (farther first), de-duplicated, order preserved |
+| `source_dirs` | scalar override; a layer that omits it inherits the farther value |
+| `update_check`, `a11y` | scalar override; omitted → inherit |
+
+`ignore` globs are always matched **relative to the analysed project root**,
+regardless of which layer declared them — a repo-root `ignore: ["**/*.g.dart"]`
+therefore applies relative to each analysed package.
+
+---
+
 ## CLI commands
 
 <!-- commands:start -->
