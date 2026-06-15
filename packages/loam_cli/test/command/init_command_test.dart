@@ -105,19 +105,20 @@ void main() {
       // in the package root — we do NOT delete any real files).
       //
       // We check it is a valid int exit code.
-      final code = await cli.run(['init']);
-      expect(code, anyOf(0, 1), reason: 'must exit 0 or 1 (not crash)');
-
-      // Clean up if init created a file in the current directory.
+      // Capture pre-existence BEFORE running init: the package root carries a
+      // committed loam.yaml (loam's own self-config), and this test must never
+      // delete it. Only the file's prior absence proves the test created it.
       final created = File(
         p.join(Directory.current.path, ConfigLoader.fileName),
       );
-      if (created.existsSync()) {
-        // Only remove if its content matches the scaffold (i.e. we created it).
-        final content = created.readAsStringSync();
-        if (content == ConfigScaffold.generate()) {
-          created.deleteSync();
-        }
+      final existedBefore = created.existsSync();
+
+      final code = await cli.run(['init']);
+      expect(code, anyOf(0, 1), reason: 'must exit 0 or 1 (not crash)');
+
+      // Clean up ONLY a file this test created — never a pre-existing one.
+      if (!existedBefore && created.existsSync()) {
+        created.deleteSync();
       }
     });
   });

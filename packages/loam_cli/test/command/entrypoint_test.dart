@@ -123,17 +123,20 @@ void main() {
       () async {
         // init is now implemented: exits 0 when loam.yaml is written,
         // exits 1 when loam.yaml already exists. Either is valid here.
+        // Capture pre-existence BEFORE running init: the package root carries a
+        // committed loam.yaml (loam's own self-config), and this test must never
+        // delete it. A content/substring check is unsafe because the committed
+        // file is scaffold-derived — only the file's prior absence proves the
+        // test created it.
+        final created = File(p.join(Directory.current.path, 'loam.yaml'));
+        final existedBefore = created.existsSync();
+
         final code = await cli.run(['init']);
         expect(code, anyOf(0, 1));
 
-        // Clean up any loam.yaml that may have been created in the cwd.
-        final created = File(p.join(Directory.current.path, 'loam.yaml'));
-        if (created.existsSync()) {
-          final content = created.readAsStringSync();
-          // Only remove if it looks like our scaffold (not a real project config).
-          if (content.contains('loam.yaml — loam.dev configuration')) {
-            created.deleteSync();
-          }
+        // Clean up ONLY a file this test created — never a pre-existing one.
+        if (!existedBefore && created.existsSync()) {
+          created.deleteSync();
         }
       },
     );
