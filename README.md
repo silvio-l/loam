@@ -232,6 +232,7 @@ Machine-readable output for CI and agents, a human-readable report for you:
 # human/sarif/json/markdown stream to stdout; html writes a file and opens it.
 --output <file>       # write the report to <file> (html: overrides loam-report.html)
 --no-open             # html only: don't open the browser (auto-off when piped/CI)
+--no-progress         # suppress the live progress bar (auto-off when piped/CI)
 ```
 
 ## Status & roadmap

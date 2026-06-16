@@ -15,6 +15,9 @@ import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/loader/sdk_locator.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/model/rule_category.dart';
+import 'package:loam/src/progress/progress_sink.dart';
+import 'package:loam/src/progress/should_show_progress.dart';
+import 'package:loam/src/progress/tty_progress_renderer.dart';
 import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
@@ -101,6 +104,14 @@ Future<int> run(List<String> args) async {
       help:
           'Print the running version, install channel and executable path, '
           'then exit. Use this to confirm an upgrade actually took effect.',
+    )
+    ..addFlag(
+      'no-progress',
+      negatable: false,
+      help:
+          'Suppress the live progress bar during scan. '
+          'Progress is already off when output is piped/redirected or under CI. '
+          'See also: LOAM_NO_PROGRESS env var.',
     );
 
   // Parse args once and reuse the result for both command dispatch and the
@@ -251,24 +262,45 @@ class ScanCommand extends LoamCommand {
           )
         : yamlConfig;
 
+    // Progress setup (scan only — not wired to other commands).
+    //
+    // Precedence: --no-progress (CLI) > LOAM_NO_PROGRESS (env) > CI (env)
+    //             > auto-detection (isTty). Mirrors the --no-open pattern.
+    final noProgressFlag = globalResults?['no-progress'] as bool? ?? false;
+    final showProgress = shouldShowProgress(
+      isTty: stdout.hasTerminal,
+      noProgressFlag: noProgressFlag,
+      environment: Platform.environment,
+    );
+    final ProgressSink progressSink = showProgress
+        ? TtyProgressRenderer()
+        : const NoopProgressSink();
+    final scanStopwatch = Stopwatch()..start();
+
     // For HTML format: load the project once and share it between the
     // AnalysisRunner (findings) and FunctionComplexityCollector (health sidecar).
     // This guarantees the badge value matches `loam health` for the same project
     // (same collector path, no second load, no drift — AC3).
     //
-    // For all other formats: delegate to AnalysisRunner.run() as before (no
+    // For all other formats: delegate to AnalysisRunner.analyze() as before (no
     // change to their code path → byte-identical output guaranteed — AC2).
     final AnalysisOutcome outcome;
     final Reporter reporter;
 
     if (format == 'html') {
       // Single project load shared by both consumers.
+      // Pass the progress sink so the load phase is tracked.
       final root = p.normalize(p.absolute(projectRoot));
-      final loadResult = await const ProjectLoader().load(root);
+      final loadResult = await const ProjectLoader().load(
+        root,
+        progressSink: progressSink,
+      );
 
       // Outcome via shared load result — same as before, just no second load.
+      // Pass the progress sink so the analysis phase is tracked.
       outcome = AnalysisRunner(
         config: config,
+        progressSink: progressSink,
       ).analyzeWithLoadResult(root, loadResult);
 
       // Health-Score sidecar: same collector as `loam health` (AC3 — no drift).
@@ -282,7 +314,12 @@ class ScanCommand extends LoamCommand {
       // HtmlReporter with the sidecar — only this format receives health data.
       reporter = HtmlReporter(healthSidecar: healthReport);
     } else {
-      outcome = await AnalysisRunner(config: config).analyze(projectRoot);
+      // Non-HTML path: AnalysisRunner.analyze() handles both load and analysis
+      // phases internally, forwarding the progress sink to ProjectLoader.
+      outcome = await AnalysisRunner(
+        config: config,
+        progressSink: progressSink,
+      ).analyze(projectRoot);
       // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
       try {
         reporter = reporterFor(format);
@@ -316,6 +353,20 @@ class ScanCommand extends LoamCommand {
       outputOption: outputPath,
       noOpen: noOpen,
     );
+
+    // Success summary on stderr — only when progress was shown (interactive TTY).
+    // Goes to stderr so stdout (structured formats) stays byte-identical.
+    if (showProgress) {
+      scanStopwatch.stop();
+      final elapsed = scanStopwatch.elapsed;
+      final durationStr = elapsed.inSeconds >= 1
+          ? '${elapsed.inSeconds}s'
+          : '${elapsed.inMilliseconds}ms';
+      final n = outcome.findings.length;
+      stderr.writeln(
+        'loam scan: $n finding${n == 1 ? '' : 's'} in $durationStr',
+      );
+    }
 
     return outcome.findings.isNotEmpty ? 1 : 0;
   }

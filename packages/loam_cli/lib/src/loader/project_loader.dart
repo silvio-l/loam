@@ -5,6 +5,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/diagnostic/diagnostic.dart';
 import 'package:path/path.dart' as p;
 
+import '../progress/progress_sink.dart';
 import 'sdk_locator.dart';
 import 'stack_profile.dart';
 export 'stack_profile.dart';
@@ -138,7 +139,15 @@ class ProjectLoader {
   ///
   /// The returned [ProjectLoadResult.stackProfile] is always populated from
   /// `pubspec.yaml` (defensive: missing/broken pubspec ⇒ [StackProfile.empty()]).
-  Future<ProjectLoadResult> load(String projectRoot) async {
+  ///
+  /// [progressSink] receives semantic progress events: `startPhase` once (with
+  /// the total dart-file count), `advance` per file, and `endPhase` on exit.
+  /// Defaults to [NoopProgressSink] — callers that do not want progress pass
+  /// nothing and get zero overhead.
+  Future<ProjectLoadResult> load(
+    String projectRoot, {
+    ProgressSink progressSink = const NoopProgressSink(),
+  }) async {
     final root = p.normalize(p.absolute(projectRoot));
 
     // Parse pubspec.yaml defensively — always done, even when root is missing
@@ -195,6 +204,8 @@ class ProjectLoader {
       // analyzer crash into the same actionable, stacktrace-free guidance.
       throw SdkResolutionException.notFound(resolved: sdkPath);
     }
+    // Start progress phase — we now know the total file count.
+    progressSink.startPhase('Lade Projekt', total: dartFiles.length);
     try {
       final resolved = <LoadedFile>[];
       final errors = <LoadFileError>[];
@@ -203,65 +214,73 @@ class ProjectLoader {
       final libDir = p.join(root, 'lib') + p.separator;
 
       for (final filePath in dartFiles) {
-        // contextFor throws StateError when [filePath] belongs to a nested
-        // package that has its own pubspec.yaml and is therefore not part of
-        // the enclosing AnalysisContextCollection. Treat as a load error so
-        // the rule layer never receives a broken/incomplete element model, but
-        // the loader still processes all other files cleanly.
-        SomeResolvedUnitResult someResult;
+        // Wrap per-file processing in try/finally so advance() is always called
+        // — even when the loop body exits via `continue` (e.g. StateError or
+        // part-file early-exit). The finally runs before the continue.
         try {
-          final session = collection.contextFor(filePath).currentSession;
-          someResult = await session.getResolvedUnit(filePath);
-        } on StateError catch (e) {
-          errors.add(LoadFileError(path: filePath, reason: e.message));
-          continue;
-        }
-
-        if (someResult is ResolvedUnitResult) {
-          // A `part of` file resolves as a ResolvedUnitResult with isPart=true.
-          // Its declarations are reachable through the owning library's
-          // libraryElement.fragments and must NOT be re-collected as candidates.
-          // However, its compilation unit IS stored in [partUnits] so the
-          // UsageIndex can scan it for *references* — preventing False Positives
-          // when a symbol is only referenced from a part file (HellerIO FP #2).
-          if (someResult.isPart) {
-            // Only store clean part units for reference scanning; broken part
-            // files cannot contribute reliable reference data.
-            if (_firstErrorDiagnostic(someResult.diagnostics) == null) {
-              partUnits.add(someResult);
-            }
+          // contextFor throws StateError when [filePath] belongs to a nested
+          // package that has its own pubspec.yaml and is therefore not part of
+          // the enclosing AnalysisContextCollection. Treat as a load error so
+          // the rule layer never receives a broken/incomplete element model, but
+          // the loader still processes all other files cleanly.
+          SomeResolvedUnitResult someResult;
+          try {
+            final session = collection.contextFor(filePath).currentSession;
+            someResult = await session.getResolvedUnit(filePath);
+          } on StateError catch (e) {
+            errors.add(LoadFileError(path: filePath, reason: e.message));
             continue;
           }
 
-          // Check for parse/semantic errors: files with error-severity
-          // diagnostics are mapped to the error branch so downstream rules
-          // never receive a broken element model.
-          final firstError = _firstErrorDiagnostic(someResult.diagnostics);
+          if (someResult is ResolvedUnitResult) {
+            // A `part of` file resolves as a ResolvedUnitResult with isPart=true.
+            // Its declarations are reachable through the owning library's
+            // libraryElement.fragments and must NOT be re-collected as candidates.
+            // However, its compilation unit IS stored in [partUnits] so the
+            // UsageIndex can scan it for *references* — preventing False Positives
+            // when a symbol is only referenced from a part file (HellerIO FP #2).
+            if (someResult.isPart) {
+              // Only store clean part units for reference scanning; broken part
+              // files cannot contribute reliable reference data.
+              if (_firstErrorDiagnostic(someResult.diagnostics) == null) {
+                partUnits.add(someResult);
+              }
+              continue;
+            }
 
-          if (firstError == null) {
-            // Clean resolution — add to the success branch.
-            resolved.add(
-              LoadedFile(
-                result: someResult,
+            // Check for parse/semantic errors: files with error-severity
+            // diagnostics are mapped to the error branch so downstream rules
+            // never receive a broken element model.
+            final firstError = _firstErrorDiagnostic(someResult.diagnostics);
+
+            if (firstError == null) {
+              // Clean resolution — add to the success branch.
+              resolved.add(
+                LoadedFile(
+                  result: someResult,
+                  path: filePath,
+                  isUnderLib: filePath.startsWith(libDir),
+                ),
+              );
+            } else {
+              // Has parse/semantic errors — add to the error branch.
+              errors.add(
+                LoadFileError(path: filePath, reason: firstError.message),
+              );
+            }
+          } else {
+            // InvalidResult (e.g. InvalidPathResult, NotLibraryButPartResult) —
+            // the file cannot be resolved at all.
+            errors.add(
+              LoadFileError(
                 path: filePath,
-                isUnderLib: filePath.startsWith(libDir),
+                reason: someResult.runtimeType.toString(),
               ),
             );
-          } else {
-            // Has parse/semantic errors — add to the error branch.
-            errors.add(
-              LoadFileError(path: filePath, reason: firstError.message),
-            );
           }
-        } else {
-          // InvalidResult (e.g. InvalidPathResult, NotLibraryButPartResult) —
-          // the file cannot be resolved at all.
-          errors.add(
-            LoadFileError(
-              path: filePath,
-              reason: someResult.runtimeType.toString(),
-            ),
-          );
+        } finally {
+          // Fired for every file, including error/part/continue paths.
+          progressSink.advance();
         }
       }
 
@@ -280,6 +299,7 @@ class ProjectLoader {
         stackProfile: stackProfile,
       );
     } finally {
+      progressSink.endPhase();
       await collection.dispose();
     }
   }

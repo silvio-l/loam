@@ -8,6 +8,7 @@ import '../duplicates/duplicate_code_collector.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../model/rule_category.dart';
+import '../progress/progress_sink.dart';
 import '../report/reporter.dart' show ScanStats;
 import '../rules/a11y_form_field_label_rule.dart';
 import '../rules/a11y_icon_button_label_rule.dart';
@@ -87,9 +88,15 @@ class AnalysisRunner {
   ///
   /// [categoryFilter]: when set, only rules belonging to this category are run.
   /// Defaults to `null` (all categories active, subject to [config]).
+  ///
+  /// [progressSink]: receives semantic progress events during both the load
+  /// phase (delegated to [ProjectLoader]) and the analysis phase (one advance
+  /// per rule). Defaults to [NoopProgressSink] so existing callers that omit
+  /// this argument get zero overhead (no `if (sink != null)` guards needed).
   const AnalysisRunner({
     this.config = const LoamConfig.defaults(),
     this.categoryFilter,
+    this.progressSink = const NoopProgressSink(),
   });
 
   /// The [LoamConfig] that controls Rule-Toggles and ignore globs.
@@ -104,6 +111,12 @@ class AnalysisRunner {
   /// Category membership is determined by [_ruleCategories] — not by ruleId
   /// string prefixes (Invariant 1: semantics over syntax).
   final RuleCategory? categoryFilter;
+
+  /// Receives semantic progress events (load phase + analysis phase).
+  ///
+  /// Defaults to [NoopProgressSink] — no I/O overhead for callers that omit
+  /// this argument (gate, baseline, health commands).
+  final ProgressSink progressSink;
 
   /// The canonical full registry of all known rule IDs, sorted lexicographically.
   ///
@@ -232,7 +245,10 @@ class AnalysisRunner {
   /// (`filePath`, `line`, `fingerprint`). Never throws in normal operation.
   Future<List<Finding>> run(String projectRoot) async {
     final root = p.normalize(p.absolute(projectRoot));
-    final loadResult = await ProjectLoader().load(root);
+    final loadResult = await ProjectLoader().load(
+      root,
+      progressSink: progressSink,
+    );
     return runWithLoadResult(root, loadResult);
   }
 
@@ -240,7 +256,10 @@ class AnalysisRunner {
   /// suppressed count + scope stats) the `scan` report needs.
   Future<AnalysisOutcome> analyze(String projectRoot) async {
     final root = p.normalize(p.absolute(projectRoot));
-    final loadResult = await ProjectLoader().load(root);
+    final loadResult = await ProjectLoader().load(
+      root,
+      progressSink: progressSink,
+    );
     return analyzeWithLoadResult(root, loadResult);
   }
 
@@ -265,7 +284,14 @@ class AnalysisRunner {
               .toList()
             ..sort());
 
-    final rawFindings = _collectRaw(root, loadResult, effectiveIds);
+    // Fire analysis-phase progress: one advance per active rule.
+    progressSink.startPhase('Analysiere', total: effectiveIds.length);
+    final List<Finding> rawFindings;
+    try {
+      rawFindings = _collectRaw(root, loadResult, effectiveIds);
+    } finally {
+      progressSink.endPhase();
+    }
 
     final inlineDirectives = InlineSuppressionScanner.scan(loadResult, root);
     final findings = SuppressionEngine.filter(
@@ -332,6 +358,9 @@ class AnalysisRunner {
   /// [root] must be the normalised absolute project root. The registry is the
   /// full registry minus rules disabled via [config] — disabled rules are not
   /// instantiated at all (registry-level filter, not a post-run finding filter).
+  ///
+  /// Fires one [ProgressSink.advance] per rule so the caller can track progress
+  /// against the [effectiveIds] total passed to `startPhase`.
   List<Finding> _collectRaw(
     String root,
     ProjectLoadResult loadResult,
@@ -372,6 +401,7 @@ class AnalysisRunner {
     final rawFindings = <Finding>[];
     for (final rule in rules) {
       rawFindings.addAll(rule.run(loadResult));
+      progressSink.advance();
     }
     return rawFindings;
   }
