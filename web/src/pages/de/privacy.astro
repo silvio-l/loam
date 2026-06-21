@@ -5,7 +5,7 @@ import Layout from '../../layouts/Layout.astro';
 <Layout
   lang="de"
   title="Datenschutzerklärung — loam.dev"
-  description="Datenschutzerklärung für loam.dev: selbst gehostete Schriften, keine Cookies, kein Tracking. Datenflüsse: Cloudflare-Zugriffslogs und ein GitHub-API-Aufruf nur auf der Startseite."
+  description="Datenschutzerklärung für loam.dev: selbst gehostete Schriften, keine Cookies, cookiefreie Matomo-Webanalyse. Datenflüsse: Cloudflare-Zugriffslogs und ein GitHub-API-Aufruf nur auf der Startseite."
   path="/de/privacy"
 >
   <div class="prose-page">
@@ -62,9 +62,37 @@ import Layout from '../../layouts/Layout.astro';
     <section>
       <h2>Cookies &amp; Tracking</h2>
       <p>
-        Diese Website setzt <strong>keine Cookies</strong>, verwendet <strong>keine Tracking-Skripte</strong>
-        und bindet <strong>keine Analyse- oder Werbedienste</strong> ein.
-        Ein Consent-Banner ist nicht notwendig, da es schlicht nichts gibt, dem zugestimmt werden müsste.
+        Diese Website setzt <strong>keine Cookies</strong> und bindet <strong>keine Werbedienste</strong> ein.
+        Ein Consent-Banner ist nicht notwendig.
+      </p>
+    </section>
+
+    <section>
+      <h2>Webanalyse (Matomo, cookiefrei)</h2>
+      <p>
+        Diese Website verwendet die selbst gehostete, cookiefreie Webanalyse-Software Matomo
+        (Erkennungsadresse: <strong>matomo.silvio-und-maik.de</strong>), um aggregierte,
+        statistische Auswertungen darüber zu erstellen, wie die Seite genutzt wird. Die Analyse
+        ist datensparsam und läuft vollständig first-party auf einem Server des Autors. Beim Aufruf
+        jeder Seite werden folgende technische Merkmale erfasst: eine <strong>anonymisierte
+        IP-Adresse</strong> (vor der Speicherung auf 2 Byte gekürzt), <strong>Browsertyp und
+        -version</strong>, das vom Browser gemeldete <strong>Betriebssystem</strong>, der
+        <strong>Gerätetyp</strong> (Desktop, Tablet oder Smartphone), die
+        <strong>Bildschirmauflösung</strong> (über JavaScript), die eingestellte
+        <strong>Browsersprache</strong>, das <strong>Herkunftsland und die Region</strong>
+        (geometrisch aus der IP-Adresse abgeleitet), der <strong>Referrer</strong> (die Seite,
+        von der aus diese Website aufgerufen wurde) sowie die <strong>besuchten Unterseiten</strong>
+        mit Verweildauer und Uhrzeit des Besuchs.
+      </p>
+      <p>
+        Es werden <strong>keine Cookies</strong> gesetzt, und der „Do Not Track"-Hinweis des
+        Browsers wird respektiert. Es findet keine Profilbildung, kein geräteübergreifendes
+        Tracking und keine Weitergabe an Drittunternehmen statt. Die Daten dienen ausschließlich
+        aggregierten Statistiken und können nicht mit Einzelpersonen verknüpft werden.
+        Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der
+        bedarfsgerechten Weiterentwicklung dieser Website). Du kannst der Verarbeitung jederzeit
+        widersprechen, indem du die Do-Not-Track-Funktion deines Browsers aktivierst; zusätzlich
+        stellt Matomo eine eingebaute Opt-out-Möglichkeit bereit.
       </p>
     </section>
 

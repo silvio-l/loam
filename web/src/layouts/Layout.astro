@@ -353,6 +353,25 @@ const navItems = [
 
   <div class="strata"></div>
 
+  <!-- Matomo Analytics — prod-only, cookiefrei, DSGVO-konfiguriert.
+       Site-ID 3 = loam (getloam.dev). Deaktiviert im Dev-Server via import.meta.env.PROD. -->
+  {import.meta.env.PROD && (
+    <script is:inline set:html={`var _paq = (window._paq = window._paq || []);
+_paq.push(["disableCookies"]);
+_paq.push(["setDoNotTrack", true]);
+_paq.push(["setAnonymizeIp", true]);
+_paq.push(["trackPageView"]);
+_paq.push(["enableLinkTracking"]);
+(function () {
+  _paq.push(["setTrackerUrl", "https://matomo.silvio-und-maik.de/matomo.php"]);
+  _paq.push(["setSiteId", "3"]);
+  var d = document, g = d.createElement("script");
+  g.src = "https://matomo.silvio-und-maik.de/matomo.js";
+  g.async = true;
+  d.head.appendChild(g);
+})();`} />
+  )}
+
   <footer>
     <a href={lang === 'de' ? '/de/developer-guide/' : '/developer-guide/'}>{t(lang, 'footer.devGuide')}</a>
     &nbsp;<span class="accent">·</span>&nbsp;

@@ -5,7 +5,7 @@ import Layout from '../layouts/Layout.astro';
 <Layout
   lang="en"
   title="Privacy Policy — loam.dev"
-  description="Privacy policy for loam.dev: self-hosted fonts, no cookies, no tracking. Data flows: Cloudflare access logs and a GitHub API call on the home page only."
+  description="Privacy policy for loam.dev: self-hosted fonts, no cookies, cookiefree Matomo analytics. Data flows: Cloudflare access logs and a GitHub API call on the home page only."
   path="/privacy"
 >
   <div class="prose-page">
@@ -62,9 +62,36 @@ import Layout from '../layouts/Layout.astro';
     <section>
       <h2>Cookies &amp; Tracking</h2>
       <p>
-        This website sets <strong>no cookies</strong>, uses <strong>no tracking scripts</strong>,
-        and integrates <strong>no analytics or advertising services</strong>.
-        No consent banner is needed because there is nothing to consent to.
+        This website sets <strong>no cookies</strong> and integrates <strong>no advertising services</strong>.
+        No consent banner is needed.
+      </p>
+    </section>
+
+    <section>
+      <h2>Web Analytics (Matomo, cookiefree)</h2>
+      <p>
+        This website uses the self-hosted, cookiefree web analytics software Matomo
+        (endpoint: <strong>matomo.silvio-und-maik.de</strong>) to produce aggregated,
+        statistical evaluations of how the site is used. The analysis is data-economical
+        and runs entirely first-party on a server operated by the author. On each page
+        access, the following technical characteristics are recorded: an
+        <strong>anonymised IP address</strong> (truncated to 2 bytes before storage),
+        <strong>browser type and version</strong>, the <strong>operating system</strong>
+        reported by the browser, the <strong>device type</strong> (desktop, tablet or
+        smartphone), the <strong>screen resolution</strong> (via JavaScript), the
+        configured <strong>browser language</strong>, the <strong>country of origin and
+        region</strong> (geometrically derived from the IP address), the
+        <strong>referrer</strong> (the page from which this website was accessed), and
+        the <strong>subpages visited</strong> with time spent and time of visit.
+      </p>
+      <p>
+        <strong>No cookies</strong> are set, and the browser's “Do Not Track" signal is
+        honoured. There is no profiling, no cross-device tracking, and no sharing with
+        third parties. The data is used exclusively for aggregated statistics and cannot
+        be linked to individuals. Legal basis: Art. 6(1)(f) GDPR (legitimate interest in
+        needs-driven development of this website). You may object to this processing at
+        any time by enabling your browser's Do-Not-Track function; Matomo additionally
+        provides a built-in opt-out option.
       </p>
     </section>
 
