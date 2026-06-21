@@ -14,7 +14,8 @@
   "dependencies": {
     "@astrojs/sitemap": "^3.7.3",
     "@fontsource/spline-sans-mono": "^5.2.8",
-    "astro": "^6.4.3"
+    "astro": "^6.4.3",
+    "web-vitals": "^5.3.0"
   },
   "devDependencies": {
     "vitest": "^4.1.8"

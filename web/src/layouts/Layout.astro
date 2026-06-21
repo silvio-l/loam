@@ -16,6 +16,7 @@ import '@fontsource/spline-sans-mono/400.css';
 import '@fontsource/spline-sans-mono/500.css';
 import '@fontsource/spline-sans-mono/600.css';
 import LanguageSwitcher from '../components/LanguageSwitcher.astro';
+import WebVitals from '../components/WebVitals.astro';
 import { hreflangAlternates } from '../i18n/utils';
 import { t } from '../i18n/ui';
 import type { Locale } from '../i18n/utils';
@@ -371,6 +372,9 @@ _paq.push(["enableLinkTracking"]);
   d.head.appendChild(g);
 })();`} />
   )}
+
+  <!-- Core Web Vitals (RUM) → Matomo custom events. First-party bundled, prod-only. -->
+  {import.meta.env.PROD && <WebVitals enabled={true} />}
 
   <footer>
     <a href={lang === 'de' ? '/de/developer-guide/' : '/developer-guide/'}>{t(lang, 'footer.devGuide')}</a>
