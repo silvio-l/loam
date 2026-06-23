@@ -89,14 +89,17 @@ import Layout from '../layouts/Layout.astro';
         measurements are purely technical and carry no personal reference.
       </p>
       <p>
-        <strong>No cookies</strong> are set, and the browser's “Do Not Track" signal is
-        honoured. There is no profiling, no cross-device tracking, and no sharing with
+        No cookies are set and no information is stored on or read from your device;
+        because tracking is cookieless and IP-anonymised, no consent — and therefore no
+        cookie banner — is required under § 25 TDDDG.
+        There is no profiling, no cross-device tracking, and no sharing with
         third parties. The data is used exclusively for aggregated statistics and cannot
         be linked to individuals. Legal basis: Art. 6(1)(f) GDPR (legitimate interest in
         needs-driven development of this website). You may object to this processing at
-        any time by enabling your browser's Do-Not-Track function; Matomo additionally
-        provides a built-in opt-out option.
+        any time (Art. 21 GDPR) — tick the opt-out option in the field below.
       </p>
+      <div id=”matomo-opt-out”></div>
+      <script is:inline src=”https://matomo.silvio-und-maik.de/index.php?module=CoreAdminHome&action=optOutJS&divId=matomo-opt-out&language=en&showIntro=1”></script>
     </section>
 
     <section>

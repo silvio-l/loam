@@ -88,15 +88,19 @@ import Layout from '../../layouts/Layout.astro';
         diese Messwerte sind rein technisch und weisen keinen Personenbezug auf.
       </p>
       <p>
-        Es werden <strong>keine Cookies</strong> gesetzt, und der „Do Not Track"-Hinweis des
-        Browsers wird respektiert. Es findet keine Profilbildung, kein geräteübergreifendes
+        Es werden keine Cookies gesetzt und keine Informationen auf deinem Endgerät gespeichert
+        oder ausgelesen; weil das Tracking cookiefrei und IP-anonymisiert erfolgt, ist nach
+        § 25 TDDDG keine Einwilligung und damit kein Cookie-Banner erforderlich.
+        Es findet keine Profilbildung, kein geräteübergreifendes
         Tracking und keine Weitergabe an Drittunternehmen statt. Die Daten dienen ausschließlich
         aggregierten Statistiken und können nicht mit Einzelpersonen verknüpft werden.
         Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der
-        bedarfsgerechten Weiterentwicklung dieser Website). Du kannst der Verarbeitung jederzeit
-        widersprechen, indem du die Do-Not-Track-Funktion deines Browsers aktivierst; zusätzlich
-        stellt Matomo eine eingebaute Opt-out-Möglichkeit bereit.
+        bedarfsgerechten Weiterentwicklung dieser Website). Du kannst dieser Verarbeitung
+        jederzeit widersprechen (Art. 21 DSGVO) — aktiviere dazu die Opt-out-Option im
+        folgenden Feld.
       </p>
+      <div id="matomo-opt-out"></div>
+      <script is:inline src="https://matomo.silvio-und-maik.de/index.php?module=CoreAdminHome&action=optOutJS&divId=matomo-opt-out&language=de&showIntro=1"></script>
     </section>
 
     <section>
