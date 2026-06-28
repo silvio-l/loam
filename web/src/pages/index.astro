@@ -33,11 +33,12 @@ try {
   path="/"
 >
   <div class="home-main">
-    <img class="mark" src="/icon-mark.svg" alt="loam.dev logo — a sprout growing from layered soil" width="128" height="128">
+    <img class="mark" src="/icon-mark.svg" alt="loam.dev logo — a sprout growing from layered soil" width="128" height="120">
     <span class="lockup">
       <img class="wm-hero" src="/wordmark.svg" alt="loam.dev" width="480" height="120">
       <span class="caret" aria-hidden="true"></span>
     </span>
+    <h1 class="sr-only">loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</h1>
     <p class="tagline">Codebase intelligence &amp; <em>anti-AI-slop</em> for Dart&nbsp;&amp;&nbsp;Flutter.</p>
     <p class="sub">Catches the structural drift and AI-generated slop that <code>dart&nbsp;analyze</code>
        never sees.</p>
@@ -113,14 +114,18 @@ try {
 
   .stars-wrap{ margin-top:2rem; animation:rise .9s .48s cubic-bezier(.2,.8,.2,1) both; }
 
+  .sr-only{ position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
+
   @keyframes blink{ 0%,50%{ opacity:1; } 50.01%,100%{ opacity:0; } }
 </style>
 
 <script is:inline>
+  var _paq = window._paq || [];
   const b=document.getElementById('copy');
   b?.addEventListener('click',async()=>{ try{
     await navigator.clipboard.writeText(document.getElementById('cmd').textContent.trim());
     b.textContent='copied'; b.classList.add('ok'); setTimeout(()=>{b.textContent='copy';b.classList.remove('ok');},1600);
+    _paq.push(["trackEvent", "Engagement", "Install kopiert", "Install"]);
   }catch(e){} });
 
   const s=document.getElementById('share');
@@ -130,4 +135,8 @@ try {
     await navigator.clipboard.writeText(shareData.url);
     s.textContent='link copied'; s.classList.add('ok'); setTimeout(()=>{s.textContent='share';s.classList.remove('ok');},1600);
   }catch(e){} });
+
+  document.querySelector('a[href="/demo-report.html"]')?.addEventListener('click',function(){
+    _paq.push(["trackEvent", "Engagement", "Demo-Report geöffnet", "report"]);
+  });
 </script>

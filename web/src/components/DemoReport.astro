@@ -40,7 +40,7 @@ const copy = {
     <div class="frame-bar">
       <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
       <span class="frame-title">loam-report.html — shopcart</span>
-      <a class="frame-open" href="/demo-report.html" target="_blank" rel="noopener">
+      <a class="frame-open" href="/demo-report.html" target="_blank" rel="noopener" id="demo-report-open">
         {copy.open}
       </a>
     </div>
@@ -116,3 +116,9 @@ const copy = {
     }
   }
 </style>
+
+<script is:inline>
+  document.getElementById('demo-report-open')?.addEventListener('click',function(){
+    (window._paq||[]).push(["trackEvent","Engagement","Demo-Report geöffnet","report"]);
+  });
+</script>

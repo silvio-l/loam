@@ -18,6 +18,25 @@ if (!entry) {
 const { Content } = await render(entry);
 ---
 
-<article class="prose-page prose-page--md" style="position:relative;z-index:3;">
+<article class="prose-page prose-page--md" style="position:relative;z-index:3;" id="guide-article">
   <Content />
 </article>
+
+<script is:inline>
+  (function(){
+    var el = document.getElementById('guide-article');
+    if(!el) return;
+    var sentinel = document.createElement('div');
+    sentinel.style.cssText = 'height:1px;width:100%;';
+    el.appendChild(sentinel);
+    var fired = false;
+    var obs = new IntersectionObserver(function(entries){
+      if(entries[0].isIntersecting && !fired){
+        fired = true;
+        (window._paq||[]).push(["trackEvent","Engagement","Developer-Guide gelesen","guide"]);
+        obs.disconnect();
+      }
+    }, { threshold: 0 });
+    obs.observe(sentinel);
+  })();
+</script>
