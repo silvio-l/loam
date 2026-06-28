@@ -356,6 +356,10 @@ const navItems = [
 
   <!-- Matomo Analytics — prod-only, cookiefrei, DSGVO-konfiguriert.
        Site-ID 3 = loam (getloam.dev). Deaktiviert im Dev-Server via import.meta.env.PROD. -->
+  {/* WARNUNG: NIEMALS _paq.push(["setAnonymizeIp", ...]) ergänzen — keine gültige Matomo-5-
+      JS-Methode, wirft TypeError und bricht die _paq-Queue ab (trackPageView läuft nie ->
+      Tracking-Totalausfall, Juni 2026). IP-Anonymisierung passiert serverseitig in Matomo.
+      Jede Snippet-Änderung -> CSP-Hash in public/_headers neu (csp-build.test.ts erzwingt es). */}
   {import.meta.env.PROD && (
     <script is:inline set:html={`var _paq = (window._paq = window._paq || []);
 _paq.push(["disableCookies"]);
