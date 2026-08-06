@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.14
+
+- **Fix: `a11y-interactive-semantics` no longer flags custom widgets that
+  already carry their own accessible name.** The rule previously suppressed a
+  finding only when the call site was wrapped in a `Semantics(label: …)`
+  ancestor — it never inspected the call site's own arguments. Two
+  independent field reports (a widget that wraps itself in `Semantics(...)`
+  internally, and a widget that delegates its label transitively to an
+  already-excluded Flutter button) both turned out to pass their accessible
+  name through a `label:` argument on the call site itself. The rule now also
+  accepts a non-empty `label`, `semanticLabel`, or `tooltip` named argument on
+  the call site as a sufficient accessible name, covering both shapes without
+  opening the target class's definition. An empty string (`''`) or `null`
+  still does not count — the rule stays conservative.
+
 ## 0.1.13
 
 - **Fix: `ignore` globs and the gate now suppress correctly no matter which

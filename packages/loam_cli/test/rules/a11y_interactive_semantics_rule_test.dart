@@ -225,16 +225,68 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // AC7: Call-site accessible-name property (label/semanticLabel/tooltip)
+  //      — FP root-fix for field-findings 2026-06-23 (LottiButton) and
+  //      2026-08-06 (WpButton): a widget that self-wraps in Semantics(...)
+  //      internally, or delegates to an already-excluded Flutter widget, is
+  //      indistinguishable from any other custom widget at the AST level —
+  //      but both real-world shapes pass their accessible name through a
+  //      `label:` call-site argument, which the rule now recognises directly.
+  // ---------------------------------------------------------------------------
+
+  test('AC7: no findings in label_property_self_wrapped_clean.dart '
+      '(LottiButton shape: self-wraps in Semantics internally, label: at '
+      'call site)', () {
+    final findings = makeRule().run(loadResult);
+    final cleanFindings = findings.where(
+      (f) => f.filePath.contains('label_property_self_wrapped_clean'),
+    );
+    expect(cleanFindings, isEmpty);
+  });
+
+  test('AC7: no findings in label_property_delegating_clean.dart '
+      '(WpButton shape: delegates to an already-excluded Flutter widget, '
+      'label: at call site)', () {
+    final findings = makeRule().run(loadResult);
+    final cleanFindings = findings.where(
+      (f) => f.filePath.contains('label_property_delegating_clean'),
+    );
+    expect(cleanFindings, isEmpty);
+  });
+
+  test('AC7: no findings in label_property_variants_clean.dart '
+      '(semanticLabel: and tooltip: are also recognised)', () {
+    final findings = makeRule().run(loadResult);
+    final cleanFindings = findings.where(
+      (f) => f.filePath.contains('label_property_variants_clean'),
+    );
+    expect(cleanFindings, isEmpty);
+  });
+
+  test(
+    'AC7: one finding in label_property_empty_positive.dart '
+    "(label: '' is empty — must still be flagged, conservative by design)",
+    () {
+      final findings = makeRule().run(loadResult);
+      final positiveFindings = findings.where(
+        (f) => f.filePath.contains('label_property_empty_positive'),
+      );
+      expect(positiveFindings, hasLength(1));
+    },
+  );
+
+  // ---------------------------------------------------------------------------
   // Total finding count sanity check
   // ---------------------------------------------------------------------------
 
-  test('total findings: exactly 1 (from custom_widget_positive.dart)', () {
+  test('total findings: exactly 2 (custom_widget_positive.dart + '
+      'label_property_empty_positive.dart)', () {
     final findings = makeRule().run(loadResult);
     expect(
       findings,
-      hasLength(1),
+      hasLength(2),
       reason:
-          'Expected exactly 1 finding total. '
+          'Expected exactly 2 findings total. '
           'Got: ${findings.map((f) => "${f.filePath}:${f.line} ${f.message}").join("; ")}',
     );
   });

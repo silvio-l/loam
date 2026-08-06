@@ -37,6 +37,23 @@ import 'rule.dart';
 /// This rule therefore targets **only user-defined and third-party widgets**
 /// — classes whose resolved library URI is NOT `package:flutter`.
 ///
+/// **Call-site accessible-name property (own arguments, no cross-widget
+/// analysis):**
+/// A finding is also suppressed when the call site itself carries a `label`,
+/// `semanticLabel`, or `tooltip` named argument with a non-empty value. This
+/// covers custom/third-party widgets that expose an accessible-name-carrying
+/// constructor parameter — whether they wrap themselves in
+/// `Semantics(label: …)` internally, or delegate the value transitively to an
+/// already-excluded Flutter widget (e.g. passing `label` through as a `Text`
+/// child of `FilledButton`). Neither case is visible to
+/// `_isWrappedInSemanticsLabel`, which only walks the call site's *ancestor*
+/// chain — this check inspects the call site's own arguments instead, without
+/// ever opening the target class's definition. A literal `null` or empty
+/// string (`''`) does not count; any other expression (variable,
+/// interpolation, method call, …) is treated as provided, since its runtime
+/// value can't be evaluated statically (conservative by design, matching the
+/// callback-arg check above).
+///
 /// **What AST detection does NOT catch (documented limitations):**
 /// - Widgets that become interactive at runtime via inherited callbacks
 ///   (e.g. via `InheritedWidget` or `Provider`).
@@ -44,8 +61,10 @@ import 'rule.dart';
 ///   `onTap`/`onPressed`/`onLongPress` parameter names.
 /// - Callback parameters receiving `null` at runtime are still flagged when
 ///   the named arg is present in the AST (conservative by design).
-/// - Custom accessible-name mechanisms other than `Semantics(label: …)` — e.g.
-///   `MergeSemantics`, `ExcludeSemantics`, platform views — are not recognised.
+/// - Custom accessible-name mechanisms other than `Semantics(label: …)` and
+///   the `label`/`semanticLabel`/`tooltip` call-site properties above — e.g.
+///   `MergeSemantics`, `ExcludeSemantics`, platform views — are not
+///   recognised.
 ///
 /// **Element-model check (Invariant 1 — semantics over syntax):**
 /// The overlap exclusion uses the resolved library URI of the widget's class:
@@ -140,6 +159,11 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
   /// Callback argument names that indicate an interactive widget.
   static const _callbackArgs = {'onTap', 'onPressed', 'onLongPress'};
 
+  /// Named arguments that, when present with a non-empty value on the call
+  /// site itself, count as a sufficient accessible name (see the class-level
+  /// doc comment "Call-site accessible-name property").
+  static const _accessibleNameArgs = {'label', 'semanticLabel', 'tooltip'};
+
   // (No exclusion name-list needed — all package:flutter classes are excluded
   // by _isExcludedFlutterClass via the resolved library URI check.)
 
@@ -162,6 +186,9 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
 
     // Suppressed by a Semantics(label: …) ancestor?
     if (_isWrappedInSemanticsLabel(node)) return;
+
+    // Suppressed by the call site's own label/semanticLabel/tooltip argument?
+    if (_hasAccessibleNameProperty(node)) return;
 
     _addFinding(node, widgetName: classEl.name ?? '<unknown>');
   }
@@ -188,6 +215,26 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
     return node.argumentList.arguments.any(
       (arg) => arg is NamedArgument && _callbackArgs.contains(arg.name.lexeme),
     );
+  }
+
+  /// Returns `true` when [node]'s own argument list carries a `label`,
+  /// `semanticLabel`, or `tooltip` named argument with a non-empty value.
+  ///
+  /// Inspects only the call site's own arguments — never the definition of
+  /// the instantiated class — so it stays cheap and covers both known
+  /// false-positive shapes (self-wrapping in `Semantics(...)` internally, or
+  /// delegating the value to an already-excluded Flutter widget) without
+  /// resolving the target class's body.
+  bool _hasAccessibleNameProperty(InstanceCreationExpression node) {
+    for (final arg in node.argumentList.arguments) {
+      if (arg is! NamedArgument) continue;
+      if (!_accessibleNameArgs.contains(arg.name.lexeme)) continue;
+      final value = arg.argumentExpression;
+      if (value is NullLiteral) continue;
+      if (value is SimpleStringLiteral && value.value.isEmpty) continue;
+      return true;
+    }
+    return false;
   }
 
   /// Returns `true` when [node] is enclosed in any `Semantics` ancestor that
