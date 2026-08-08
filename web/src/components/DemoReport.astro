@@ -1,9 +1,19 @@
 ---
 // Live, interactive preview of the actual `html` report loam.dev writes.
-// The report at /demo-report.html is a real, self-contained artefact generated
+// The report at /demo-report is a real, self-contained artefact generated
 // by `tool/gen-demo-report.sh` from a small demo project — not a screenshot.
 // Embedded in an iframe so visitors can filter, select Findings and copy the
 // fix-prompt right on the page.
+//
+// Linked/embedded via the extensionless /demo-report path, not /demo-report.html:
+// Cloudflare Pages' Clean-URLs feature 308-redirects the .html path to this one,
+// so a _headers rule keyed to /demo-report.html never actually applies to what
+// the browser renders — it only ever sees the redirect response. That left the
+// site-wide X-Frame-Options: DENY / frame-ancestors 'none' in force on the final
+// document, which iframe-embeds it as a blank/black frame (seen in Safari).
+// Pointing straight at /demo-report skips the redirect hop, so the frame-specific
+// override in web/public/_headers (keyed to this same extensionless path) is what
+// actually governs the response the iframe loads.
 interface Props {
   lang?: 'en' | 'de';
 }
@@ -40,13 +50,13 @@ const copy = {
     <div class="frame-bar">
       <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
       <span class="frame-title">loam-report.html — shopcart</span>
-      <a class="frame-open" href="/demo-report.html" target="_blank" rel="noopener" id="demo-report-open">
+      <a class="frame-open" href="/demo-report" target="_blank" rel="noopener" id="demo-report-open">
         {copy.open}
       </a>
     </div>
     <iframe
       class="report-embed"
-      src="/demo-report.html"
+      src="/demo-report"
       title="Interactive loam.dev demo report"
       loading="lazy"
     ></iframe>

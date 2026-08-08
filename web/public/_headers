@@ -1,8 +1,10 @@
 # Cloudflare Pages headers for getloam.dev (loam).
 # Astro copies public/ to dist/ root; Pages reads _headers from the output root.
 # CSP script-src is sha256-pinned to the executable inline scripts; web-vitals/Astro
-# modules are 'self'. JSON-LD is data (exempt). connect-src allows the GitHub API
-# (home-page stars call) + Matomo. Verified against dist by csp-build.test.ts.
+# modules are 'self'. Non-JS-typed <script> blocks (JSON-LD, the demo report's JSON
+# data/prompt-template blocks) are inert data, not subject to script-src, and are
+# exempt. connect-src allows the GitHub API (home-page stars call) + Matomo.
+# Verified against dist by csp-build.test.ts.
 
 /*
   X-Content-Type-Options: nosniff
@@ -10,7 +12,25 @@
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   Strict-Transport-Security: max-age=31536000
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' https://matomo.silvio-und-maik.de data:; font-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://matomo.silvio-und-maik.de https://api.github.com; script-src 'self' https://matomo.silvio-und-maik.de 'sha256-18wOa3V/7RyMhvN4kFj4cKxBWXbzRCUqu8UrET0Zs6g=' 'sha256-CBZ8WfFZYvWYB0Z5ihs+WxJOnmryGHPVinszYjzI3zg=' 'sha256-EF4nvZ0JTHLU66bFj9uiXBqmYJ5UWuxk/oBOoGvOtG8=' 'sha256-Its5jbbDENpfcVuNVZev+j4aeRBaySEt9eSuTWdKTiI=' 'sha256-MntIynAQOpnCQ+XuJErZyMPY6SyjFzdWKquw92DS7Bc=' 'sha256-Qw+c1nsjnMZ2qwT8x80VH9IlKq5VpE0yM8IPCOn4tPQ=' 'sha256-Se1f/cgaVCsOwuTRy+oZXu9EdrKJbrZUOB1SuPHMyF4=' 'sha256-aVRQMHiQoLPsFMtPIK6K8FiTK3dWFmZBzws41tJA7yo=' 'sha256-fNjB4igxkuWeKg3N/8oh+tptbdarUPTlA2N1xVTGFYY=' 'sha256-kWin2O/ZrZn4+NWn9fHMi9u0SGIVn4TAes01ByLIdyE=' 'sha256-oGmUBlff/XcFhq9TJhhq0EaalLod8UEECphA2rrtNlk='; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' https://matomo.silvio-und-maik.de data:; font-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://matomo.silvio-und-maik.de https://api.github.com; script-src 'self' https://matomo.silvio-und-maik.de 'sha256-18wOa3V/7RyMhvN4kFj4cKxBWXbzRCUqu8UrET0Zs6g=' 'sha256-DaHInHX1dH8Prn/3B1m9H/W33mI/bJHnhy3r6JWJKvg=' 'sha256-EF4nvZ0JTHLU66bFj9uiXBqmYJ5UWuxk/oBOoGvOtG8=' 'sha256-Its5jbbDENpfcVuNVZev+j4aeRBaySEt9eSuTWdKTiI=' 'sha256-MntIynAQOpnCQ+XuJErZyMPY6SyjFzdWKquw92DS7Bc=' 'sha256-Se1f/cgaVCsOwuTRy+oZXu9EdrKJbrZUOB1SuPHMyF4=' 'sha256-m8D6P/jJCJjpq4WjUhwVWs0fn8DdEmf7mfbhyXu2GRE=' 'sha256-oGmUBlff/XcFhq9TJhhq0EaalLod8UEECphA2rrtNlk='; upgrade-insecure-requests
 
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable
+
+# demo-report is the only page meant to be framed — DemoReport.astro embeds it
+# same-origin on the how-it-works page. This rule is keyed to the extensionless
+# /demo-report path (not /demo-report.html): Cloudflare Pages' Clean-URLs feature
+# 308-redirects the .html path to this one, so a rule on /demo-report.html would
+# only ever apply to the redirect response, never to what the browser actually
+# renders — DemoReport.astro's iframe/link both point at /demo-report directly to
+# match. Cloudflare Pages merges same-named headers from every matching rule
+# (comma-joined for X-Frame-Options, policy-intersected for CSP), so the /* block's
+# DENY/frame-ancestors 'none' would still win even with a more specific override;
+# the `!` "detach" syntax is the only way to actually remove an inherited header
+# before re-setting it. Keep everything else identical to the /* policy — only
+# frame-ancestors changes.
+/demo-report
+  ! X-Frame-Options
+  X-Frame-Options: SAMEORIGIN
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' https://matomo.silvio-und-maik.de data:; font-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://matomo.silvio-und-maik.de https://api.github.com; script-src 'self' https://matomo.silvio-und-maik.de 'sha256-18wOa3V/7RyMhvN4kFj4cKxBWXbzRCUqu8UrET0Zs6g=' 'sha256-DaHInHX1dH8Prn/3B1m9H/W33mI/bJHnhy3r6JWJKvg=' 'sha256-EF4nvZ0JTHLU66bFj9uiXBqmYJ5UWuxk/oBOoGvOtG8=' 'sha256-Its5jbbDENpfcVuNVZev+j4aeRBaySEt9eSuTWdKTiI=' 'sha256-MntIynAQOpnCQ+XuJErZyMPY6SyjFzdWKquw92DS7Bc=' 'sha256-Se1f/cgaVCsOwuTRy+oZXu9EdrKJbrZUOB1SuPHMyF4=' 'sha256-m8D6P/jJCJjpq4WjUhwVWs0fn8DdEmf7mfbhyXu2GRE=' 'sha256-oGmUBlff/XcFhq9TJhhq0EaalLod8UEECphA2rrtNlk='; upgrade-insecure-requests
