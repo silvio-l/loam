@@ -489,7 +489,10 @@ input[type="search"]::placeholder { color: #565248; }
 .rule-id { font-size: 0.7rem; color: var(--dim); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0.05rem 0.4rem; text-decoration: none; transition: color .15s ease, border-color .15s ease; }
 a.rule-id:hover { color: var(--green); border-color: rgba(136,200,64,0.45); }
 a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
-.msg { margin-top: 0.3rem; color: var(--ink); }
+/* Finding messages quote file paths and identifiers, i.e. long tokens with no
+   break opportunity. Without this they push the whole document into horizontal
+   scroll on narrow viewports instead of wrapping inside the finding card. */
+.msg { margin-top: 0.3rem; color: var(--ink); overflow-wrap: anywhere; }
 .badge {
   display: inline-block; border-radius: 4px; padding: 0.05rem 0.4rem;
   font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
@@ -617,11 +620,40 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
 .grade-f { color: var(--error); background: rgba(255,107,107,0.12); }
 
 /* ---- responsive -------------------------------------------------------- */
+/* The masthead carries decoration and provenance, never content, so it must not
+   cost the report more than one extra row as the viewport shrinks. Each step
+   below drops the least useful item so that the sponsor pill and the version
+   chips keep sharing a row instead of unravelling into stacked lines. Nothing
+   is pinned with flex-wrap: nowrap on purpose -- every pill is white-space:
+   nowrap and cannot shrink, so forbidding the wrap would trade the extra row
+   for horizontal page overflow. */
+@media (max-width: 1000px) {
+  /* 227px wide and purely decorative (the element is aria-hidden). Dropping it
+     first keeps the brand and the badge group on one row down to ~740px. */
+  .cmdline { display: none; }
+}
 @media (max-width: 920px) {
   .layout { grid-template-columns: 1fr; }
   .sidebar { position: static; max-height: none; overflow: visible; }
   .toolbar { position: static; }
-  .chips { margin-left: 0; width: 100%; }
+}
+@media (max-width: 740px) {
+  /* Two rows from here down. Left-align the badge group under the brand so the
+     second row reads as deliberate instead of ragged-right. */
+  .topbar { gap: 0.6rem 1rem; padding: 0.95rem 1.25rem; }
+  .topbar-right { margin-left: 0; }
+}
+@media (max-width: 460px) {
+  /* Last to go: the tagline (the document title already says it) and the
+     ruleset chip (repeated verbatim in the Toolchain card). What remains fits
+     beside the brand again. */
+  .topbar { padding: 0.85rem 1rem; }
+  .tagline { display: none; }
+  .chip-ruleset { display: none; }
+  /* The 13rem floor is wider than the whole toolbar row below ~360px and was
+     pushing the document into horizontal scroll. Releasing it lets the field
+     shrink (and wrap) with the rest of the toolbar instead. */
+  input[type="search"] { min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .topbar, .card, .group { animation: none; }

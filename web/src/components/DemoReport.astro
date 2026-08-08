@@ -64,8 +64,21 @@ const copy = {
 </section>
 
 <style>
+  /* The embedded document is a full application layout, not a snippet: its own
+     stylesheet flips to a single stacked column below 920px, which pushes the
+     summary/tooling/fix-prompt sidebar roughly 1000px underneath the findings
+     list. Inside the 72ch prose column the figure is only ~615px wide, so the
+     embed was permanently stuck in that stacked mode — ~2100px of content
+     crammed into a 620px box, with the fix-prompt card (what the paragraph above
+     promises) about 2.5 frame-heights out of sight. Breaking the figure out of
+     the prose column to >=920px restores the report's intended two-column
+     layout and drops its content height to ~880px. max(100%, …) keeps the
+     figure flush with the text column on viewports too narrow to break out of,
+     so it never ends up inset relative to the prose. */
   .report-frame {
-    margin: 1.6rem 0 0;
+    width: max(100%, min(1160px, calc(100vw - 2.5rem)));
+    margin: 2rem 0 0 50%;
+    transform: translateX(-50%);
     border: 1px solid var(--line);
     border-radius: 12px;
     overflow: hidden;
@@ -113,16 +126,33 @@ const copy = {
     background: rgba(136, 200, 64, 0.12);
     border-color: rgba(136, 200, 64, 0.7);
   }
+  /* Viewport-relative so the frame keeps some page around it instead of filling
+     the screen (the report scrolls internally, so a full-height frame would trap
+     the wheel), with px bounds so it stays usable on very short and very tall
+     windows. The plain px height above each clamp() is the fallback for engines
+     without svh — without it the declaration is dropped whole and the iframe
+     collapses to its 150px intrinsic default. */
   .report-embed {
     display: block;
     width: 100%;
-    height: 620px;
+    height: 660px;
+    height: clamp(460px, 72svh, 740px);
     border: 0;
     background: #0c0d10;
   }
-  @media (max-width: 640px) {
+  /* Below the report's own 920px breakpoint it stacks again and gets very tall;
+     a taller frame would only lengthen the scroll trap, so keep it compact. */
+  @media (max-width: 920px) {
     .report-embed {
-      height: 480px;
+      height: 560px;
+      height: clamp(420px, 68svh, 600px);
+    }
+  }
+  /* At this width the ellipsised filename is down to a few characters next to
+     the full-screen link — drop it rather than show a stub. */
+  @media (max-width: 460px) {
+    .frame-title {
+      display: none;
     }
   }
 </style>
