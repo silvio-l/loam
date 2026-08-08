@@ -124,6 +124,14 @@ jobs:
   pub-dev:
     name: Publish to pub.dev (OIDC)
     needs: build
+    # pub.dev vertraut nur dem OIDC-Token eines Runs, dessen eigener Trigger-Ref
+    # ein Tag ist (github.ref_type == 'tag' bei push:tags). Ein workflow_dispatch-
+    # Run läuft dagegen immer auf einem Branch-Ref, selbst mit `inputs.tag`
+    # gesetzt — pub.dev lehnt das mit "refType 'branch'" ab. Diesen Job bei
+    # workflow_dispatch überspringen statt ihn zuverlässig rot laufen zu lassen;
+    # ein echter Tag-Push (auch erneut ausgelöst durch Tag löschen+neu pushen)
+    # ist der einzige Weg, den Publish-Schritt tatsächlich durchzubringen.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     # Job-Level-permissions ERSETZEN die Top-Level-Defaults: id-token fürs
     # OIDC-Publishing, contents:read fürs checkout. Kein pub.dev-Secret nötig —
