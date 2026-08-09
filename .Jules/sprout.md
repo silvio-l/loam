@@ -1,0 +1,1 @@
+## 2026-08-09 - Auto-create output directories\n\n**Learning:** Users often specify nested paths for CLI output files (e.g., `--output build/reports/loam.html`). Without auto-creating parent directories, the tool crashes, causing user friction.\n\n**Action:** When writing output files, ensure parent directories are created automatically.

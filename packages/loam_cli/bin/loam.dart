@@ -1120,7 +1120,9 @@ Future<void> _emitReport({
     return;
   }
 
-  final file = File(targetPath)..writeAsStringSync(rendered);
+  final file = File(targetPath);
+  file.parent.createSync(recursive: true);
+  file.writeAsStringSync(rendered);
   final absPath = p.absolute(file.path);
 
   var opened = false;

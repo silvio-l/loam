@@ -75,6 +75,26 @@ environment:
       }
     });
 
+    test('scan --format html (to nested non-existent directory) → exit 1', () async {
+      final out = Directory.systemTemp.createTempSync('loam_e2e_nested_');
+      try {
+        final code = await cli.run([
+          'scan',
+          '--format',
+          'html',
+          '--no-open',
+          '--output',
+          p.join(out.path, 'nested', 'dir', 'r.html'),
+          '--project-root',
+          fix,
+        ]);
+        expect(code, 1);
+        expect(File(p.join(out.path, 'nested', 'dir', 'r.html')).existsSync(), isTrue);
+      } finally {
+        out.deleteSync(recursive: true);
+      }
+    });
+
     test('scan on clean project → exit 0', () async {
       expect(await cli.run(['scan', '--project-root', clean.path]), 0);
     });
