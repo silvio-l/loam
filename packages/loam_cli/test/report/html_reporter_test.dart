@@ -809,5 +809,30 @@ void main() {
         expect(reporter.render(payload), equals(reporter.render(payload)));
       },
     );
+
+    test(
+      'embedded JSON does not contain unescaped script tags (XSS protection)',
+      () {
+        final payload = _payload(
+          findings: [
+            _finding(message: 'Message </script><script>alert(1)</script>'),
+          ],
+        );
+        final reporter = const HtmlReporter();
+        final html = reporter.render(payload);
+        expect(
+          html.contains('</script><script>alert(1)</script>'),
+          isFalse,
+          reason: 'Embedded JSON must escape script tags to prevent XSS.',
+        );
+        // It should contain the unicode escaped equivalent.
+        expect(
+          html.contains(
+            r'\u003c/script\u003e\u003cscript\u003ealert(1)\u003c/script\u003e',
+          ),
+          isTrue,
+        );
+      },
+    );
   });
 }

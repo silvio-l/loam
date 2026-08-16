@@ -64,25 +64,37 @@ class HtmlReporter implements Reporter {
   /// No other output is modified. [ReportPayload] is never touched.
   final HealthReport? healthSidecar;
 
+  /// Escapes `<` and `>` in JSON so it can be safely embedded in HTML script tags.
+  String _escapeJsonForScript(String json) {
+    return json
+        .replaceAll('<', r'\u003c')
+        .replaceAll('>', r'\u003e')
+        .replaceAll('&', r'\u0026');
+  }
+
   @override
   String render(ReportPayload payload) {
     final relFindings = payload.findings
         .map((f) => _buildFindingMap(f, payload.projectRoot))
         .toList();
 
-    final jsonData = const JsonEncoder.withIndent('  ').convert({
-      'tool': 'loam',
-      'toolVersion': payload.toolVersion,
-      'ruleset': payload.rulesetVersion,
-      'findings': relFindings,
-    });
+    final jsonData = _escapeJsonForScript(
+      const JsonEncoder.withIndent('  ').convert({
+        'tool': 'loam',
+        'toolVersion': payload.toolVersion,
+        'ruleset': payload.rulesetVersion,
+        'findings': relFindings,
+      }),
+    );
 
     // Fix-hints map: embed as JSON so the JS can look them up without
     // hard-coding them. Built from the same source as the Dart assembler
     // (kFixHints + kGenericFixHint) — single source of truth, deterministic.
-    final fixHintsJson = const JsonEncoder.withIndent(
-      '  ',
-    ).convert({...kFixHints, '__generic__': kGenericFixHint});
+    final fixHintsJson = _escapeJsonForScript(
+      const JsonEncoder.withIndent(
+        '  ',
+      ).convert({...kFixHints, '__generic__': kGenericFixHint}),
+    );
 
     // Count by severity for the summary panel.
     final counts = <Severity, int>{
