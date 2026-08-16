@@ -1,0 +1,9 @@
+
+> loam-web@0.0.0 preview /app/web
+> astro preview
+
+[astro] `markdown.remarkPlugins`, `markdown.rehypePlugins`, and `markdown.remarkRehype` are deprecated. Pass them to `unified({...})` from `@astrojs/markdown-remark` directly instead.
+ astro  v7.2.2 ready in 45 ms
+┃ Local    http://localhost:4321/
+┃ Network  use --host to expose
+ ELIFECYCLE  Command failed with exit code 143.
