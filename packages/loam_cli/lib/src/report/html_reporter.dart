@@ -486,9 +486,13 @@ input[type="search"]::placeholder { color: #565248; }
 .finding-body { flex: 1; min-width: 0; }
 .finding-top { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .loc { font-family: var(--mono); color: var(--green); font-size: 0.8rem; word-break: break-all; }
+.rule-id-group { display: flex; align-items: center; gap: 0.2rem; }
 .rule-id { font-size: 0.7rem; color: var(--dim); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0.05rem 0.4rem; text-decoration: none; transition: color .15s ease, border-color .15s ease; }
 a.rule-id:hover { color: var(--green); border-color: rgba(136,200,64,0.45); }
 a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
+.copy-rule-btn { background: none; border: none; cursor: pointer; color: var(--dim); padding: 0.1rem 0.3rem; border-radius: 4px; transition: color .15s ease, background .15s ease; display: flex; align-items: center; justify-content: center; opacity: 0.5; }
+.copy-rule-btn:hover { color: var(--ink); background: rgba(255,255,255,0.05); opacity: 1; }
+.copy-rule-btn.copied { color: var(--green); opacity: 1; }
 /* Finding messages quote file paths and identifiers, i.e. long tokens with no
    break opportunity. Without this they push the whole document into horizontal
    scroll on narrow viewports instead of wrapping inside the finding card. */
@@ -804,7 +808,10 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
              + '<div class="finding-top">'
              + '<span class="badge badge-' + escHtml(f.severity) + '">' + escHtml(f.severity) + '</span>'
              + '<span class="loc">' + escHtml(loc) + '</span>'
+             + '<span class="rule-id-group">'
              + '<a class="rule-id" href="https://getloam.dev/rules#' + encodeURIComponent(f.ruleId) + '" target="_blank" rel="noopener" title="Open rule reference on getloam.dev">' + escHtml(f.ruleId) + '</a>'
+             + '<button type="button" class="copy-rule-btn" data-rule="' + escHtml(f.ruleId) + '" aria-label="Copy rule ID" title="Copy rule ID"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>'
+             + '</span>'
              + '</div>'
              + '<div class="msg">' + escHtml(f.message) + '</div>'
              + '</div>'
@@ -824,10 +831,41 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
     // Whole-row click toggles selection (ignoring clicks on the checkbox itself).
     container.querySelectorAll('.finding').forEach(function(row) {
       row.addEventListener('click', function(ev) {
-        // Let links (rule reference) and the checkbox handle their own clicks.
-        if (ev.target && ev.target.closest && ev.target.closest('a, .finding-check')) return;
+        // Let links (rule reference), the checkbox and copy button handle their own clicks.
+        if (ev.target && ev.target.closest && ev.target.closest('a, .finding-check, .copy-rule-btn')) return;
         var fp = row.getAttribute('data-fp');
         setSelected(fp, !selected[fp]);
+      });
+    });
+
+    // Rule ID copy button click handler.
+    container.querySelectorAll('.copy-rule-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var ruleId = btn.getAttribute('data-rule');
+        if (!ruleId) return;
+
+        function feedback() {
+          btn.classList.add('copied');
+          btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          setTimeout(function() {
+            btn.classList.remove('copied');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+          }, 1500);
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(ruleId).then(feedback).catch(function(){});
+        } else {
+          // Fallback
+          var ta = document.createElement('textarea');
+          ta.value = ruleId;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); feedback(); } catch(e) {}
+          document.body.removeChild(ta);
+        }
       });
     });
 
