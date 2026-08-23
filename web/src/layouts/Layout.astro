@@ -139,6 +139,10 @@ const navItems = [
         linear-gradient(180deg,#0e0f13 0%, #101014 55%, #0e0f0d 100%); }
     body::after{ content:""; position:fixed; inset:0; z-index:2; pointer-events:none; opacity:.05;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+    /* Accessibility: Visible focus for keyboard navigation */
+    :focus-visible { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 2px; }
+
     .grid{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
       background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
                        linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
