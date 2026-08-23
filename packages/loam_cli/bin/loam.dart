@@ -1135,7 +1135,7 @@ Future<void> _emitReport({
 
   stdout.writeln(
     'loam $commandName: HTML-Report → $absPath'
-    '${opened ? ' (im Browser geöffnet)' : ''}',
+    '${opened ? ' (opened in browser)' : ''}',
   );
 }
 
