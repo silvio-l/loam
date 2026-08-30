@@ -285,7 +285,7 @@ class AnalysisRunner {
             ..sort());
 
     // Fire analysis-phase progress: one advance per active rule.
-    progressSink.startPhase('Analysiere', total: effectiveIds.length);
+    progressSink.startPhase('Analyzing', total: effectiveIds.length);
     final List<Finding> rawFindings;
     try {
       rawFindings = _collectRaw(root, loadResult, effectiveIds);

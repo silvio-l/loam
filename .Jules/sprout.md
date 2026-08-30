@@ -1,0 +1,1 @@
+## 2026-08-30 - Translate German CLI messages to English\n\n**Learning:** The CLI tool had some hardcoded German strings mixed in with English output. It is important to keep the application consistent and localize strictly in English to prevent confusion and leaks of other languages.\n\n**Action:** Ensure all new strings added to the CLI tool are strictly in English.

@@ -10,7 +10,7 @@
 abstract class ProgressSink {
   /// Called when a new phase begins.
   ///
-  /// [label] is the human-readable phase name (e.g. `'Lade Projekt'`).
+  /// [label] is the human-readable phase name (e.g. `'Loading project'`).
   /// [total] is the expected number of [advance] calls for this phase,
   /// or `null` for indeterminate phases.
   void startPhase(String label, {int? total});

@@ -72,11 +72,11 @@ void main() {
       );
     });
 
-    test('first event is startPhase with label "Lade Projekt"', () {
+    test('first event is startPhase with label "Loading project"', () {
       expect(sink.events, isNotEmpty);
       final first = sink.events.first;
       expect(first, isA<_StartPhase>());
-      expect((first as _StartPhase).label, equals('Lade Projekt'));
+      expect((first as _StartPhase).label, equals('Loading project'));
     });
 
     test('startPhase carries a non-zero total (number of Dart files)', () {
@@ -137,14 +137,14 @@ void main() {
       expect(starts.length, equals(2));
     });
 
-    test('first phase is "Lade Projekt"', () {
+    test('first phase is "Loading project"', () {
       final starts = sink.events.whereType<_StartPhase>().toList();
-      expect(starts[0].label, equals('Lade Projekt'));
+      expect(starts[0].label, equals('Loading project'));
     });
 
-    test('second phase is "Analysiere"', () {
+    test('second phase is "Analyzing"', () {
       final starts = sink.events.whereType<_StartPhase>().toList();
-      expect(starts[1].label, equals('Analysiere'));
+      expect(starts[1].label, equals('Analyzing'));
     });
 
     test('analyse phase total equals active rule count', () {

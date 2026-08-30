@@ -205,7 +205,7 @@ class ProjectLoader {
       throw SdkResolutionException.notFound(resolved: sdkPath);
     }
     // Start progress phase — we now know the total file count.
-    progressSink.startPhase('Lade Projekt', total: dartFiles.length);
+    progressSink.startPhase('Loading project', total: dartFiles.length);
     try {
       final resolved = <LoadedFile>[];
       final errors = <LoadFileError>[];

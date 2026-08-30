@@ -111,11 +111,11 @@ void main() {
         ]);
         final out = result.stdout as String;
         // Gate summary line is always present.
-        expect(out, contains('neu'), reason: 'gate summary must contain "neu"');
+        expect(out, contains('new'), reason: 'gate summary must contain "new"');
         expect(
           out,
-          contains('eingefroren'),
-          reason: 'gate summary must contain "eingefroren"',
+          contains('frozen'),
+          reason: 'gate summary must contain "frozen"',
         );
       },
     );
@@ -169,13 +169,13 @@ void main() {
         expect(redResult.exitCode, equals(1));
         expect(
           redResult.stdout as String,
-          contains('1 neu'),
+          contains('1 new'),
           reason: 'summary must show 1 new finding',
         );
         expect(
           (redResult.stdout as String).toLowerCase(),
-          contains('rot'),
-          reason: 'summary must say rot',
+          contains('red'),
+          reason: 'summary must say red',
         );
       },
       timeout: const Timeout(Duration(minutes: 3)),
