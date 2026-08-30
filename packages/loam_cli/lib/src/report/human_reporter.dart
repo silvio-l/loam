@@ -59,7 +59,13 @@ class HumanReporter implements Reporter {
     // Group findings by filePath while preserving input order.
     final groups = <String, List<Finding>>{};
     for (final f in payload.findings) {
-      groups.putIfAbsent(f.filePath, () => []).add(f);
+      // ⚡ Bolt: manual map lookup avoids closure allocation
+      var list = groups[f.filePath];
+      if (list == null) {
+        list = [];
+        groups[f.filePath] = list;
+      }
+      list.add(f);
     }
 
     for (final entry in groups.entries) {
