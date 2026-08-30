@@ -1,0 +1,4 @@
+## 2025-02-23 - [Cross-Site Scripting (XSS) in HTML Reporter via unescaped single quotes]
+**Vulnerability:** The `escHtml` function inside `packages/loam_cli/lib/src/report/html_reporter.dart` escaped `&`, `<`, `>`, and `"`, but missed single quotes (`'`). This allowed an XSS injection when the output was interpolated within single quotes in an HTML attribute (e.g., `onclick="toggleGroup(this, '${escHtml(id)}')"`).
+**Learning:** `encodeURIComponent` does not encode single quotes (they remain as `'`). As a result, relying on it for output subsequently passed into single-quoted string literals in HTML without single-quote escaping is a critical vulnerability.
+**Prevention:** Always escape single quotes (`'`) as `&#39;` in any `escHtml` equivalent, especially if the data may be interpolated into single-quoted context boundaries.

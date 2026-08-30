@@ -702,7 +702,8 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
   function escHtml(s) {
     return String(s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
   }
 
   function groupKey(f, by) {
