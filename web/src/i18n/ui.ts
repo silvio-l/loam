@@ -7,6 +7,7 @@ import type { Locale } from './utils';
 
 export const ui: Record<Locale, Record<string, string>> = {
   en: {
+    'nav.skip': 'Skip to main content',
     'nav.home': 'Home',
     'nav.howItWorks': 'How it works',
     'nav.rules': 'Rules',
@@ -37,6 +38,7 @@ export const ui: Record<Locale, Record<string, string>> = {
     'rules.deeper.ci': 'into GitHub Actions.',
   },
   de: {
+    'nav.skip': 'Zum Hauptinhalt springen',
     'nav.home': 'Start',
     'nav.howItWorks': 'Funktionsweise',
     'nav.rules': 'Rules',

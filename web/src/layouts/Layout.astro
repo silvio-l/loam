@@ -178,6 +178,32 @@ const navItems = [
     @keyframes rise{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
     @media (prefers-reduced-motion:reduce){ *{ animation:none !important; } }
 
+    /* ─── Accessibility: Skip link & Focus states ────────────────────────────── */
+    .skip-link {
+      position: absolute;
+      top: -100px;
+      left: 1rem;
+      z-index: 100;
+      background: var(--panel);
+      color: var(--green);
+      padding: .8rem 1.2rem;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      font-size: .85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: top .2s ease;
+      box-shadow: 0 4px 18px rgba(0,0,0,.45);
+    }
+    .skip-link:focus-visible {
+      top: 1rem;
+    }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
     /* ─── Shared prose-page typography (Single Source — Slice 01) ──────────────
        Consumed by all hand-authored content pages (how-it-works, rules, privacy)
        EN + DE. Colors/measures come exclusively from :root brand tokens above.
@@ -323,6 +349,7 @@ const navItems = [
   </style>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">{t(lang, 'nav.skip')}</a>
   <div class="grid"></div>
 
   <header>
@@ -348,7 +375,7 @@ const navItems = [
     </div>
   </header>
 
-  <main>
+  <main id="main-content">
     <slot />
   </main>
 
