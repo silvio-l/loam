@@ -556,7 +556,7 @@ class _GateCommand extends LoamCommand {
     final count = result.newCount;
     stdout.writeln(
       'loam gate --absolute: $count finding${count == 1 ? '' : 's'} '
-      '— ${result.passed ? 'grün' : 'rot'}.',
+      '— ${result.passed ? 'green' : 'red'}.',
     );
 
     return result.exitCode;
@@ -620,14 +620,14 @@ class _GateCommand extends LoamCommand {
       );
     }
 
-    // AC3: Terse summary line to stdout (neu/eingefroren/gefixt).
+    // AC3: Terse summary line to stdout (new/frozen/fixed).
     // This line comes exclusively from GateEngine — reporter has no influence
     // on the gate decision or exit code (Invariant 4).
     stdout.writeln(
-      'loam gate: ${result.newCount} neu, '
-      '${result.keptCount} eingefroren, '
-      '${result.fixedCount} gefixt '
-      '— ${result.passed ? 'grün' : 'rot'}.',
+      'loam gate: ${result.newCount} new, '
+      '${result.keptCount} frozen, '
+      '${result.fixedCount} fixed '
+      '— ${result.passed ? 'green' : 'red'}.',
     );
 
     return result.exitCode;
@@ -1135,7 +1135,7 @@ Future<void> _emitReport({
 
   stdout.writeln(
     'loam $commandName: HTML-Report → $absPath'
-    '${opened ? ' (im Browser geöffnet)' : ''}',
+    '${opened ? ' (opened in browser)' : ''}',
   );
 }
 

@@ -145,34 +145,27 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
-  // AC3: Summary line on stdout (neu/eingefroren/gefixt)
+  // AC3: Summary line on stdout (new/frozen/fixed)
   // ---------------------------------------------------------------------------
 
-  test(
-    'gate stdout contains summary line with neu/eingefroren/gefixt',
-    () async {
-      // Write a clean baseline first.
-      await cli.run(['baseline', '--write', '--project-root', tempDir.path]);
+  test('gate stdout contains summary line with new/frozen/fixed', () async {
+    // Write a clean baseline first.
+    await cli.run(['baseline', '--write', '--project-root', tempDir.path]);
 
-      final entrypoint = '${Directory.current.path}/bin/loam.dart';
-      final result = Process.runSync(Platform.executable, [
-        'run',
-        entrypoint,
-        'gate',
-        '--project-root',
-        tempDir.path,
-      ]);
+    final entrypoint = '${Directory.current.path}/bin/loam.dart';
+    final result = Process.runSync(Platform.executable, [
+      'run',
+      entrypoint,
+      'gate',
+      '--project-root',
+      tempDir.path,
+    ]);
 
-      final out = result.stdout as String;
-      expect(out, contains('neu'), reason: 'summary must contain "neu"');
-      expect(
-        out,
-        contains('eingefroren'),
-        reason: 'summary must contain "eingefroren"',
-      );
-      expect(out, contains('gefixt'), reason: 'summary must contain "gefixt"');
-    },
-  );
+    final out = result.stdout as String;
+    expect(out, contains('new'), reason: 'summary must contain "new"');
+    expect(out, contains('frozen'), reason: 'summary must contain "frozen"');
+    expect(out, contains('fixed'), reason: 'summary must contain "fixed"');
+  });
 
   // ---------------------------------------------------------------------------
   // AC2 + AC3: loam gate --absolute without baseline.json
@@ -221,11 +214,11 @@ void main() {
   );
 
   test(
-    'gate --absolute stdout contains finding count and grün/rot',
+    'gate --absolute stdout contains finding count and green/red',
     () async {
       final entrypoint = '${Directory.current.path}/bin/loam.dart';
 
-      // Run on clean project → grün.
+      // Run on clean project → green.
       final cleanResult = Process.runSync(Platform.executable, [
         'run',
         entrypoint,
@@ -236,11 +229,11 @@ void main() {
       ]);
       expect(
         (cleanResult.stdout as String).toLowerCase(),
-        contains('grün'),
-        reason: 'clean absolute gate must show grün',
+        contains('green'),
+        reason: 'clean absolute gate must show green',
       );
 
-      // Add unused export → rot.
+      // Add unused export → red.
       _addUnusedExport(tempDir);
       final dirtyResult = Process.runSync(Platform.executable, [
         'run',
@@ -252,8 +245,8 @@ void main() {
       ]);
       expect(
         (dirtyResult.stdout as String).toLowerCase(),
-        contains('rot'),
-        reason: 'dirty absolute gate must show rot',
+        contains('red'),
+        reason: 'dirty absolute gate must show red',
       );
     },
     timeout: const Timeout(Duration(minutes: 3)),
