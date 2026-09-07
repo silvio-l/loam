@@ -252,7 +252,7 @@ void main() {
   // -------------------------------------------------------------------------
   // prompt@v2: Ziel-Identifier im Prompt-Kopf
   // -------------------------------------------------------------------------
-  group('Target identifier (prompt@v2)', () {
+  group('Target identifier (prompt@v3)', () {
     test('assembled prompt names the target project', () {
       final result = assembleFixPrompt(
         selectedFindings: fixedSelection,
@@ -293,5 +293,92 @@ void main() {
         equals('`the analysed project`'),
       );
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // prompt@v3: Scope-Begrenzung + Karpathy-strukturierte Instructions
+  // -------------------------------------------------------------------------
+  group('prompt@v3 marker', () {
+    test('kPromptVersion is exactly prompt@v3', () {
+      expect(kPromptVersion, equals('prompt@v3'));
+    });
+  });
+
+  group('Scope-Begrenzung (prompt@v3)', () {
+    test('prompt head instructs the agent to stay within the target scope', () {
+      final result = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
+      expect(result, contains(kTestTarget));
+      expect(
+        result,
+        contains('only'),
+        reason:
+            'the scope instruction must explicitly limit the agent to '
+            "the target project's own source tree",
+      );
+      expect(
+        result,
+        anyOf(contains('outside'), contains('do not touch')),
+        reason:
+            'the scope instruction must explicitly exclude files '
+            'outside the scanned project',
+      );
+    });
+
+    test('scope instruction never names an absolute path', () {
+      final result = assembleFixPrompt(
+        selectedFindings: fixedSelection,
+        target: kTestTarget,
+      );
+      // Invariant 5: the identifier is the checkout-independent project
+      // basename (kTestTarget), never an absolute filesystem path.
+      expect(result, isNot(contains('/Users/')));
+      expect(result, isNot(matches(RegExp(r'[A-Za-z]:\\'))));
+    });
+  });
+
+  group('Karpathy-strukturierte Instructions (prompt@v3)', () {
+    test('Instructions section names all four principles', () {
+      expect(kFixPromptTemplate, contains('Think first'));
+      expect(kFixPromptTemplate, contains('Simplicity first'));
+      expect(kFixPromptTemplate, contains('Surgical changes'));
+      expect(kFixPromptTemplate, contains('Goal-driven'));
+    });
+
+    test('legacy instruction lines are folded into the new structure', () {
+      // The old bare bullet lines are superseded by the Karpathy-structured
+      // bullets above — they must not be duplicated verbatim any more.
+      expect(
+        kFixPromptTemplate,
+        isNot(contains('- Fix each finding listed above.')),
+      );
+      expect(
+        kFixPromptTemplate,
+        isNot(contains('- Do not change unrelated code.\n')),
+      );
+    });
+
+    test(
+      'Surgical changes principle still covers unrelated-code + formatting',
+      () {
+        expect(kFixPromptTemplate, contains('do not change unrelated code'));
+        expect(
+          kFixPromptTemplate,
+          contains('preserve existing formatting and style conventions'),
+        );
+      },
+    );
+
+    test(
+      'Goal-driven principle still covers the smallest-safe-change escape hatch',
+      () {
+        expect(
+          kFixPromptTemplate,
+          contains('propose the smallest safe change'),
+        );
+      },
+    );
   });
 }

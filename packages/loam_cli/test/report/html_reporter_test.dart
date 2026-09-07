@@ -493,7 +493,7 @@ void main() {
       );
     });
 
-    test('embedded template names the analysed project (prompt@v2)', () {
+    test('embedded template names the analysed project (prompt@v3)', () {
       // _payload() uses projectRoot '/project' → target identifier 'project'.
       final output = const HtmlReporter().render(_payload());
       expect(
@@ -503,6 +503,23 @@ void main() {
             'the embedded Fix-Prompt must document which project it refers to; '
             'the {{TARGET}} placeholder is filled server-side at embed time',
       );
+    });
+
+    test('embedded template contains the prompt@v3 marker', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('prompt@v3'));
+    });
+
+    test('embedded template carries the scope instruction', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('Stay in scope'));
+    });
+
+    test('embedded template does not leak an absolute path', () {
+      final output = const HtmlReporter().render(_payload());
+      // The fix-prompt script block must only carry the checkout-independent
+      // basename identifier ('project'), never the payload's absolute root.
+      expect(output, isNot(contains('Target project: `/project`')));
     });
 
     test('no {{TARGET}} placeholder survives in the embedded template', () {

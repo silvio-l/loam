@@ -31,7 +31,13 @@ library;
 /// `prompt@v2`: Zielprojekt-Identifier (`{{TARGET}}`) im Prompt-Kopf ergänzt,
 /// damit der Prompt jederzeit selbst dokumentiert, gegen welches Projekt die
 /// relativen Finding-Pfade aufgelöst werden müssen.
-const String kPromptVersion = 'prompt@v2';
+///
+/// `prompt@v3`: Scope-Begrenzung im Prompt-Kopf ergänzt (Agent arbeitet nur
+/// innerhalb der Source-Bereiche des `{{TARGET}}`-Projekts, keine Dateien
+/// außerhalb) und die `## Instructions`-Sektion nach den vier
+/// Karpathy-Prinzipien gegliedert (Erst denken / Einfachheit zuerst /
+/// Chirurgische Änderungen / Zielgetrieben).
+const String kPromptVersion = 'prompt@v3';
 
 /// Das versionierte Fix-Prompt-Template.
 ///
@@ -40,13 +46,13 @@ const String kPromptVersion = 'prompt@v2';
 ///   [fillPromptTarget]); wird einmal je Report gesetzt.
 /// - `{{FINDINGS}}` — die assemblierten Finding-Zeilen.
 ///
-/// Kanonischer Marker `prompt@v2` ist im Text eingebettet, damit das
+/// Kanonischer Marker `prompt@v3` ist im Text eingebettet, damit das
 /// ausgegebene Template selbst seinen Version-Stamp trägt.
 const String kFixPromptTemplate =
     '''
 # loam.dev Fix-Prompt ($kPromptVersion)
 
-Target project: `{{TARGET}}` — every file path below is relative to this project's root.
+Target project: `{{TARGET}}` — every file path below is relative to this project's root. Stay in scope: only read and change files inside this project's source tree; do not touch files outside it.
 
 Please fix the following findings identified by loam.dev.
 For each finding, the rule ID, file location, message, and a fix hint are provided.
@@ -57,10 +63,10 @@ For each finding, the rule ID, file location, message, and a fix hint are provid
 
 ## Instructions
 
-- Fix each finding listed above.
-- Do not change unrelated code.
-- Preserve existing formatting and style conventions.
-- If a fix requires a larger refactor, explain why and propose the smallest safe change.
+- Think first: state your assumptions; if a finding is ambiguous, ask instead of guessing.
+- Simplicity first: apply the smallest fix that resolves the finding — no speculative abstractions.
+- Surgical changes: only touch what the finding requires; do not change unrelated code; preserve existing formatting and style conventions.
+- Goal-driven: each finding has one verifiable success criterion — the finding is resolved and existing behavior is unchanged. If a fix requires a larger refactor, explain why and propose the smallest safe change instead.
 ''';
 
 /// Fix-Hinweise je Rule-ID.
