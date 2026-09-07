@@ -27,7 +27,17 @@ jobs:
         working-directory: packages/loam_cli
     steps:
       - uses: actions/checkout@v6
+      # Pinned, not "stable": dart-lang/setup-dart@v1 without `sdk:` tracks the
+      # rolling stable channel, so a new Dart release (e.g. a formatter-style
+      # change) silently turns this job red weeks after the last real code
+      # change — exactly what happened repeatedly (see weekly schedule-run
+      # history). Pin to the SDK version the repo is actually formatted with
+      # (matches local dev machines) for reproducible CI (Invariant 5). Bump
+      # deliberately: update this pin + `.githooks/pre-push`'s matching check
+      # + reformat locally with the new SDK, all in one commit.
       - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.12.1'
 
       - name: dart pub get
         run: dart pub get
