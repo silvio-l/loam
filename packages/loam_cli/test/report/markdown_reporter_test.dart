@@ -2,6 +2,7 @@
 library;
 
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/markdown_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
@@ -38,6 +39,7 @@ ReportPayload _payload({
   int suppressedCount = 0,
   ScanStats? stats,
   List<String>? sourceDirs,
+  List<Recommendation> recommendations = const [],
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
@@ -46,6 +48,7 @@ ReportPayload _payload({
   isTty: isTty,
   suppressedCount: suppressedCount,
   stats: stats,
+  recommendations: recommendations,
   sourceDirs: sourceDirs,
 );
 
@@ -409,6 +412,42 @@ void main() {
           'rules: complexity-hotspots._',
         ),
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Preventive recommendations section (Issue 04)
+  // -------------------------------------------------------------------------
+  group('MarkdownReporter preventive recommendations section', () {
+    const recs = [
+      Recommendation(
+        ruleId: 'unused-public-exports',
+        guidance: 'Remove or internalize the unused declaration.',
+      ),
+    ];
+
+    test('empty recommendations (the real 0-findings case, since '
+        'RecommendationEngine returns [] for [] findings) → no section', () {
+      final out = const MarkdownReporter().render(
+        _payload(findings: const [], recommendations: const []),
+      );
+      expect(out, isNot(contains('Preventive recommendations')));
+    });
+
+    test('non-empty recommendations → heading with version marker', () {
+      final out = const MarkdownReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('### Preventive recommendations'));
+      expect(out, contains(kGuidanceVersion));
+    });
+
+    test('section lists ruleId + guidance for each recommendation', () {
+      final out = const MarkdownReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('unused-public-exports'));
+      expect(out, contains('Remove or internalize the unused declaration.'));
     });
   });
 }

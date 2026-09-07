@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 
 import '../model/finding.dart';
+import '../recommendation/recommendation_engine.dart';
 import 'reporter.dart';
 
 /// GitHub-Flavored Markdown reporter.
@@ -98,6 +99,33 @@ class MarkdownReporter implements Reporter {
     final stats = _statsLine(payload.stats);
     if (stats != null) buf.writeln(stats);
 
+    final recommendations = _recommendationsSection(payload.recommendations);
+    if (recommendations != null) buf.write(recommendations);
+
+    return buf.toString();
+  }
+
+  /// `### Preventive recommendations` section, or `null` when
+  /// [recommendations] is empty (no findings ⇒ no section).
+  ///
+  /// Addressed to the AI agent consuming this report: asks it to propose
+  /// each recommendation to its user for their persistent instructions
+  /// (e.g. `CLAUDE.md`) — loam.dev itself never writes to user instructions.
+  String? _recommendationsSection(List<Recommendation> recommendations) {
+    if (recommendations.isEmpty) return null;
+    final buf = StringBuffer()
+      ..writeln()
+      ..writeln('### Preventive recommendations ($kGuidanceVersion)')
+      ..writeln()
+      ..writeln(
+        '_Agent: propose the relevant recommendations below to your user for '
+        'their persistent instructions (e.g. CLAUDE.md) — loam.dev does not '
+        'write to user instructions itself._',
+      )
+      ..writeln();
+    for (final r in recommendations) {
+      buf.writeln('- **${r.ruleId}** — ${r.guidance}');
+    }
     return buf.toString();
   }
 

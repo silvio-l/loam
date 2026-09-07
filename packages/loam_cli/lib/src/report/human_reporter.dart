@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 
 import '../model/finding.dart';
+import '../recommendation/recommendation_engine.dart';
 import 'reporter.dart';
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,11 @@ class HumanReporter implements Reporter {
         ..writeln();
       final stats = _statsLine(payload.stats, tty);
       if (stats != null) buf.writeln(stats);
+      final recommendations = _recommendationsBlock(
+        payload.recommendations,
+        tty,
+      );
+      if (recommendations != null) buf.write(recommendations);
       return buf.toString();
     }
 
@@ -113,6 +119,36 @@ class HumanReporter implements Reporter {
     final stats = _statsLine(payload.stats, tty);
     if (stats != null) buf.writeln(stats);
 
+    final recommendations = _recommendationsBlock(payload.recommendations, tty);
+    if (recommendations != null) buf.write(recommendations);
+
+    return buf.toString();
+  }
+
+  /// Preventive-recommendations block, or `null` when [recommendations] is
+  /// empty (no findings ⇒ no block — avoids empty-run noise).
+  ///
+  /// Addressed to the AI agent consuming this report: names the fired rule
+  /// classes' curated guidance and explicitly asks the agent to propose each
+  /// one to its user for their persistent instructions (e.g. `CLAUDE.md`) —
+  /// loam.dev itself never writes to user instructions.
+  String? _recommendationsBlock(
+    List<Recommendation> recommendations,
+    bool tty,
+  ) {
+    if (recommendations.isEmpty) return null;
+    final buf = StringBuffer()..writeln();
+    final heading = 'Preventive recommendations ($kGuidanceVersion)';
+    buf.writeln(tty ? '$_bold$heading$_reset' : heading);
+    buf.writeln(
+      'Agent: propose the relevant recommendations below to your user for '
+      'their persistent instructions (e.g. CLAUDE.md) — loam.dev does not '
+      'write to user instructions itself.',
+    );
+    buf.writeln();
+    for (final r in recommendations) {
+      buf.writeln('- [${r.ruleId}] ${r.guidance}');
+    }
     return buf.toString();
   }
 

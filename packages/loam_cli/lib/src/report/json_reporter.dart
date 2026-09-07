@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 
 import '../model/finding.dart';
+import '../recommendation/recommendation_engine.dart';
 import 'reporter.dart';
 
 /// Machine-readable JSON reporter.
@@ -31,6 +32,13 @@ import 'reporter.dart';
 /// `schemaVersion` 2 added `kind` and `remedy` (the agent-proof message
 /// contract). Consumers reading the structured fields should not parse them out
 /// of `message`.
+///
+/// When [ReportPayload.recommendations] is non-empty, the envelope also gets
+/// a top-level `guidanceVersion` (the [kGuidanceVersion] marker) and a
+/// `recommendations` array of `{ "ruleId": "...", "guidance": "..." }` — the
+/// primary agentic path for preventive guidance (issue 04). Both keys are
+/// omitted entirely (not emitted as empty) when there are no recommendations,
+/// e.g. a clean (0-findings) run.
 ///
 /// Invariant 4 (pure renderer): no I/O, no exit-code logic, no thresholds.
 /// Invariant 5 (reproducible): no timestamps, no absolute paths in content;
@@ -75,6 +83,16 @@ class JsonReporter implements Reporter {
           'linesAnalyzed': stats.linesAnalyzed,
           'rulesRun': stats.rulesRun,
         },
+      // Primary agentic path for preventive guidance: a structured array
+      // (ruleId + guidance), not free text. Omitted entirely (not an empty
+      // array) when there are no recommendations, so a clean run's envelope
+      // stays free of empty noise.
+      if (payload.recommendations.isNotEmpty) ...{
+        'guidanceVersion': kGuidanceVersion,
+        'recommendations': payload.recommendations
+            .map((r) => {'ruleId': r.ruleId, 'guidance': r.guidance})
+            .toList(),
+      },
       'findings': payload.findings
           .map((f) => _buildFinding(f, payload.projectRoot))
           .toList(),

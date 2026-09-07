@@ -5,6 +5,7 @@ import 'package:loam/src/complexity/complexity_metrics.dart';
 import 'package:loam/src/complexity/function_complexity.dart';
 import 'package:loam/src/complexity/health_score.dart';
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/fix_prompt_template.dart';
 import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
@@ -39,12 +40,14 @@ ReportPayload _payload({
   String rulesetVersion = 'ruleset@abc12345',
   String toolVersion = '0.0.2',
   bool isTty = false,
+  List<Recommendation> recommendations = const [],
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
   rulesetVersion: rulesetVersion,
   toolVersion: toolVersion,
   isTty: isTty,
+  recommendations: recommendations,
 );
 
 // ---------------------------------------------------------------------------
@@ -819,5 +822,41 @@ void main() {
         expect(reporter.render(payload), equals(reporter.render(payload)));
       },
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // Preventive recommendations section (Issue 04)
+  // -------------------------------------------------------------------------
+  group('HtmlReporter preventive recommendations section', () {
+    const recs = [
+      Recommendation(
+        ruleId: 'unused-public-exports',
+        guidance: 'Remove or internalize the unused declaration.',
+      ),
+    ];
+
+    test('empty recommendations (the real 0-findings case, since '
+        'RecommendationEngine returns [] for [] findings) → no section', () {
+      final out = const HtmlReporter().render(
+        _payload(findings: const [], recommendations: const []),
+      );
+      expect(out, isNot(contains('Preventive recommendations')));
+    });
+
+    test('non-empty recommendations → own section with version marker', () {
+      final out = const HtmlReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('Preventive recommendations'));
+      expect(out, contains(kGuidanceVersion));
+      expect(out, contains('unused-public-exports'));
+      expect(out, contains('Remove or internalize the unused declaration.'));
+    });
+
+    test('render is still a pure function with recommendations present', () {
+      final reporter = const HtmlReporter();
+      final payload = _payload(findings: [_finding()], recommendations: recs);
+      expect(reporter.render(payload), equals(reporter.render(payload)));
+    });
   });
 }

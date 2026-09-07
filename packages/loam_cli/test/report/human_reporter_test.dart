@@ -2,6 +2,7 @@
 library;
 
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/human_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
@@ -38,6 +39,7 @@ ReportPayload _payload({
   int suppressedCount = 0,
   ScanStats? stats,
   List<String>? sourceDirs,
+  List<Recommendation> recommendations = const [],
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
@@ -47,6 +49,7 @@ ReportPayload _payload({
   suppressedCount: suppressedCount,
   stats: stats,
   sourceDirs: sourceDirs,
+  recommendations: recommendations,
 );
 
 const _stats = ScanStats(
@@ -349,5 +352,61 @@ void main() {
         isNot(contains('Scanned')),
       );
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Preventive recommendations block (Issue 04)
+  // -------------------------------------------------------------------------
+  group('HumanReporter preventive recommendations block', () {
+    const recs = [
+      Recommendation(
+        ruleId: 'unused-public-exports',
+        guidance: 'Remove or internalize the unused declaration.',
+      ),
+    ];
+
+    test('empty recommendations (the real 0-findings case, since '
+        'RecommendationEngine returns [] for [] findings) → no block', () {
+      final out = const HumanReporter().render(
+        _payload(findings: const [], recommendations: const []),
+      );
+      expect(out, isNot(contains('Preventive recommendations')));
+    });
+
+    test('non-empty recommendations → block with heading + version marker', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('Preventive recommendations'));
+      expect(out, contains(kGuidanceVersion));
+    });
+
+    test('block contains explicit instruction for the agent to propose to '
+        'the user and mentions persistent instructions', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('Agent:'));
+      expect(out, contains('propose'));
+      expect(out, contains('CLAUDE.md'));
+    });
+
+    test('block lists each recommendation with ruleId and guidance text', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('unused-public-exports'));
+      expect(out, contains('Remove or internalize the unused declaration.'));
+    });
+
+    test(
+      'empty recommendations list → no block even with findings present',
+      () {
+        final out = const HumanReporter().render(
+          _payload(findings: [_finding()]),
+        );
+        expect(out, isNot(contains('Preventive recommendations')));
+      },
+    );
   });
 }

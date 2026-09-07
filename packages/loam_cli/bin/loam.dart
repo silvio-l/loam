@@ -18,6 +18,7 @@ import 'package:loam/src/model/rule_category.dart';
 import 'package:loam/src/progress/progress_sink.dart';
 import 'package:loam/src/progress/should_show_progress.dart';
 import 'package:loam/src/progress/tty_progress_renderer.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
@@ -349,6 +350,7 @@ class ScanCommand extends LoamCommand {
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
       sourceDirs: config.sourceDirs,
+      recommendations: const RecommendationEngine().recommend(outcome.findings),
     );
 
     await _emitReport(
@@ -571,6 +573,7 @@ class _GateCommand extends LoamCommand {
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
         sourceDirs: config.sourceDirs,
+        recommendations: const RecommendationEngine().recommend(findings),
       );
       await _emitReport(
         rendered: reporter.render(payload),
@@ -640,6 +643,7 @@ class _GateCommand extends LoamCommand {
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
         sourceDirs: config.sourceDirs,
+        recommendations: const RecommendationEngine().recommend(findings),
       );
       await _emitReport(
         rendered: reporter.render(payload),
@@ -746,6 +750,7 @@ class _SlopCommand extends LoamCommand {
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
       sourceDirs: config.sourceDirs,
+      recommendations: const RecommendationEngine().recommend(outcome.findings),
     );
 
     await _emitReport(
@@ -846,6 +851,7 @@ class _A11yCommand extends LoamCommand {
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
       sourceDirs: config.sourceDirs,
+      recommendations: const RecommendationEngine().recommend(outcome.findings),
     );
 
     await _emitReport(
@@ -1097,6 +1103,7 @@ class _BaselineCommand extends LoamCommand {
         rulesetVersion: baseline.rulesetVersion,
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        recommendations: const RecommendationEngine().recommend(mappedFindings),
       );
 
       // Emit baseline header so the user knows this is the frozen state.

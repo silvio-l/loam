@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 
 import '../model/finding.dart';
+import '../recommendation/recommendation_engine.dart';
 import 'reporter.dart';
 
 /// SARIF 2.1.0 reporter.
@@ -63,6 +64,15 @@ class SarifReporter implements Reporter {
               'libFilesAnalyzed': stats.libFilesAnalyzed,
               'linesAnalyzed': stats.linesAnalyzed,
               'rulesRun': stats.rulesRun,
+            },
+            // Preventive recommendations (issue 04): curated, deduplicated
+            // guidance for the rule classes that fired, keyed by ruleId.
+            // Omitted entirely when there are none (clean run).
+            if (payload.recommendations.isNotEmpty) ...{
+              'guidanceVersion': kGuidanceVersion,
+              'recommendations': payload.recommendations
+                  .map((r) => {'ruleId': r.ruleId, 'guidance': r.guidance})
+                  .toList(),
             },
           },
         },
