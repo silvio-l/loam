@@ -504,6 +504,7 @@ check_pubspec_rules() {
       slop-empty-catch)        echo "catch" ;;
       slop-narrative-comment)  echo "narrative" ;;
       slop-unjustified-ignore) echo "ignore" ;;
+      slop-workflow-narration-comment) echo "workflow" ;;
       *)                       echo "" ;;
     esac
   }

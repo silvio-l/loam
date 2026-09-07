@@ -62,7 +62,8 @@ Currently active rules:
 | `complexity-hotspots` | Cyclomatic and cognitive complexity per executable (function, method, constructor, accessor); flags hotspots above documented, conservative thresholds. Aggregated by `loam health` (together with project-wide finding load) into a composite Health-Score (0–100) and Grade (A–F). |
 | `slop-empty-catch` | catch blocks whose body is empty (`{}`) or contains only comments — both silently swallow exceptions. Severity: warning. Category: slop. Extends the built-in `empty_catches` lint (literal-empty only) to also flag the comment-only variant that AI agents commonly produce. Conservative allowlist: any rethrow, throw, or logging call in the body suppresses the finding (all produce at least one statement). Generated files are skipped automatically. What it deliberately does NOT catch: bodies with any non-comment statement (rethrow, throw, logging call, or any other executable code). |
 | `slop-unjustified-ignore` | `// ignore:` and `// ignore_for_file:` directives with no written justification — either inline (text after the lint names, separated by ` – ` or similar) or on the immediately preceding comment line. Severity: info. Category: slop. Generated files (.g.dart, .freezed.dart, etc.) are skipped automatically. What it deliberately does NOT catch: directives that have any non-empty text after the lint-name list (inline reason), directives whose preceding line contains any `//` comment (accepted as a reason), and directives in generated files. |
-| `slop-narrative-comment` | `//` comments immediately before a declaration whose normalised text restates the declaration name (e.g. `// build` before `void build()`) or belongs to a fixed restatement list ("constructor", "getter", "setter", "build method"). Also catches `the <name> method/widget` patterns. Severity: info. Category: slop. Generated files (.g.dart, .freezed.dart, etc.) are skipped automatically. What it deliberately does NOT catch: `///` Dart-doc comments (never flagged), block comments, `//` comments with informative text that does not match the name or fixed list, and comments not immediately adjacent to a declaration (blank line between). |
+| `slop-narrative-comment` | `//` comments that add no information beyond what the code already shows. Declaration-adjacent: immediately before a declaration, normalised text restates the declaration name (e.g. `// build` before `void build()`) or belongs to a fixed restatement list ("constructor", "getter", "setter", "build method") or `the <name> method/widget` patterns. Context-free (anywhere in the file): decorative banner/divider comments (`// ====`, `// ****** SECTION ******`), bare structural category labels ("main logic", "helper function", "error handling", …), emoji-only decoration, redundant end-of-block markers (`// end if`, `// End processOrder`), and vague TODOs with no concrete action, condition, or reference (a TODO with real substance, e.g. `// TODO: handle null case when userId is missing (see #123)`, is never flagged). Severity: info. Category: slop. Generated files (.g.dart, .freezed.dart, etc.) are skipped automatically. What it deliberately does NOT catch: `///` Dart-doc comments (never flagged), block comments, plain hyphen dividers (`// ---------------`) — a common, legitimate section-separator convention, not AI-slop — and `//` comments with informative text that does not match any of the fixed categories above (no fuzzy heuristic quality scoring). |
+| `slop-workflow-narration-comment` | Sequential "workflow narration": two or more `// Step 1: …`, `// Step 2: …`, `// First, …`, `// Next, …`, `// Then, …`, `// Finally, …` comments, each immediately preceding a statement in the same function/method/constructor body, that together narrate the body step-by-step even though the statements are already self-explanatory. A single such comment on its own is not flagged — only a sequence (2+) is. Severity: info. Category: slop. Generated files are skipped automatically. What it deliberately does NOT catch: `///` Dart-doc comments, block comments, a lone workflow-style comment with no sequence, and comments not immediately adjacent to the statement they narrate. |
 | `unused-public-exports` | Public API members (classes, methods, getters/setters, fields, enums, typedefs) with no references anywhere in the project — on the resolved element model, not regex. |
 
 The remaining rules in the planned target surface (boundary violations, more AI-slop rules, hardcoded secrets) are still to come (🚧).
@@ -261,12 +262,15 @@ Exit code `1` when any slop Findings are present; `0` when clean.
 The `slop` category is run-isolated from drift and accessibility categories —
 `loam slop` only ever executes `slop`-category rules.
 
-`loam scan` includes slop rules **default-on**. Currently active slop rules: three —
+`loam scan` includes slop rules **default-on**. Currently active slop rules: four —
 `slop-empty-catch` (empty and comment-only `catch` bodies that silently swallow
 exceptions), `slop-unjustified-ignore` (`// ignore:` and `// ignore_for_file:`
-without a written justification), and `slop-narrative-comment` (`//` comments
-that restate the declaration name or use a fixed narrative phrase). Further slop
-rules (dead guards, …) are planned.
+without a written justification), `slop-narrative-comment` (`//` comments that
+restate the declaration name or use a fixed narrative phrase, plus banner
+comments, empty category labels, emoji-only decoration, end-of-block markers,
+and vague TODOs), and `slop-workflow-narration-comment` (sequential `Step 1:`/
+`First,`/`Next,`/`Then,`/`Finally,` comments narrating a function body
+step-by-step). Further slop rules (dead guards, …) are planned.
 
 ### `loam a11y`
 

@@ -48,7 +48,7 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.14) — eleven live rules:** project-wide **unused public API**
+**Available now (0.1.14) — twelve live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
@@ -58,7 +58,11 @@ with all locations), **complexity hotspots**
 (`slop-empty-catch` — empty and comment-only `catch` bodies;
 `slop-unjustified-ignore` — `// ignore:` and `// ignore_for_file:` directives
 without a written justification;
-`slop-narrative-comment` — `//` comments that restate the declaration name), and **accessibility** (WCAG 1.1.1 — Flutter
+`slop-narrative-comment` — `//` comments that restate the declaration name, plus
+banner/divider comments, empty category labels, emoji-only decoration,
+end-of-block markers, and vague TODOs;
+`slop-workflow-narration-comment` — sequential `Step 1:`/`First,`/`Next,`/
+`Then,`/`Finally,` comments narrating a function body step-by-step), and **accessibility** (WCAG 1.1.1 — Flutter
 images without a semantic label; WCAG 4.1.2 — icon buttons, gesture/ink-well
 with pure icon child, and generic interactive widgets without an accessible name;
 WCAG 3.3.2 — form fields without a label). All on the resolved Dart element model
@@ -73,7 +77,7 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 | ✅ Unused public exports, files, members | ✅ Ungrounded `// ignore:` (slop-unjustified-ignore) | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
 | ✅ Circular dependencies | ✅ Empty / comment-only `catch` blocks (slop-empty-catch) | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
 | ✅ Code duplicates (AST-normalised) | ✅ Narrative filler comments (slop-narrative-comment) | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
-| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
+| ✅ Complexity hotspots + health score | ✅ Sequential workflow narration (slop-workflow-narration-comment) | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 
 ## What makes it different
@@ -98,10 +102,11 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ## Quick start
 
-> **0.1.14.** Eleven analysis rules are live — `unused-public-exports`,
+> **0.1.14.** Twelve analysis rules are live — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 > `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
-> `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
+> `slop-workflow-narration-comment`, `a11y-form-field-label`,
+> `a11y-image-label`, `a11y-icon-button-label`,
 > `a11y-interactive-semantics` — plus the `loam health` view. Commands marked
 > *coming soon* are wired in `loam --help` but not yet implemented.
 
@@ -152,7 +157,7 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 
 ### Use
 
-Available now (eleven live rules — unused exports, circular deps, code duplicates, complexity hotspots, slop, a11y):
+Available now (twelve live rules — unused exports, circular deps, code duplicates, complexity hotspots, slop, a11y):
 
 ```bash
 loam scan                          # full audit: all active rules, whole repo

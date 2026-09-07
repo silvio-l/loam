@@ -6,7 +6,7 @@ import '../model/finding.dart';
 /// `prompt@ver`, Invariant 5 — reproducibility). Any content change to
 /// [kGuidanceCorpus] (a rewritten, added, or removed guidance text) must bump
 /// this marker to a new version (e.g. `guidance@v2`).
-const String kGuidanceVersion = 'guidance@v1';
+const String kGuidanceVersion = 'guidance@v2';
 
 /// One preventive, agent-addressed recommendation for a fired rule class.
 ///
@@ -88,12 +88,22 @@ const Map<String, String> kGuidanceCorpus = {
       'Write comments that explain *why* a decision was made, not comments '
       'that restate *what* the next line already says (e.g. `// increment '
       'counter` above `counter++`) — narrative comments are noise that rots '
-      'as the code around them changes.',
+      'as the code around them changes. This also covers decorative banner/'
+      'divider comments, bare category labels (`// Main logic`, `// Helper '
+      'function`), emoji-only decoration, redundant end-of-block markers '
+      '(`// end if`), and vague TODOs with no concrete action, condition, or '
+      'reference — give a TODO real scope or remove it.',
   'slop-unjustified-ignore':
       'Never add an `// ignore:`/`// loam-ignore:` suppression without a '
       'comment justifying why the finding is a false positive or '
       'intentional — an unjustified ignore hides a real issue from every '
       'future reviewer.',
+  'slop-workflow-narration-comment':
+      'Do not narrate a function body step-by-step with `// Step 1: …`, `// '
+      'Step 2: …`, `// First, …`, `// Next, …`, `// Then, …`, `// Finally, '
+      '…` comments — if the statements need that much walking-through, '
+      'extract well-named helper functions instead of adding a running '
+      'commentary on top of self-explanatory code.',
   'unused-public-exports':
       'Before adding a new public top-level declaration under `lib/`, make '
       'sure something actually references it (or it is a deliberate package '
