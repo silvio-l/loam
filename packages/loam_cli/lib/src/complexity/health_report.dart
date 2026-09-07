@@ -1,14 +1,15 @@
 import 'function_complexity.dart';
 
 /// An immutable value object representing the aggregated health of a Dart
-/// package's executable complexity distribution.
+/// package — a composite of its **finding load** (bugs/slop/a11y issues) and
+/// its **complexity distribution** (cyclomatic/cognitive hotspots).
 ///
-/// Produced by [HealthScore.compute]. Equality is value-based on all three
-/// fields.
+/// Produced by [HealthScore.compute]. Equality is value-based on all fields.
 ///
 /// ### Score formula (see [HealthScore] for full documentation)
 ///
-/// `score` is an integer in [0, 100]. Higher is healthier.
+/// `score` is an integer in [0, 100], combining [findingsContribution] and
+/// [complexityContribution]. Higher is healthier.
 ///
 /// ### Grade bands
 ///
@@ -36,15 +37,38 @@ final class HealthReport {
     required this.score,
     required this.grade,
     required List<FunctionComplexity> hotspots,
+    required this.findingsContribution,
+    required this.complexityContribution,
   }) : assert(score >= 0 && score <= 100, 'score must be in [0, 100]'),
+       assert(
+         findingsContribution >= 0 && findingsContribution <= 100,
+         'findingsContribution must be in [0, 100]',
+       ),
+       assert(
+         complexityContribution >= 0 && complexityContribution <= 100,
+         'complexityContribution must be in [0, 100]',
+       ),
        hotspots = List.unmodifiable(hotspots);
 
-  /// The health score in [0, 100]. 100 means a perfectly clean distribution;
-  /// 0 means the worst possible distribution.
+  /// The composite health score in [0, 100]. 100 means no findings and a
+  /// perfectly clean complexity distribution; 0 means the worst possible
+  /// combination of both.
   final int score;
 
   /// The letter grade derived from [score]. One of `A`, `B`, `C`, `D`, `F`.
   final String grade;
+
+  /// The findings-axis sub-score in [0, 100] — how healthy the project looks
+  /// purely from its weighted, size-normalised finding load. 100 means no
+  /// findings; 0 means the finding density is at or above the saturation
+  /// threshold. See [HealthScore] for the exact formula.
+  final int findingsContribution;
+
+  /// The complexity-axis sub-score in [0, 100] — how healthy the project
+  /// looks purely from its cyclomatic/cognitive hotspot distribution.
+  /// Hotspots are weighed absolutely, not diluted by the total function
+  /// count. See [HealthScore] for the exact formula.
+  final int complexityContribution;
 
   /// The most complex executables in the distribution, sorted descending by
   /// complexity magnitude. At most [HealthScore.topN] entries.
@@ -56,14 +80,24 @@ final class HealthReport {
       other is HealthReport &&
           other.score == score &&
           other.grade == grade &&
+          other.findingsContribution == findingsContribution &&
+          other.complexityContribution == complexityContribution &&
           _listEquals(other.hotspots, hotspots);
 
   @override
-  int get hashCode => Object.hash(score, grade, Object.hashAll(hotspots));
+  int get hashCode => Object.hash(
+    score,
+    grade,
+    findingsContribution,
+    complexityContribution,
+    Object.hashAll(hotspots),
+  );
 
   @override
   String toString() =>
       'HealthReport(score: $score, grade: $grade, '
+      'findingsContribution: $findingsContribution, '
+      'complexityContribution: $complexityContribution, '
       'hotspots: [${hotspots.length} items])';
 
   static bool _listEquals(

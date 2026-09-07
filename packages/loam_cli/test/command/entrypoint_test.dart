@@ -54,12 +54,23 @@ void main() {
       }
     });
 
-    test('health subcommand on CWD → exit 0', () async {
-      // health is now implemented: runs on CWD (the loam_cli package itself).
-      // loam_cli has lib/ with non-trivial code → exit 0 (report command).
-      final code = await cli.run(['health']);
-      expect(code, equals(0));
-    });
+    test(
+      'health subcommand on CWD → exit 0',
+      () async {
+        // health is now implemented: runs on CWD (the loam_cli package itself).
+        // loam_cli has lib/ with non-trivial code → exit 0 (report command).
+        //
+        // Since the composite health score (ticket 03) needs the findings
+        // axis, `health` now also runs the full AnalysisRunner registry —
+        // the same cost as `loam scan` — instead of only the (cheap)
+        // FunctionComplexityCollector pass. On this package's own ~38k-line
+        // codebase that comfortably exceeds the default 30s test timeout, so
+        // this test gets the same generous budget `loam scan` would need.
+        final code = await cli.run(['health']);
+        expect(code, equals(0));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     // gate is now implemented: no baseline.json → exit 1 (clear error + hint).
     // See gate_command_test.dart for full coverage.

@@ -265,8 +265,11 @@ ${_js()}
     final grade = sidecar.grade;
     final score = sidecar.score;
     final gradeCssClass = _gradeClass(grade);
+    final breakdown =
+        'Findings: ${sidecar.findingsContribution} / 100 · '
+        'Complexity: ${sidecar.complexityContribution} / 100';
     return '''  <div class="health-badge-bar" aria-label="Health-Score">
-    <div class="health-badge">
+    <div class="health-badge" title="$breakdown">
       <span class="health-label">Health-Score</span>
       <span class="health-score">$score<span class="health-max"> / 100</span></span>
       <span class="health-grade $gradeCssClass" aria-label="Grade $grade">$grade</span>

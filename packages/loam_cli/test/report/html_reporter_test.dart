@@ -53,7 +53,13 @@ ReportPayload _payload({
 
 /// Builds a [HealthReport] directly (no collector needed in unit tests).
 HealthReport _healthReport({int score = 87, String grade = 'B'}) =>
-    HealthReport(score: score, grade: grade, hotspots: []);
+    HealthReport(
+      score: score,
+      grade: grade,
+      hotspots: [],
+      findingsContribution: score,
+      complexityContribution: score,
+    );
 
 /// Builds a [HealthReport] via [HealthScore.compute] from a minimal fixture
 /// so the sidecar value matches what the production path produces (AC3).
@@ -67,7 +73,11 @@ HealthReport _healthReportWithHotspots() {
         metrics: const ComplexityMetrics(cyclomatic: 12, cognitive: 8),
       ),
   ];
-  return const HealthScore().compute(functions);
+  return const HealthScore().compute(
+    functions,
+    findings: const [],
+    linesAnalyzed: 10000,
+  );
 }
 
 void main() {

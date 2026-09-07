@@ -59,7 +59,7 @@ Currently active rules:
 | `a11y-interactive-semantics` | Generic and custom (non-Flutter) interactive widgets that carry an `onTap`, `onPressed`, or `onLongPress` named argument but lack both an enclosing `Semantics(label: …)` ancestor and a non-empty `label: …` / `semanticLabel: …` / `tooltip: …` argument on the call site itself — WCAG 4.1.2 Name, Role, Value. The call-site property check covers widgets that encapsulate their own accessibility (self-wrapping in `Semantics(...)`, or delegating the value to an already-excluded Flutter widget) without needing to inspect the target class's definition. Flutter built-in interactive widgets covered by sibling rules (`IconButton`, `GestureDetector`, `InkWell`, `TextField`, `TextFormField`) are excluded. Uses the resolved element model (library URI check); local classes with the same name as excluded Flutter widgets are never skipped. AST-only: out of scope are interactive behaviour via inherited callbacks, custom gesture recognisers that bypass the named parameters, and accessible-name mechanisms other than `Semantics(label: …)` and the three recognised call-site properties. |
 | `circular-dependencies` | Circular import/export chains between first-party `lib/` libraries — one finding per strongly connected component, naming all files in the loop. |
 | `code-duplicates` | Structurally identical code blocks over the resolved AST (token-normalised, Rabin-Karp clustered); detects Type-1 (exact) and Type-2 (renamed identifiers/literals) duplicates project-wide. One finding per cluster listing all locations, with a stable fingerprint that survives line shifts. |
-| `complexity-hotspots` | Cyclomatic and cognitive complexity per executable (function, method, constructor, accessor); flags hotspots above documented, conservative thresholds. Aggregated by `loam health` into a Health-Score (0–100) and Grade (A–F). |
+| `complexity-hotspots` | Cyclomatic and cognitive complexity per executable (function, method, constructor, accessor); flags hotspots above documented, conservative thresholds. Aggregated by `loam health` (together with project-wide finding load) into a composite Health-Score (0–100) and Grade (A–F). |
 | `slop-empty-catch` | catch blocks whose body is empty (`{}`) or contains only comments — both silently swallow exceptions. Severity: warning. Category: slop. Extends the built-in `empty_catches` lint (literal-empty only) to also flag the comment-only variant that AI agents commonly produce. Conservative allowlist: any rethrow, throw, or logging call in the body suppresses the finding (all produce at least one statement). Generated files are skipped automatically. What it deliberately does NOT catch: bodies with any non-comment statement (rethrow, throw, logging call, or any other executable code). |
 | `slop-unjustified-ignore` | `// ignore:` and `// ignore_for_file:` directives with no written justification — either inline (text after the lint names, separated by ` – ` or similar) or on the immediately preceding comment line. Severity: info. Category: slop. Generated files (.g.dart, .freezed.dart, etc.) are skipped automatically. What it deliberately does NOT catch: directives that have any non-empty text after the lint-name list (inline reason), directives whose preceding line contains any `//` comment (accepted as a reason), and directives in generated files. |
 | `slop-narrative-comment` | `//` comments immediately before a declaration whose normalised text restates the declaration name (e.g. `// build` before `void build()`) or belongs to a fixed restatement list ("constructor", "getter", "setter", "build method"). Also catches `the <name> method/widget` patterns. Severity: info. Category: slop. Generated files (.g.dart, .freezed.dart, etc.) are skipped automatically. What it deliberately does NOT catch: `///` Dart-doc comments (never flagged), block comments, `//` comments with informative text that does not match the name or fixed list, and comments not immediately adjacent to a declaration (blank line between). |
@@ -226,9 +226,11 @@ loam gate: N neu, M eingefroren, K gefixt — grün.
 
 ### `loam health`
 
-Cyclomatic/cognitive complexity distribution view — shows Health-Score (0–100),
-Grade (A–F), and a descending Hotspot table (file:line, symbol, cyclomatic,
-cognitive).
+Composite Health-Score (0–100) and Grade (A–F) combining finding load
+(severity-weighted, size-normalised) and complexity hotspots (weighed
+absolutely, not diluted by function count), plus a descending Hotspot table
+(file:line, symbol, cyclomatic, cognitive). The terminal output breaks the
+score down into its Findings and Complexity contributions.
 
 ```bash
 loam health                    # analyse current directory
