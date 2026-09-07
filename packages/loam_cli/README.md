@@ -21,7 +21,7 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.14.** Twelve rules are live end to end — `unused-public-exports`,
+> **0.1.15.** Twelve rules are live end to end — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 > `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
 > `slop-workflow-narration-comment`, `a11y-form-field-label`,
@@ -32,7 +32,7 @@ red on day one.
 
 ## What it catches
 
-**Available now (0.1.14) — twelve live rules:** project-wide **unused public API**
+**Available now (0.1.15) — twelve live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
