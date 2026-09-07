@@ -50,10 +50,13 @@ class SarifReporter implements Reporter {
             },
           },
           'results': results,
-          // Run-level property bag: scope + suppression context, so tooling can
-          // tell a clean run that covered the codebase from one that scanned
-          // little or hid findings. Standards-friendly (`runs[].properties`).
+          // Run-level property bag: repo identity, scope + suppression context,
+          // so tooling can tell a clean run that covered the codebase from one
+          // that scanned little or hid findings. Standards-friendly
+          // (`runs[].properties`). Invariant 5: only basename, no absolute path.
           'properties': {
+            'projectName': p.basename(payload.projectRoot),
+            if (payload.sourceDirs != null) 'sourceDirs': payload.sourceDirs,
             'suppressed': payload.suppressedCount,
             if (payload.stats case final stats?) ...{
               'filesAnalyzed': stats.filesAnalyzed,

@@ -39,6 +39,7 @@ ReportPayload _payload({
   bool isTty = false,
   int suppressedCount = 0,
   ScanStats? stats,
+  List<String>? sourceDirs,
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
@@ -47,6 +48,7 @@ ReportPayload _payload({
   isTty: isTty,
   suppressedCount: suppressedCount,
   stats: stats,
+  sourceDirs: sourceDirs,
 );
 
 void main() {
@@ -325,6 +327,43 @@ void main() {
     test('empty run: output is still valid JSON', () {
       final output = const JsonReporter().render(_payload(findings: []));
       expect(() => jsonDecode(output), returnsNormally);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Repo identity — Invariant 5 (Issue 05)
+  // -------------------------------------------------------------------------
+  group('Repo identity (Invariant 5)', () {
+    test('project.name is basename of projectRoot (not absolute path)', () {
+      final output = const JsonReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final project = doc['project'] as Map<String, dynamic>;
+      expect(project['name'], equals('project'));
+    });
+
+    test('project block does not contain absolute projectRoot path', () {
+      final output = const JsonReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      expect(output, isNot(contains('/secret/project')));
+    });
+
+    test('project.sourceDirs present when sourceDirs supplied', () {
+      final output = const JsonReporter().render(
+        _payload(sourceDirs: ['lib', 'bin']),
+      );
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final project = doc['project'] as Map<String, dynamic>;
+      expect(project['sourceDirs'], equals(['lib', 'bin']));
+    });
+
+    test('project.sourceDirs absent when sourceDirs is null', () {
+      final output = const JsonReporter().render(_payload());
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final project = doc['project'] as Map<String, dynamic>;
+      expect(project.containsKey('sourceDirs'), isFalse);
     });
   });
 

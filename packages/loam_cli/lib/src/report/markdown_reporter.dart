@@ -39,6 +39,7 @@ class MarkdownReporter implements Reporter {
   String render(ReportPayload payload) {
     if (payload.findings.isEmpty) {
       final buf = StringBuffer()
+        ..write(_identityHeader(payload))
         ..write('0 findings — clean')
         ..write(
           payload.suppressedCount > 0
@@ -51,7 +52,7 @@ class MarkdownReporter implements Reporter {
       return buf.toString();
     }
 
-    final buf = StringBuffer();
+    final buf = StringBuffer()..write(_identityHeader(payload));
 
     // Group findings by filePath while preserving input order.
     final groups = <String, List<Finding>>{};
@@ -97,6 +98,22 @@ class MarkdownReporter implements Reporter {
     final stats = _statsLine(payload.stats);
     if (stats != null) buf.writeln(stats);
 
+    return buf.toString();
+  }
+
+  /// Repository identity header: H1 heading with basename + optional source dirs.
+  ///
+  /// Invariant 5: no absolute path — only the stable basename is embedded.
+  String _identityHeader(ReportPayload payload) {
+    final name = p.basename(payload.projectRoot);
+    final buf = StringBuffer()
+      ..writeln('# $name')
+      ..writeln();
+    final dirs = payload.sourceDirs;
+    if (dirs != null && dirs.isNotEmpty) {
+      buf.writeln('_Source: ${dirs.join(', ')}_');
+      buf.writeln();
+    }
     return buf.toString();
   }
 

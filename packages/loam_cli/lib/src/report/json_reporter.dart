@@ -51,8 +51,14 @@ class JsonReporter implements Reporter {
     }
 
     final stats = payload.stats;
+    final projectName = p.basename(payload.projectRoot);
+    final projectBlock = <String, dynamic>{
+      'name': projectName,
+      if (payload.sourceDirs != null) 'sourceDirs': payload.sourceDirs,
+    };
     final doc = <String, dynamic>{
       'schemaVersion': 3,
+      'project': projectBlock,
       'tool': {'name': 'loam', 'version': payload.toolVersion},
       'ruleset': payload.rulesetVersion,
       'summary': {

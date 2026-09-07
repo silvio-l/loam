@@ -46,6 +46,7 @@ class HumanReporter implements Reporter {
 
     if (payload.findings.isEmpty) {
       final buf = StringBuffer()
+        ..write(_identityHeader(payload, tty))
         ..write('0 findings — clean')
         ..write(_suppressedSuffix(payload.suppressedCount))
         ..writeln();
@@ -54,7 +55,7 @@ class HumanReporter implements Reporter {
       return buf.toString();
     }
 
-    final buf = StringBuffer();
+    final buf = StringBuffer()..write(_identityHeader(payload, tty));
 
     // Group findings by filePath while preserving input order.
     final groups = <String, List<Finding>>{};
@@ -112,6 +113,28 @@ class HumanReporter implements Reporter {
     final stats = _statsLine(payload.stats, tty);
     if (stats != null) buf.writeln(stats);
 
+    return buf.toString();
+  }
+
+  /// Repository identity header: name + absolute path + optional source dirs.
+  ///
+  /// The absolute path is human-only (Invariant 5 — structured formats use
+  /// only the basename). The source-dirs line is omitted when [sourceDirs] is
+  /// absent from the payload.
+  String _identityHeader(ReportPayload payload, bool tty) {
+    final name = p.basename(payload.projectRoot);
+    final path = payload.projectRoot;
+
+    final namePart = tty ? '$_bold$name$_reset' : name;
+    final pathPart = tty ? '$_grey$path$_reset' : path;
+    final buf = StringBuffer()..writeln('$namePart  $pathPart');
+
+    final dirs = payload.sourceDirs;
+    if (dirs != null && dirs.isNotEmpty) {
+      final dirLine = 'source: ${dirs.join(', ')}';
+      buf.writeln(tty ? '$_grey$dirLine$_reset' : dirLine);
+    }
+    buf.writeln(); // blank line separating header from content
     return buf.toString();
   }
 

@@ -40,12 +40,14 @@ ReportPayload _payload({
   String rulesetVersion = 'ruleset@abc12345',
   String toolVersion = '0.0.2',
   bool isTty = false,
+  List<String>? sourceDirs,
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
   rulesetVersion: rulesetVersion,
   toolVersion: toolVersion,
   isTty: isTty,
+  sourceDirs: sourceDirs,
 );
 
 late JsonSchema _sarifSchema;
@@ -328,6 +330,49 @@ void main() {
       final output = SarifReporter().render(_payload(findings: [_finding()]));
       // Check for common timestamp patterns like 2024-01-01T...
       expect(output, isNot(matches(RegExp(r'\d{4}-\d{2}-\d{2}T'))));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Repo identity — Invariant 5 (Issue 05)
+  // -------------------------------------------------------------------------
+  group('Repo identity (Invariant 5)', () {
+    test('runs[0].properties.projectName is basename (not absolute path)', () {
+      final output = SarifReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final props =
+          ((doc['runs'] as List).first as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+      expect(props['projectName'], equals('project'));
+    });
+
+    test('runs[0].properties does not contain absolute projectRoot', () {
+      final output = SarifReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      expect(output, isNot(contains('/secret/project')));
+    });
+
+    test('runs[0].properties.sourceDirs present when supplied', () {
+      final output = SarifReporter().render(
+        _payload(sourceDirs: ['lib', 'bin']),
+      );
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final props =
+          ((doc['runs'] as List).first as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+      expect(props['sourceDirs'], equals(['lib', 'bin']));
+    });
+
+    test('runs[0].properties.sourceDirs absent when sourceDirs is null', () {
+      final output = SarifReporter().render(_payload());
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final props =
+          ((doc['runs'] as List).first as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+      expect(props.containsKey('sourceDirs'), isFalse);
     });
   });
 

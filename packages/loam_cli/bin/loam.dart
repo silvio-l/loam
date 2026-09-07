@@ -344,6 +344,7 @@ class ScanCommand extends LoamCommand {
       isTty: stdout.hasTerminal,
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
+      sourceDirs: config.sourceDirs,
     );
 
     await _emitReport(
@@ -542,6 +543,7 @@ class _GateCommand extends LoamCommand {
         rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        sourceDirs: config.sourceDirs,
       );
       await _emitReport(
         rendered: reporter.render(payload),
@@ -610,6 +612,7 @@ class _GateCommand extends LoamCommand {
         rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        sourceDirs: config.sourceDirs,
       );
       await _emitReport(
         rendered: reporter.render(payload),
@@ -715,6 +718,7 @@ class _SlopCommand extends LoamCommand {
       isTty: stdout.hasTerminal,
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
+      sourceDirs: config.sourceDirs,
     );
 
     await _emitReport(
@@ -814,6 +818,7 @@ class _A11yCommand extends LoamCommand {
       isTty: stdout.hasTerminal,
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
+      sourceDirs: config.sourceDirs,
     );
 
     await _emitReport(

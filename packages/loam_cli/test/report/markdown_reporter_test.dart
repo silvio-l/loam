@@ -37,6 +37,7 @@ ReportPayload _payload({
   bool isTty = false,
   int suppressedCount = 0,
   ScanStats? stats,
+  List<String>? sourceDirs,
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
@@ -45,6 +46,7 @@ ReportPayload _payload({
   isTty: isTty,
   suppressedCount: suppressedCount,
   stats: stats,
+  sourceDirs: sourceDirs,
 );
 
 void main() {
@@ -276,9 +278,10 @@ void main() {
   // AC7: Empty run — "0 findings — clean" (no empty table)
   // -------------------------------------------------------------------------
   group('Empty findings', () {
-    test('empty run returns "0 findings — clean" line', () {
+    test('empty run returns identity header + "0 findings — clean" line', () {
       final output = const MarkdownReporter().render(_payload(findings: []));
-      expect(output, equals('0 findings — clean\n'));
+      // Identity header (# basename + blank) prepended; clean line follows.
+      expect(output, equals('# project\n\n0 findings — clean\n'));
     });
 
     test('empty run does not produce a table', () {
@@ -330,11 +333,54 @@ void main() {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // Repo identity — Invariant 5 (Issue 05)
+  // -------------------------------------------------------------------------
+  group('Repo identity (Invariant 5)', () {
+    test('output starts with # basename heading', () {
+      final output = const MarkdownReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      expect(output, startsWith('# my-project\n'));
+    });
+
+    test('basename appears but absolute path does not (Invariant 5)', () {
+      final output = const MarkdownReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      expect(output, contains('# project'));
+      expect(output, isNot(contains('/secret/project')));
+    });
+
+    test('source dirs appear when supplied', () {
+      final output = const MarkdownReporter().render(
+        _payload(sourceDirs: ['lib', 'bin']),
+      );
+      expect(output, contains('lib'));
+      expect(output, contains('bin'));
+    });
+
+    test('no source line when sourceDirs is null', () {
+      final output = const MarkdownReporter().render(_payload());
+      expect(output, isNot(contains('Source:')));
+    });
+
+    test('heading appears before findings content', () {
+      final output = const MarkdownReporter().render(
+        _payload(findings: [_finding()], projectRoot: '/home/user/my-project'),
+      );
+      final headerIdx = output.indexOf('# my-project');
+      final findingIdx = output.indexOf('unused-public-exports');
+      expect(headerIdx, lessThan(findingIdx));
+    });
+  });
+
   group('MarkdownReporter suppression + scope', () {
     test('clean run with no suppression is unchanged', () {
+      // Identity header (# basename + blank) prepended; content unchanged.
       expect(
         const MarkdownReporter().render(_payload()),
-        '0 findings — clean\n',
+        '# project\n\n0 findings — clean\n',
       );
     });
 

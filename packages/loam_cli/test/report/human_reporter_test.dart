@@ -37,6 +37,7 @@ ReportPayload _payload({
   bool isTty = false,
   int suppressedCount = 0,
   ScanStats? stats,
+  List<String>? sourceDirs,
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
@@ -45,6 +46,7 @@ ReportPayload _payload({
   isTty: isTty,
   suppressedCount: suppressedCount,
   stats: stats,
+  sourceDirs: sourceDirs,
 );
 
 const _stats = ScanStats(
@@ -252,11 +254,70 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Repo identity header (Issue 05)
+  // -------------------------------------------------------------------------
+  group('HumanReporter repo identity header', () {
+    test('header shows repo name (basename of projectRoot)', () {
+      final out = const HumanReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      expect(out, contains('my-project'));
+    });
+
+    test('header shows absolute path (human-only)', () {
+      final out = const HumanReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      expect(out, contains('/home/user/my-project'));
+    });
+
+    test('header shows source dirs when provided', () {
+      final out = const HumanReporter().render(
+        _payload(
+          projectRoot: '/home/user/my-project',
+          sourceDirs: ['lib', 'bin'],
+        ),
+      );
+      expect(out, contains('lib'));
+      expect(out, contains('bin'));
+    });
+
+    test('no source dirs line when sourceDirs is null', () {
+      final out = const HumanReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      expect(out, isNot(contains('source:')));
+    });
+
+    test('header appears before findings content', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], projectRoot: '/home/user/my-project'),
+      );
+      final headerIdx = out.indexOf('my-project');
+      final findingIdx = out.indexOf('unused-public-exports');
+      expect(headerIdx, lessThan(findingIdx));
+    });
+
+    test('header appears before clean message', () {
+      final out = const HumanReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      final headerIdx = out.indexOf('my-project');
+      final cleanIdx = out.indexOf('0 findings');
+      expect(headerIdx, lessThan(cleanIdx));
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Suppression + scan-scope surfacing
   // -------------------------------------------------------------------------
   group('HumanReporter suppression + scope', () {
     test('clean run with no suppression is unchanged', () {
-      expect(const HumanReporter().render(_payload()), '0 findings — clean\n');
+      // Header (name + path) prepended; content line unchanged.
+      expect(
+        const HumanReporter().render(_payload()),
+        'project  /project\n\n0 findings — clean\n',
+      );
     });
 
     test('clean run shows suppressed count', () {
