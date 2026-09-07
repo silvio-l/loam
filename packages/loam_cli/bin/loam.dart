@@ -16,8 +16,6 @@ import 'package:loam/src/loader/sdk_locator.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/model/rule_category.dart';
 import 'package:loam/src/progress/progress_sink.dart';
-import 'package:loam/src/progress/should_show_progress.dart';
-import 'package:loam/src/progress/tty_progress_renderer.dart';
 import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/html_reporter.dart';
@@ -263,19 +261,12 @@ class ScanCommand extends LoamCommand {
           )
         : yamlConfig;
 
-    // Progress setup (scan only — not wired to other commands).
-    //
-    // Precedence: --no-progress (CLI) > LOAM_NO_PROGRESS (env) > CI (env)
-    //             > auto-detection (isTty). Mirrors the --no-open pattern.
-    final noProgressFlag = globalResults?['no-progress'] as bool? ?? false;
-    final showProgress = shouldShowProgress(
-      isTty: stdout.hasTerminal,
-      noProgressFlag: noProgressFlag,
-      environment: Platform.environment,
-    );
-    final ProgressSink progressSink = showProgress
-        ? TtyProgressRenderer()
-        : const NoopProgressSink();
+    // Progress setup — shared seam (LoamCommand.resolveProgress), wired
+    // identically across every analysing command (scan, gate, baseline, slop,
+    // a11y, health).
+    final progress = resolveProgress();
+    final showProgress = progress.showProgress;
+    final progressSink = progress.sink;
     final scanStopwatch = Stopwatch()..start();
 
     // For HTML format: load the project once and share it between the
@@ -427,8 +418,18 @@ class _HealthCommand extends LoamCommand {
     }
     final projectRoot = (rootResult as ResolvedRoot).root;
 
+    // Progress setup — shared seam (LoamCommand.resolveProgress). The single
+    // ProjectLoader.load() below feeds both the health measurement and the
+    // findings axis, so one progressSink already covers both phases — no
+    // second/conflicting renderer instance.
+    final progress = resolveProgress();
+    final progressSink = progress.sink;
+
     // Load the project — ProjectLoader never throws.
-    final loadResult = await const ProjectLoader().load(projectRoot);
+    final loadResult = await const ProjectLoader().load(
+      projectRoot,
+      progressSink: progressSink,
+    );
 
     // Load config for the source-dir scope (loam.yaml); missing → defaults.
     final config = await _loadConfig(projectRoot);
@@ -458,6 +459,7 @@ class _HealthCommand extends LoamCommand {
     );
     final outcome = AnalysisRunner(
       config: measurementConfig,
+      progressSink: progressSink,
     ).analyzeWithLoadResult(projectRoot, loadResult);
 
     // Aggregate into a health report.
@@ -547,18 +549,27 @@ class _GateCommand extends LoamCommand {
     // Load project config (loam.yaml) — missing file returns defaults.
     final config = await _loadConfig(projectRoot);
 
+    // Progress setup — shared seam (LoamCommand.resolveProgress). Visible on
+    // a manual local run; the CI-env check inside shouldShowProgress turns it
+    // off automatically under CI.
+    final progressSink = resolveProgress().sink;
+
     if (absoluteMode) {
-      return _runAbsolute(projectRoot, reporter, config);
+      return _runAbsolute(projectRoot, reporter, config, progressSink);
     }
-    return _runRatchet(projectRoot, reporter, config);
+    return _runRatchet(projectRoot, reporter, config, progressSink);
   }
 
   Future<int> _runAbsolute(
     String projectRoot,
     Reporter reporter,
     LoamConfig config,
+    ProgressSink progressSink,
   ) async {
-    final findings = await AnalysisRunner(config: config).run(projectRoot);
+    final findings = await AnalysisRunner(
+      config: config,
+      progressSink: progressSink,
+    ).run(projectRoot);
     final result = const GateEngine().evaluate(
       mode: GateMode.absolute,
       findings: findings,
@@ -598,6 +609,7 @@ class _GateCommand extends LoamCommand {
     String projectRoot,
     Reporter reporter,
     LoamConfig config,
+    ProgressSink progressSink,
   ) async {
     final engine = BaselineEngine(projectRoot: projectRoot);
 
@@ -625,7 +637,10 @@ class _GateCommand extends LoamCommand {
       );
     }
 
-    final findings = await AnalysisRunner(config: config).run(projectRoot);
+    final findings = await AnalysisRunner(
+      config: config,
+      progressSink: progressSink,
+    ).run(projectRoot);
     final diff = engine.diff(findings, baseline);
     final result = const GateEngine().evaluate(
       mode: GateMode.ratchet,
@@ -727,10 +742,14 @@ class _SlopCommand extends LoamCommand {
       return 64; // EX_USAGE
     }
 
+    // Progress setup — shared seam (LoamCommand.resolveProgress).
+    final progressSink = resolveProgress().sink;
+
     // Run with slop-category filter only.
     final outcome = await AnalysisRunner(
       config: config,
       categoryFilter: RuleCategory.slop,
+      progressSink: progressSink,
     ).analyze(projectRoot);
 
     // Diagnostic line for human-readable output.
@@ -825,12 +844,16 @@ class _A11yCommand extends LoamCommand {
       return 64; // EX_USAGE
     }
 
+    // Progress setup — shared seam (LoamCommand.resolveProgress).
+    final progressSink = resolveProgress().sink;
+
     // Run with accessibility-category filter only.
     // categoryFilter restricts instantiation to accessibility rules (none yet),
     // so the result is trivially empty — Exit 0.
     final outcome = await AnalysisRunner(
       config: config,
       categoryFilter: RuleCategory.accessibility,
+      progressSink: progressSink,
     ).analyze(projectRoot);
 
     // Diagnostic line for human-readable output: identifies this as an
@@ -997,10 +1020,15 @@ class _BaselineCommand extends LoamCommand {
     // Load project config (loam.yaml) — missing file returns defaults.
     final config = await _loadConfig(projectRoot);
 
+    // Progress setup — shared seam (LoamCommand.resolveProgress). Only the
+    // --write/--update paths run an analysis; the show path reads baseline.json
+    // straight from disk and needs no progress sink.
+    final progressSink = resolveProgress().sink;
+
     if (write) {
-      return _runWrite(engine, projectRoot, config);
+      return _runWrite(engine, projectRoot, config, progressSink);
     } else if (update) {
-      return _runUpdate(engine, projectRoot, config);
+      return _runUpdate(engine, projectRoot, config, progressSink);
     } else {
       // Resolve reporter for the show path — FormatNotImplementedError → exit 64.
       // --write/--update always produce a plain confirmation line (no findings
@@ -1020,6 +1048,7 @@ class _BaselineCommand extends LoamCommand {
     BaselineEngine engine,
     String projectRoot,
     LoamConfig config,
+    ProgressSink progressSink,
   ) async {
     if (engine.exists) {
       stderr.writeln(
@@ -1028,7 +1057,10 @@ class _BaselineCommand extends LoamCommand {
         '(--write would overwrite your curated baseline).',
       );
     }
-    final findings = await AnalysisRunner(config: config).run(projectRoot);
+    final findings = await AnalysisRunner(
+      config: config,
+      progressSink: progressSink,
+    ).run(projectRoot);
     final version = AnalysisRunner.rulesetVersionForConfig(config);
     engine.write(findings, version);
     final count = findings.length;
@@ -1043,6 +1075,7 @@ class _BaselineCommand extends LoamCommand {
     BaselineEngine engine,
     String projectRoot,
     LoamConfig config,
+    ProgressSink progressSink,
   ) async {
     if (!engine.exists) {
       stderr.writeln(
@@ -1050,7 +1083,10 @@ class _BaselineCommand extends LoamCommand {
         'Use `loam baseline --write` to create one.',
       );
     }
-    final findings = await AnalysisRunner(config: config).run(projectRoot);
+    final findings = await AnalysisRunner(
+      config: config,
+      progressSink: progressSink,
+    ).run(projectRoot);
     final version = AnalysisRunner.rulesetVersionForConfig(config);
     engine.write(findings, version);
     final count = findings.length;

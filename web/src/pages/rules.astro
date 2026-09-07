@@ -13,16 +13,16 @@ const cleanLabel = t(lang, 'rules.clean.label');
 <Layout
   lang="en"
   title="Rules — loam.dev"
-  description="The full loam.dev rule catalogue: thirteen analysis capabilities for Dart/Flutter projects — eleven live today, two planned. Each rule shows a slop vs. clean code example."
+  description="The full loam.dev rule catalogue: fourteen analysis capabilities for Dart/Flutter projects — twelve live today, two planned. Each rule shows a slop vs. clean code example."
   path="/rules"
 >
   <div class="prose-page">
     <h1>Rules</h1>
 
     <p class="lead">
-      loam.dev ships thirteen analysis capabilities, all behind one stable
+      loam.dev ships fourteen analysis capabilities, all behind one stable
       <code>Rule</code> interface. Adding a new rule never changes the pipeline —
-      only the rule list. Eleven rules are live today; two are planned and will
+      only the rule list. Twelve rules are live today; two are planned and will
       ship as post-MVP iterations. Status is always honest.
     </p>
 
@@ -317,15 +317,19 @@ print('done.');
         badgeLabel={live}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Flags // comments immediately before a declaration whose text restates the name (e.g. // build before void build()) or uses a fixed narrative phrase (constructor, getter, setter, build method). Also catches the <name> method/widget patterns. These filler comments add no information beyond the identifier name — a common AI-agent output pattern. Severity: info. Generated files are skipped automatically."
-        slopCode={`// MyWidget
+        description="Flags // comments that add no information beyond what the code already shows. Declaration-adjacent: text restates the name (e.g. // build before void build()) or uses a fixed narrative phrase (constructor, getter, setter, build method, the <name> method/widget). Context-free, anywhere in the file: decorative banner/divider comments, bare category labels (Main logic, Helper function, …), emoji-only decoration, redundant end-of-block markers (// end if), and vague TODOs with no concrete action or reference — a TODO with real substance is never flagged. Severity: info. Generated files are skipped automatically."
+        slopCode={`// ==============================
+// MyWidget
 class MyWidget extends StatelessWidget {
+  // Main logic
   // build
   @override
   Widget build(BuildContext context) => const SizedBox();
 
   // constructor
   const MyWidget();
+
+  // TODO: fix later
 }`}
         cleanCode={`class MyWidget extends StatelessWidget {
   // Renders as a zero-size placeholder during the loading phase.
@@ -333,6 +337,31 @@ class MyWidget extends StatelessWidget {
   Widget build(BuildContext context) => const SizedBox();
 
   const MyWidget();
+
+  // TODO: handle null case when userId is missing (see #123)
+}`}
+      />
+
+      <RuleCard
+        ruleId="slop-workflow-narration-comment"
+        title="Sequential workflow narration"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Flags two or more Step 1:/Step 2:/First,/Next,/Then,/Finally, comments, each immediately preceding a statement in the same function/method/constructor body, that together narrate the body step-by-step even though the statements are already self-explanatory. A single such comment on its own is not flagged — only a sequence is. Severity: info. Generated files are skipped automatically."
+        slopCode={`void placeOrder(Order order) {
+  // Step 1: validate the order
+  validate(order);
+  // Step 2: charge the customer
+  charge(order);
+  // Finally, send the confirmation email
+  sendConfirmation(order);
+}`}
+        cleanCode={`void placeOrder(Order order) {
+  validate(order);
+  charge(order);
+  sendConfirmation(order);
 }`}
       />
 

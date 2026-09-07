@@ -48,7 +48,7 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.14) — eleven live rules:** project-wide **unused public API**
+**Available now (0.1.14) — twelve live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
@@ -58,7 +58,11 @@ with all locations), **complexity hotspots**
 (`slop-empty-catch` — empty and comment-only `catch` bodies;
 `slop-unjustified-ignore` — `// ignore:` and `// ignore_for_file:` directives
 without a written justification;
-`slop-narrative-comment` — `//` comments that restate the declaration name), and **accessibility** (WCAG 1.1.1 — Flutter
+`slop-narrative-comment` — `//` comments that restate the declaration name, plus
+banner/divider comments, empty category labels, emoji-only decoration,
+end-of-block markers, and vague TODOs;
+`slop-workflow-narration-comment` — sequential `Step 1:`/`First,`/`Next,`/
+`Then,`/`Finally,` comments narrating a function body step-by-step), and **accessibility** (WCAG 1.1.1 — Flutter
 images without a semantic label; WCAG 4.1.2 — icon buttons, gesture/ink-well
 with pure icon child, and generic interactive widgets without an accessible name;
 WCAG 3.3.2 — form fields without a label). All on the resolved Dart element model
@@ -73,7 +77,7 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 | ✅ Unused public exports, files, members | ✅ Ungrounded `// ignore:` (slop-unjustified-ignore) | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
 | ✅ Circular dependencies | ✅ Empty / comment-only `catch` blocks (slop-empty-catch) | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
 | ✅ Code duplicates (AST-normalised) | ✅ Narrative filler comments (slop-narrative-comment) | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
-| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
+| ✅ Complexity hotspots + health score | ✅ Sequential workflow narration (slop-workflow-narration-comment) | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 
 ## What makes it different
@@ -95,15 +99,24 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
   --format html` writes `loam-report.html` and opens it in your browser; use
   `--output <file>` to pick the path, `--no-open` to skip the browser (auto-open
   is suppressed for piped output and under CI). *(live since 0.1.3; redesigned in 0.1.6)*
+- **🧭 Preventive recommendations for agents.** After a run with findings,
+  loam.dev appends one curated, agent-addressed recommendation per fired rule
+  class — how to avoid that class of finding going forward — and asks the
+  agent to propose it to you for your persistent instructions (e.g.
+  `CLAUDE.md`). Deterministic, no LLM call; structured as a `recommendations`
+  array in `--format json`. loam.dev never writes to your instructions itself.
+  *(live)*
 
 ## Quick start
 
-> **0.1.14.** Eleven analysis rules are live — `unused-public-exports`,
+> **0.1.14.** Twelve analysis rules are live — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 > `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
-> `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
-> `a11y-interactive-semantics` — plus the `loam health` view. Commands marked
-> *coming soon* are wired in `loam --help` but not yet implemented.
+> `slop-workflow-narration-comment`, `a11y-form-field-label`,
+> `a11y-image-label`, `a11y-icon-button-label`,
+> `a11y-interactive-semantics` — plus the `loam health` composite score.
+> Commands marked *coming soon* are wired in `loam --help` but not yet
+> implemented.
 
 ### Install
 
@@ -152,7 +165,7 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 
 ### Use
 
-Available now (eleven live rules — unused exports, circular deps, code duplicates, complexity hotspots, slop, a11y):
+Available now (twelve live rules — unused exports, circular deps, code duplicates, complexity hotspots, slop, a11y):
 
 ```bash
 loam scan                          # full audit: all active rules, whole repo
@@ -169,10 +182,10 @@ loam init                          # scaffold loam.yaml config in the project
 loam init /path/to/project         # same, positional path to project root
 ```
 
-Complexity health score:
+Composite health score:
 
 ```bash
-loam health                        # cyclomatic/cognitive complexity distribution view
+loam health                        # composite score (findings + complexity) & grade
 loam health /path/to/project       # same, positional path to project root
 ```
 
@@ -234,16 +247,21 @@ Machine-readable output for CI and agents, a human-readable report for you:
 --output <file>       # write the report to <file> (html: overrides loam-report.html)
 --no-open             # html only: don't open the browser (auto-off when piped/CI)
 --no-progress         # suppress the live progress bar (auto-off when piped/CI)
+
+# scan, gate, baseline, slop, a11y and health all show the same live progress
+# bar in an interactive terminal; --no-progress / LOAM_NO_PROGRESS silence it
+# on any of them, and it is never emitted in structured formats.
 ```
 
 ## Status & roadmap
 
-**0.1.14** — eleven rules live end to end (`unused-public-exports`,
+**0.1.14** — twelve rules live end to end (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
-`a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
-`a11y-interactive-semantics`) plus the `loam health` view; the remaining
-capabilities land as individual rules behind the same `Rule` interface.
+`slop-workflow-narration-comment`, `a11y-form-field-label`, `a11y-image-label`,
+`a11y-icon-button-label`, `a11y-interactive-semantics`) plus the `loam health`
+composite score; the remaining capabilities land as individual rules behind
+the same `Rule` interface.
 
 For a detailed walkthrough of concepts, CLI commands, output formats, and codegen
 handling, see the **[Developer & Tool Guide](./docs/developer-guide.md)**.

@@ -21,17 +21,18 @@ on the Dart `analyzer` package — semantically accurate, project-wide, offline 
 default — behind a baseline/ratchet CI gate that never paints a grown codebase
 red on day one.
 
-> **0.1.14.** Eleven rules are live end to end — `unused-public-exports`,
+> **0.1.14.** Twelve rules are live end to end — `unused-public-exports`,
 > `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 > `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
-> `a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label` and
-> `a11y-interactive-semantics` — plus the `loam health` view. The remaining
-> capabilities below are on the roadmap, each landing as its own rule behind the
-> same stable `Rule` interface.
+> `slop-workflow-narration-comment`, `a11y-form-field-label`,
+> `a11y-image-label`, `a11y-icon-button-label` and
+> `a11y-interactive-semantics` — plus the `loam health` composite score. The
+> remaining capabilities below are on the roadmap, each landing as its own
+> rule behind the same stable `Rule` interface.
 
 ## What it catches
 
-**Available now (0.1.14) — eleven live rules:** project-wide **unused public API**
+**Available now (0.1.14) — twelve live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
 dependencies** between first-party libraries, **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
@@ -41,7 +42,10 @@ with all locations), **complexity hotspots**
 (`slop-empty-catch` — empty and comment-only `catch` bodies;
 `slop-unjustified-ignore` — `// ignore:` and `// ignore_for_file:` directives
 without a written justification; `slop-narrative-comment` — `//` comments that
-merely restate the declaration name), and **accessibility** (WCAG 1.1.1 — Flutter
+merely restate the declaration name, plus banner comments, empty category
+labels, emoji-only decoration, end-of-block markers, and vague TODOs;
+`slop-workflow-narration-comment` — sequential `Step 1:`/`First,`/`Next,`/
+`Then,`/`Finally,` comments narrating a function body step-by-step), and **accessibility** (WCAG 1.1.1 — Flutter
 images without a semantic label; WCAG 4.1.2 — icon buttons, gesture/ink-well
 widgets with a pure icon child, and generic interactive widgets without an
 accessible name; WCAG 3.3.2 — form fields without a label) — emitted as Findings
@@ -54,7 +58,7 @@ Everything else is the **target surface** (🚧 = planned):
 | ✅ Unused public exports, files, members | ✅ Ungrounded `// ignore:` (slop-unjustified-ignore) | ✅ Image without semantic label (a11y-image-label, WCAG 1.1.1) |
 | ✅ Circular dependencies | ✅ Empty / comment-only `catch` blocks (slop-empty-catch) | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
 | ✅ Code duplicates (AST-normalised) | ✅ Narrative filler comments (slop-narrative-comment) | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
-| ✅ Complexity hotspots + health score | 🚧 Duplicated helpers, dead guards | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
+| ✅ Complexity hotspots + health score | ✅ Sequential workflow narration (slop-workflow-narration-comment) | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
 | 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
 
 ## What makes it different
@@ -62,8 +66,9 @@ Everything else is the **target surface** (🚧 = planned):
 - **🌱 Semantic, not regex** — resolved Dart element model + project-wide graphs. *(live)*
 - **🔒 Baseline / ratchet gate (default)** — freeze today's findings; only **new** ones fail CI. *(live)*
 - **♻️ Reproducible even with an LLM** — verdicts cached by `sha(code)+prompt@ver`, fixed thresholds decide. Same code = cache hit = stable verdict, zero token cost. *(🚧 planned)*
-- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a deterministic `prompt@ver` fix-prompt for your AI agent. *(live since 0.1.3; redesigned in 0.1.6)*
+- **📄 Self-contained HTML report** — one offline file; toggle findings, copy a deterministic `prompt@v3` fix-prompt (scope-limited to your project, Karpathy-structured instructions) for your AI agent. *(live since 0.1.3; redesigned in 0.1.6)*
 - **🔧 Configurable suppression** — `loam.yaml` rule toggles and project-relative `ignore:` globs, plus inline `// loam-ignore: <ruleId> – reason`; `loam init` scaffolds the file. *(in 0.1.3)*
+- **🧭 Preventive recommendations for agents** — after a run with findings, one curated recommendation per fired rule class, addressed to the agent to propose to you for your persistent instructions (e.g. `CLAUDE.md`); deterministic, no LLM call, structured in `--format json`. *(live)*
 
 ## Install
 
@@ -101,7 +106,7 @@ loam scan /path/to/project         # same, positional path to project root
 loam baseline --write              # freeze the accepted state to baseline.json
 loam gate                          # CI: ratchet — only new findings fail (exit 1)
 loam gate /path/to/project         # same, positional path to project root
-loam health                        # cyclomatic/cognitive complexity distribution view
+loam health                        # composite score (findings + complexity) & grade
 loam init                          # scaffold loam.yaml config in the project
 loam a11y                          # accessibility audit: WCAG-focused rules only
 loam a11y /path/to/project         # same, positional path to project root
@@ -115,13 +120,19 @@ option overrides the positional path when both are given.
 
 `loam --help` lists every command; planned ones are marked *(coming soon)*.
 
+`scan`, `gate`, `baseline`, `slop`, `a11y` and `health` all show a live
+loading/analysis progress bar in an interactive terminal, auto-disabled under
+CI or when piped; silence it explicitly with `--no-progress` or
+`LOAM_NO_PROGRESS`.
+
 ## Status
 
-Functional release — eleven analysis rules live (`unused-public-exports`,
+Functional release — twelve analysis rules live (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
-`a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
-`a11y-interactive-semantics`) plus the `loam health` view;
+`slop-workflow-narration-comment`, `a11y-form-field-label`,
+`a11y-image-label`, `a11y-icon-button-label`,
+`a11y-interactive-semantics`) plus the `loam health` composite score;
 the remaining capabilities land as individual rules behind the same `Rule`
 interface. Founding spec, domain
 glossary and architecture decisions live in the

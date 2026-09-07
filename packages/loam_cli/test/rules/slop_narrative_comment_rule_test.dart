@@ -194,10 +194,18 @@ void main() {
     }
   });
 
-  test('AC1: finding kind is "narrative-comment"', () {
+  test('AC1: finding kind is one of the documented rule kinds', () {
     final findings = makeRule().run(loadResult);
+    const validKinds = {
+      'narrative-comment',
+      'banner-comment',
+      'empty-category-label',
+      'emoji-decoration',
+      'end-marker-comment',
+      'vague-todo',
+    };
     for (final f in findings) {
-      expect(f.kind, 'narrative-comment');
+      expect(validKinds, contains(f.kind));
     }
   });
 
@@ -242,16 +250,266 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Category B: banner / divider comments
+  // ---------------------------------------------------------------------------
+
+  test('banner: pure divider (====) → Finding, kind banner-comment', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('banner_comment.dart'))
+        .where((f) => f.line == 3)
+        .toList();
+    expect(hits, hasLength(1));
+    expect(hits.single.kind, 'banner-comment');
+  });
+
+  test('banner: framed label (****** SECTION ******) → Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('banner_comment.dart'))
+        .where((f) => f.line == 9)
+        .toList();
+    expect(hits, hasLength(1));
+    expect(hits.single.kind, 'banner-comment');
+  });
+
+  test('banner: plain hyphen divider → no Finding (legitimate convention)', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('banner_comment.dart'))
+        .where((f) => f.line == 14)
+        .toList();
+    expect(hits, isEmpty);
+  });
+
+  test('banner: informative comment → no Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('banner_comment.dart'))
+        .where((f) => f.line == 20)
+        .toList();
+    expect(hits, isEmpty);
+  });
+
+  test('banner_comment.dart — exactly 2 findings', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('banner_comment.dart'))
+        .toList();
+    expect(hits, hasLength(2));
+  });
+
+  // ---------------------------------------------------------------------------
+  // Category B: empty category-label comments
+  // ---------------------------------------------------------------------------
+
+  test('category-label: "Main logic" before a statement → Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('category_label_comment.dart'))
+        .where((f) => f.line == 5)
+        .toList();
+    expect(hits, hasLength(1));
+    expect(hits.single.kind, 'empty-category-label');
+  });
+
+  test('category-label: "Helper function" before a declaration → Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('category_label_comment.dart'))
+        .where((f) => f.line == 11)
+        .toList();
+    expect(hits, hasLength(1));
+    expect(hits.single.kind, 'empty-category-label');
+  });
+
+  test('category-label: informative comment → no Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('category_label_comment.dart'))
+        .where((f) => f.line == 14)
+        .toList();
+    expect(hits, isEmpty);
+  });
+
+  test('category_label_comment.dart — exactly 2 findings', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('category_label_comment.dart'))
+        .toList();
+    expect(hits, hasLength(2));
+  });
+
+  // ---------------------------------------------------------------------------
+  // Category B: emoji-only decoration
+  // ---------------------------------------------------------------------------
+
+  test('emoji: emoji-only comment → Finding, kind emoji-decoration', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('emoji_comment.dart'))
+        .where((f) => f.line == 5)
+        .toList();
+    expect(hits, hasLength(1));
+    expect(hits.single.kind, 'emoji-decoration');
+  });
+
+  test('emoji: emoji plus real text → no Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('emoji_comment.dart'))
+        .where((f) => f.line == 11)
+        .toList();
+    expect(hits, isEmpty);
+  });
+
+  test('emoji_comment.dart — exactly 1 finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('emoji_comment.dart'))
+        .toList();
+    expect(hits, hasLength(1));
+  });
+
+  // ---------------------------------------------------------------------------
+  // Category B: end-of-block marker comments
+  // ---------------------------------------------------------------------------
+
+  test('end-marker: "end for loop" → Finding, kind end-marker-comment', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('end_marker_comment.dart'))
+        .where((f) => f.line == 7)
+        .toList();
+    expect(hits, hasLength(1));
+    expect(hits.single.kind, 'end-marker-comment');
+  });
+
+  test('end-marker: "end if" → Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('end_marker_comment.dart'))
+        .where((f) => f.line == 17)
+        .toList();
+    expect(hits, hasLength(1));
+  });
+
+  test('end-marker: "End processOrder" → Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('end_marker_comment.dart'))
+        .where((f) => f.line == 22)
+        .toList();
+    expect(hits, hasLength(1));
+  });
+
+  test('end-marker: long descriptive "end date …" sentence → no Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('end_marker_comment.dart'))
+        .where((f) => f.line == 29)
+        .toList();
+    expect(hits, isEmpty);
+  });
+
+  test('end_marker_comment.dart — exactly 3 findings', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('end_marker_comment.dart'))
+        .toList();
+    expect(hits, hasLength(3));
+  });
+
+  // ---------------------------------------------------------------------------
+  // Category B: vague TODOs
+  // ---------------------------------------------------------------------------
+
+  test('vague-todo: "TODO: Improve this" → Finding, kind vague-todo', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('vague_todo_comment.dart'))
+        .where((f) => f.line == 5)
+        .toList();
+    expect(hits, hasLength(1));
+    expect(hits.single.kind, 'vague-todo');
+  });
+
+  test('vague-todo: "TODO: Add more validation" → Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('vague_todo_comment.dart'))
+        .where((f) => f.line == 12)
+        .toList();
+    expect(hits, hasLength(1));
+  });
+
+  test('vague-todo: "TODO: fix later" → Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('vague_todo_comment.dart'))
+        .where((f) => f.line == 19)
+        .toList();
+    expect(hits, hasLength(1));
+  });
+
+  test('vague-todo: bare "TODO" → Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('vague_todo_comment.dart'))
+        .where((f) => f.line == 26)
+        .toList();
+    expect(hits, hasLength(1));
+  });
+
+  test('vague-todo: concrete TODO with condition + reference → no Finding', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('vague_todo_comment.dart'))
+        .where((f) => f.line == 33)
+        .toList();
+    expect(hits, isEmpty);
+  });
+
+  test('vague_todo_comment.dart — exactly 4 findings', () {
+    final findings = makeRule().run(loadResult);
+    final hits = findings
+        .where((f) => f.filePath.contains('vague_todo_comment.dart'))
+        .toList();
+    expect(hits, hasLength(4));
+  });
+
+  // ---------------------------------------------------------------------------
+  // Category B: kind + fingerprint determinism sanity checks
+  // ---------------------------------------------------------------------------
+
+  test('context-free findings never carry kind "narrative-comment"', () {
+    final findings = makeRule().run(loadResult);
+    final contextFreeKinds = {
+      'banner-comment',
+      'empty-category-label',
+      'emoji-decoration',
+      'end-marker-comment',
+      'vague-todo',
+    };
+    for (final f in findings) {
+      if (contextFreeKinds.contains(f.kind)) {
+        expect(f.kind, isNot('narrative-comment'));
+      }
+    }
+  });
+
+  // ---------------------------------------------------------------------------
   // AC1: Total finding count across all non-generated fixture files
   // ---------------------------------------------------------------------------
 
-  test('AC1: total findings — exactly 5 (2 member-name + 3 restatement)', () {
+  test('AC1: total findings — exactly 17 '
+      '(5 declaration-adjacent + 12 context-free)', () {
     final findings = makeRule().run(loadResult);
     expect(
       findings,
-      hasLength(5),
+      hasLength(17),
       reason:
-          'Expected exactly 5 findings total. '
+          'Expected exactly 17 findings total. '
           'Got: ${findings.map((f) => "${f.filePath}:${f.line}").join("; ")}',
     );
   });

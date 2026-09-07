@@ -126,6 +126,47 @@ if [ "$pushed_any" -eq 0 ]; then
   [ "$head" = "$attested" ] || block "HEAD ${head:0:12} ist nicht attestiert."
 fi
 
+# ── Riegel 2.7: Format + Analyze — dieselben Kernbefehle wie qa.yml ──────────
+# Schließt genau die Lücke, die den QA-Workflow wochenlang wiederholt rot
+# laufen ließ: Format-/Analyze-Fehler wurden nie lokal geprüft, nur in CI
+# sichtbar. `dart-lang/setup-dart@v1` ist in qa.yml/release.yml jetzt gepinnt
+# (sdk: 3.12.1) statt "stable" — ein SDK-Mismatch hier ist daher ein
+# Advisory-Hinweis (nicht blockierend, um bei einem Dart-Upgrade der lokalen
+# Flutter-Toolchain nicht hart zu blocken), ein echter Format-/Analyze-Fehler
+# aber blockierend, exakt wie in CI. Robust: fehlt dart im Hook-PATH, wird
+# übersprungen (wie Riegel 3 unten) statt fälschlich zu blockieren.
+DART_FA="$(command -v dart || true)"
+if [ -z "$DART_FA" ]; then
+  echo "pre-push: dart nicht im PATH — Format/Analyze-Check übersprungen (Quality-Net)." >&2
+else
+  CI_SDK="3.12.1"
+  local_sdk="$("$DART_FA" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+  if [ -n "$local_sdk" ] && [ "$local_sdk" != "$CI_SDK" ]; then
+    echo "  ⚠ Lokale Dart-SDK ($local_sdk) weicht vom CI-Pin ($CI_SDK, siehe qa.yml) ab —" >&2
+    echo "    Format-Output kann trotzdem lokal grün und in CI rot sein." >&2
+  fi
+  echo "" >&2
+  echo "◆ Format + Analyze (packages/loam_cli) …" >&2
+  if ! ( cd "$ROOT/packages/loam_cli" && "$DART_FA" format --output=none --set-exit-if-changed bin lib test ); then
+    cat >&2 <<EOF
+
+╳ Push blockiert — dart format meldet unformatierte Dateien.
+  → 'dart format bin lib test' in packages/loam_cli, dann erneut committen/pushen.
+    (kein --no-verify)
+EOF
+    exit 1
+  fi
+  if ! ( cd "$ROOT/packages/loam_cli" && "$DART_FA" analyze --fatal-infos --fatal-warnings ); then
+    cat >&2 <<EOF
+
+╳ Push blockiert — dart analyze meldet Fehler/Warnungen (siehe oben).
+  → Findings beheben, dann erneut pushen. (kein --no-verify)
+EOF
+    exit 1
+  fi
+  echo "  ✓ Format + Analyze: sauber" >&2
+fi
+
 # ── Riegel 3: Dogfood-Gate — loam prüft loam ─────────────────────────────────
 # Eigenes Tool gegen eigenen Code: unused-public-exports u. a. Toter/ungenutzter
 # Public-Code im CLI blockt den Push. `gate --absolute` = rot bei JEDEM Finding,

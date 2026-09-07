@@ -13,16 +13,16 @@ const cleanLabel = t(lang, 'rules.clean.label');
 <Layout
   lang="de"
   title="Rules — loam.dev"
-  description="Der vollständige loam.dev-Regelkatalog: dreizehn Analyse-Fähigkeiten für Dart/Flutter-Projekte — elf heute live, zwei geplant. Jede Rule zeigt ein Slop-vs.-sauber-Codebeispiel."
+  description="Der vollständige loam.dev-Regelkatalog: vierzehn Analyse-Fähigkeiten für Dart/Flutter-Projekte — zwölf heute live, zwei geplant. Jede Rule zeigt ein Slop-vs.-sauber-Codebeispiel."
   path="/de/rules"
 >
   <div class="prose-page">
     <h1>Rules</h1>
 
     <p class="lead">
-      loam.dev bietet dreizehn Analyse-Fähigkeiten, alle hinter einem stabilen
+      loam.dev bietet vierzehn Analyse-Fähigkeiten, alle hinter einem stabilen
       <code>Rule</code>-Interface. Eine neue Rule hinzuzufügen ändert die
-      Pipeline nicht — nur die Rule-Liste. Elf Rules sind heute live,
+      Pipeline nicht — nur die Rule-Liste. Zwölf Rules sind heute live,
       zwei sind geplant und erscheinen als Post-MVP-Iterationen.
       Der Status ist immer ehrlich angegeben.
     </p>
@@ -318,15 +318,19 @@ print('done.');
         badgeLabel={live}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Meldet // Kommentare unmittelbar vor einer Deklaration, deren Text den Namen wiederholt (z. B. // build vor void build()) oder einen festen narrativen Ausdruck verwendet (constructor, getter, setter, build method). Solche Füll-Kommentare fügen keine Information über den Bezeichner-Namen hinaus hinzu — ein typisches KI-Agenten-Ausgabemuster. Schweregrad: info. Generierte Dateien werden automatisch übersprungen."
-        slopCode={`// MyWidget
+        description="Meldet // Kommentare, die keine Information über das hinaus liefern, was der Code bereits zeigt. Deklarationsnah: Text wiederholt den Namen (z. B. // build vor void build()) oder verwendet einen festen narrativen Ausdruck (constructor, getter, setter, build method, the <name> method/widget). Kontextfrei, überall in der Datei: dekorative Banner-/Trennkommentare, leere Kategorie-Label (Main logic, Helper function, …), reine Emoji-Dekoration, redundante Blockende-Marker (// end if) sowie vage TODOs ohne konkrete Handlung oder Referenz — ein TODO mit echter Substanz wird nie gemeldet. Schweregrad: info. Generierte Dateien werden automatisch übersprungen."
+        slopCode={`// ==============================
+// MyWidget
 class MyWidget extends StatelessWidget {
+  // Main logic
   // build
   @override
   Widget build(BuildContext context) => const SizedBox();
 
   // constructor
   const MyWidget();
+
+  // TODO: fix later
 }`}
         cleanCode={`class MyWidget extends StatelessWidget {
   // Rendert als Platzhalter mit der Größe 0 während der Ladephase.
@@ -334,6 +338,31 @@ class MyWidget extends StatelessWidget {
   Widget build(BuildContext context) => const SizedBox();
 
   const MyWidget();
+
+  // TODO: handle null case when userId is missing (see #123)
+}`}
+      />
+
+      <RuleCard
+        ruleId="slop-workflow-narration-comment"
+        title="Sequenzielle Workflow-Narration"
+        status="live"
+        badgeLabel={live}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet zwei oder mehr Step 1:/Step 2:/First,/Next,/Then,/Finally,-Kommentare, die jeweils unmittelbar vor einem Statement im selben Funktions-/Methoden-/Konstruktor-Body stehen und gemeinsam den Body Schritt für Schritt erzählen, obwohl die Statements bereits selbsterklärend sind. Ein einzelner solcher Kommentar allein wird nicht gemeldet — nur eine Sequenz. Schweregrad: info. Generierte Dateien werden automatisch übersprungen."
+        slopCode={`void placeOrder(Order order) {
+  // Step 1: validate the order
+  validate(order);
+  // Step 2: charge the customer
+  charge(order);
+  // Finally, send the confirmation email
+  sendConfirmation(order);
+}`}
+        cleanCode={`void placeOrder(Order order) {
+  validate(order);
+  charge(order);
+  sendConfirmation(order);
 }`}
       />
 

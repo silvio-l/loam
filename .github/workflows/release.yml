@@ -39,7 +39,12 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref_name }}
 
+      # Pinned, matching qa.yml — see the comment there. Reproducible release
+      # builds shouldn't depend on whatever Dart's rolling stable channel is
+      # on release day.
       - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.12.1'
 
       - name: dart pub get
         working-directory: packages/loam_cli
@@ -145,7 +150,10 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref_name }}
 
+      # Pinned, matching qa.yml/build above — reproducible pub.dev publishes.
       - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.12.1'
 
       - name: dart pub get
         working-directory: packages/loam_cli

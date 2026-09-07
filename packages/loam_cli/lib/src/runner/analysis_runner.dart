@@ -20,6 +20,7 @@ import '../rules/complexity_hotspots_rule.dart';
 import '../rules/slop_empty_catch_rule.dart';
 import '../rules/slop_narrative_comment_rule.dart';
 import '../rules/slop_unjustified_ignore_rule.dart';
+import '../rules/slop_workflow_narration_comment_rule.dart';
 import '../rules/unused_public_exports_rule.dart';
 import '../suppression/inline_suppression_scanner.dart';
 import '../suppression/suppression_engine.dart';
@@ -67,7 +68,7 @@ class AnalysisOutcome {
 /// [CircularDependenciesRule], [CodeDuplicatesRule],
 /// [ComplexityHotspotsRule], [SlopEmptyCatchRule],
 /// [SlopNarrativeCommentRule], [SlopUnjustifiedIgnoreRule],
-/// [UnusedPublicExportsRule].
+/// [SlopWorkflowNarrationCommentRule], [UnusedPublicExportsRule].
 ///
 /// Sort key (stable, in order): [Finding.filePath], [Finding.line],
 /// [Finding.fingerprint] — guarantees Invariant 5 (reproducibility).
@@ -133,6 +134,7 @@ class AnalysisRunner {
     'slop-empty-catch',
     'slop-narrative-comment',
     'slop-unjustified-ignore',
+    'slop-workflow-narration-comment',
     'unused-public-exports',
   ];
 
@@ -152,6 +154,7 @@ class AnalysisRunner {
     'slop-empty-catch': RuleCategory.slop,
     'slop-narrative-comment': RuleCategory.slop,
     'slop-unjustified-ignore': RuleCategory.slop,
+    'slop-workflow-narration-comment': RuleCategory.slop,
     'unused-public-exports': RuleCategory.drift,
   };
 
@@ -394,6 +397,8 @@ class AnalysisRunner {
         SlopNarrativeCommentRule(projectRoot: root),
       if (effectiveIds.contains('slop-unjustified-ignore'))
         SlopUnjustifiedIgnoreRule(projectRoot: root),
+      if (effectiveIds.contains('slop-workflow-narration-comment'))
+        SlopWorkflowNarrationCommentRule(projectRoot: root),
       if (effectiveIds.contains('unused-public-exports'))
         UnusedPublicExportsRule(projectRoot: root),
     ];

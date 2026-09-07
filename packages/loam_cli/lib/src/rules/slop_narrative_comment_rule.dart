@@ -9,15 +9,20 @@ import '../model/fingerprint.dart';
 import 'generated_file.dart';
 import 'rule.dart';
 
-/// Detects `//` comments immediately before a declaration whose normalized text
-/// is a trivial restatement of the declaration name or a fixed narrative phrase.
+/// Detects `//` comments that add no information beyond what the code
+/// already shows — either because they restate a declaration's name, or
+/// because their content is structurally content-free (decoration, a bare
+/// category label, emoji-only, a redundant end-of-block marker, or a TODO
+/// with no concrete, actionable scope).
 ///
 /// Rule ID: `slop-narrative-comment`
 ///
-/// A finding is emitted for each single-line `//` comment that appears on the
-/// line directly before a class, method, getter/setter, constructor, or
-/// top-level function declaration (no blank lines between) and whose normalized
-/// text satisfies at least one of:
+/// Findings come from two independent checks over the same file:
+///
+/// **A. Declaration-adjacent narrative comments** — a single-line `//`
+/// comment that appears on the line directly before a class, method,
+/// getter/setter, constructor, or top-level function declaration (no blank
+/// lines between) and whose normalized text satisfies at least one of:
 ///
 /// 1. **Name-equal** — after stripping `//`, trimming whitespace, and
 ///    lowercasing, the comment text equals the lowercased declaration name.
@@ -27,26 +32,60 @@ import 'rule.dart';
 ///    `the {name} method` or `the {name} widget` where `{name}` is the
 ///    lowercased declaration name.
 ///
+/// **B. Context-free structural slop comments** — every single-line `//`
+/// comment in the file (regardless of what follows it — a declaration, a
+/// statement, or nothing) is independently classified into one of:
+///
+/// 4. **Banner / divider** (`kind: 'banner-comment'`) — a decorative
+///    separator made only of repeated punctuation (`// ====`, `// ****`) or a
+///    punctuation-framed label (`// ****** SECTION ******`). Plain hyphen
+///    dividers (`// ---------------`) are deliberately excluded — see
+///    [_pureDividerPattern].
+/// 5. **Empty category label** (`kind: 'empty-category-label'`) — the
+///    normalized text is a generic structural label with no information of
+///    its own, e.g. `main logic`, `helper function`, `core logic`, `error
+///    handling`, `initialization` (fixed list, see [_categoryLabels]).
+/// 6. **Emoji-only decoration** (`kind: 'emoji-decoration'`) — the comment,
+///    once every emoji code point and light punctuation is stripped, has no
+///    remaining text (e.g. `// 🚀`, `// ✅ ✅`).
+/// 7. **End-of-block marker** (`kind: 'end-marker-comment'`) — a short
+///    redundant marker such as `// end if`, `// End processOrder`, `// end
+///    for loop`; indentation and the closing brace already show the block
+///    boundary.
+/// 8. **Vague TODO** (`kind: 'vague-todo'`) — a `TODO`/`FIXME` comment whose
+///    body (after the prefix) is a bare generic directive with no concrete
+///    object, condition, or reference (fixed list, see [_vagueTodoPhrases]).
+///    A TODO with real substance (e.g. `TODO: handle null case when userId
+///    is missing (see #123)`) is a **legitimate** TODO and is never flagged.
+///
 /// What this rule deliberately does **NOT** catch:
 /// - `///` Dart-doc comments — real documentation is never flagged (tabu).
 /// - Block comments (`/* */`).
-/// - `//` comments whose text is not in the name-equal or fixed-list set —
-///   informative `//` comments are never flagged (no heuristic quality
+/// - Plain hyphen dividers (`// ---------------`) — a common, legitimate
+///   section-separator convention, not an AI-slop signal; only `=`/`*`/`#`/
+///   `~`/`_` decoration is treated as a banner.
+/// - `//` comments whose text does not match any of the categories above —
+///   informative `//` comments are never flagged (no fuzzy heuristic quality
 ///   scoring; that is the LLM layer, sprint-17).
-/// - Comments not immediately adjacent to a declaration (blank line between).
 /// - Generated files (`*.g.dart`, `*.freezed.dart`, etc.) — excluded via
 ///   [isGeneratedDartFile] at the start of each file loop.
 ///
 /// **Semantic anchor (fingerprint stability):**
-/// `qualifiedDeclarationName:narrative-comment:occurrenceIndex` — where
-/// `qualifiedDeclarationName` is the qualified name (e.g. `MyClass.build`)
-/// and `occurrenceIndex` counts prior occurrences of the same qualified name.
-/// A pure line shift leaves the anchor unchanged (Invariant 5 / fingerprint
-/// semantics).
+/// - Declaration-adjacent findings (category A): `qualifiedDeclarationName:
+///   narrative-comment:occurrenceIndex` — `qualifiedDeclarationName` is the
+///   qualified name (e.g. `MyClass.build`) and `occurrenceIndex` counts prior
+///   occurrences of the same qualified name.
+/// - Context-free findings (category B): `kind:normalizedCommentText:
+///   occurrenceIndex` — `occurrenceIndex` counts prior occurrences of the
+///   same `(kind, normalizedCommentText)` pair in the file. Anchoring on the
+///   normalized text itself (rather than a file offset) keeps the fingerprint
+///   stable when unrelated code shifts around the comment (Invariant 5).
 ///
 /// **Finding contract:**
 /// - `severity`: [Severity.info]
-/// - `kind`: `'narrative-comment'`
+/// - `kind`: `'narrative-comment'` for category A; one of
+///   `'banner-comment'`, `'empty-category-label'`, `'emoji-decoration'`,
+///   `'end-marker-comment'`, `'vague-todo'` for category B.
 /// - `remedy`: imperative fix instruction
 /// - `wcagRef`: null (slop rule — no WCAG reference)
 ///
@@ -97,8 +136,147 @@ class SlopNarrativeCommentRule implements Rule {
   }
 }
 
+/// One preset (message, remedy) pair for a context-free comment category.
+class _CommentSpec {
+  const _CommentSpec({required this.message, required this.remedy});
+  final String message;
+  final String remedy;
+}
+
+/// Message/remedy text per context-free `kind`. Keyed by the same string
+/// used as [Finding.kind] for that category.
+const Map<String, _CommentSpec> _contextFreeSpecs = {
+  'banner-comment': _CommentSpec(
+    message:
+        'Decorative divider/banner comment adds no information — code '
+        'structure and formatting already delimit sections.',
+    remedy:
+        'Remove the banner comment. To communicate section structure, use '
+        'clear class/method names instead of ASCII-art dividers.',
+  ),
+  'empty-category-label': _CommentSpec(
+    message:
+        'Comment only names a generic structural category — it adds no '
+        'information beyond what the code already shows.',
+    remedy:
+        'Remove the label comment, or replace it with a specific note about '
+        'behaviour, rationale, or an edge case the code does not make '
+        'obvious on its own.',
+  ),
+  'emoji-decoration': _CommentSpec(
+    message:
+        'Comment consists solely of emoji decoration with no textual '
+        'content.',
+    remedy:
+        'Remove the emoji-only comment — it carries no information for '
+        'readers or tooling.',
+  ),
+  'end-marker-comment': _CommentSpec(
+    message:
+        'Redundant end-of-block marker — indentation and the closing brace '
+        'already show where the block ends.',
+    remedy: 'Remove the end-marker comment.',
+  ),
+  'vague-todo': _CommentSpec(
+    message:
+        'Vague TODO gives no concrete action, condition, or reference — it '
+        "can't be acted on.",
+    remedy:
+        'Give the TODO a concrete scope (what to do, under what condition, '
+        'or a reference such as an issue link), or remove it.',
+  ),
+};
+
+/// Fixed list of generic structural category labels that carry no
+/// information beyond naming a category every reader can already see from
+/// the surrounding code (Abgrenzungsfall: no fuzzy scoring — a closed list).
+const Set<String> _categoryLabels = {
+  'main logic',
+  'main function',
+  'core logic',
+  'business logic',
+  'helper function',
+  'helper functions',
+  'utility function',
+  'utility functions',
+  'error handling',
+  'initialization',
+  'init',
+  'setup',
+  'cleanup',
+};
+
+/// Fixed list of generic TODO/FIXME bodies with no concrete object,
+/// condition, or reference — matched against the normalized text *after*
+/// the `TODO`/`FIXME` prefix (Abgrenzungsfall: a closed list, not fuzzy
+/// scoring — mirrors [_categoryLabels]).
+const Set<String> _vagueTodoPhrases = {
+  '',
+  'improve',
+  'improve this',
+  'improve later',
+  'fix',
+  'fix this',
+  'fix it',
+  'fix later',
+  'fix it later',
+  'clean up',
+  'cleanup',
+  'clean this up',
+  'refactor',
+  'refactor this',
+  'refactor later',
+  'optimize',
+  'optimize this',
+  'improve error handling',
+  'handle this better',
+  'handle errors better',
+  'add validation',
+  'add more validation',
+  'update this',
+  'review this',
+  'check this',
+  'finish this',
+  'complete this',
+  'implement this',
+  'do this better',
+  'make this better',
+  'make better',
+};
+
+/// Matches a comment that is only decoration characters (`====`, `****`, …).
+///
+/// Deliberately excludes `-` — a plain hyphen divider/section-separator
+/// (`// ---------------`) is a widespread, legitimate code-organisation
+/// convention (this very codebase uses it throughout `lib/`), not an
+/// AI-slop signal. Flagging it would make the rule fire on the maintainer's
+/// own deliberate structure, not on decorative filler.
+final RegExp _pureDividerPattern = RegExp(r'^[=*#~_]{3,}$');
+
+/// Matches a comment framed by 2+ decoration characters on both ends, with
+/// real content (and whitespace) in between, e.g. `****** SECTION ******`.
+/// Excludes `-` for the same reason as [_pureDividerPattern].
+final RegExp _framedLabelPattern = RegExp(r'^[=*#~_]{2,}.*[=*#~_]{2,}$');
+
+/// Unicode ranges covering the common emoji blocks used for pure decoration.
+final RegExp _emojiPattern = RegExp(
+  r'[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{FE0F}]',
+  unicode: true,
+);
+
+/// Matches `end <keyword…>` / bare `end` — a redundant block-end marker.
+final RegExp _endMarkerPattern = RegExp(r'^end\s+\S');
+
+/// Matches a `TODO`/`FIXME` comment, capturing the body after the prefix.
+final RegExp _todoPattern = RegExp(
+  r'^(?:TODO|FIXME)\s*:?\s*(.*)$',
+  caseSensitive: false,
+);
+
 /// AST visitor that collects narrative `//` comments immediately before
-/// class/member/function declarations.
+/// class/member/function declarations, plus every context-free structural
+/// slop comment (banner, empty-category-label, emoji-decoration,
+/// end-marker-comment, vague-todo) anywhere in the file.
 class _NarrativeCommentVisitor extends RecursiveAstVisitor<void> {
   _NarrativeCommentVisitor({
     required this.ruleId,
@@ -110,11 +288,23 @@ class _NarrativeCommentVisitor extends RecursiveAstVisitor<void> {
   final String relativePath;
   final List<Finding> findings;
 
-  /// Occurrence counter keyed by qualified declaration name.
+  /// Occurrence counter keyed by qualified declaration name — category A.
   ///
   /// Ensures that multiple narrative comments for declarations with the same
   /// qualified name get distinct, deterministic fingerprints.
   final Map<String, int> _occurrenceCount = {};
+
+  /// Occurrence counter keyed by `kind:normalizedCommentText` — category B.
+  ///
+  /// See the class doc comment on [SlopNarrativeCommentRule] for why the
+  /// anchor is content-based rather than offset-based.
+  final Map<String, int> _contextFreeOccurrence = {};
+
+  @override
+  void visitCompilationUnit(CompilationUnit node) {
+    _scanContextFreeComments(node);
+    super.visitCompilationUnit(node);
+  }
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {
@@ -156,7 +346,7 @@ class _NarrativeCommentVisitor extends RecursiveAstVisitor<void> {
   }
 
   // ---------------------------------------------------------------------------
-  // Core check
+  // Category A: declaration-adjacent check
   // ---------------------------------------------------------------------------
 
   void _check(AstNode node, String declarationName, String qualifiedName) {
@@ -207,7 +397,120 @@ class _NarrativeCommentVisitor extends RecursiveAstVisitor<void> {
   }
 
   // ---------------------------------------------------------------------------
-  // Comment detection
+  // Category B: context-free structural scan
+  // ---------------------------------------------------------------------------
+
+  /// Walks every token in [unit] (not just declaration begin-tokens) so that
+  /// context-free categories are caught wherever they occur — before a
+  /// statement, at the end of a block, or standing alone.
+  void _scanContextFreeComments(CompilationUnit unit) {
+    Token token = unit.beginToken;
+    while (true) {
+      Token? comment = token.precedingComments;
+      while (comment != null) {
+        if (comment.type == TokenType.SINGLE_LINE_COMMENT) {
+          _checkContextFree(comment, unit);
+        }
+        comment = comment.next;
+      }
+      if (token.type == TokenType.EOF) break;
+      token = token.next!;
+    }
+  }
+
+  void _checkContextFree(Token commentToken, CompilationUnit unit) {
+    final lexeme = commentToken.lexeme;
+    if (lexeme.startsWith('///')) return; // Dartdoc-Tabu — never flagged.
+
+    final category = _classifyContextFreeComment(lexeme);
+    if (category == null) return;
+
+    final normalized = _normalizeCommentText(lexeme);
+    final counterKey = '$category:$normalized';
+    final idx = _contextFreeOccurrence[counterKey] ?? 0;
+    _contextFreeOccurrence[counterKey] = idx + 1;
+
+    final fingerprint = computeFingerprint(
+      ruleId: ruleId,
+      relativePath: relativePath,
+      semanticAnchor: '$counterKey:$idx',
+    );
+
+    final location = unit.lineInfo.getLocation(commentToken.offset);
+    final spec = _contextFreeSpecs[category]!;
+
+    findings.add(
+      Finding(
+        ruleId: ruleId,
+        severity: Severity.info,
+        filePath: relativePath,
+        line: location.lineNumber,
+        column: location.columnNumber,
+        message: spec.message,
+        fingerprint: fingerprint,
+        kind: category,
+        remedy: spec.remedy,
+      ),
+    );
+  }
+
+  /// Returns the context-free category (`kind`) [lexeme] belongs to, or
+  /// `null` if it matches none of them.
+  static String? _classifyContextFreeComment(String lexeme) {
+    final withoutSlashes = lexeme.startsWith('//')
+        ? lexeme.substring(2)
+        : lexeme;
+    final trimmed = withoutSlashes.trim();
+    if (trimmed.isEmpty) return null;
+
+    final todoMatch = _todoPattern.firstMatch(trimmed);
+    if (todoMatch != null) {
+      final body = todoMatch.group(1) ?? '';
+      return _isVagueTodo(body) ? 'vague-todo' : null;
+    }
+
+    if (_isBannerComment(trimmed)) return 'banner-comment';
+    if (_isEmojiOnlyComment(trimmed)) return 'emoji-decoration';
+    if (_isEndMarkerComment(trimmed)) return 'end-marker-comment';
+
+    final normalized = _normalizeCommentText(lexeme);
+    if (_categoryLabels.contains(normalized)) return 'empty-category-label';
+
+    return null;
+  }
+
+  static bool _isBannerComment(String trimmed) {
+    if (_pureDividerPattern.hasMatch(trimmed)) return true;
+    return _framedLabelPattern.hasMatch(trimmed) &&
+        trimmed.contains(RegExp(r'\s'));
+  }
+
+  static bool _isEmojiOnlyComment(String trimmed) {
+    if (!_emojiPattern.hasMatch(trimmed)) return false;
+    final withoutEmoji = trimmed.replaceAll(_emojiPattern, '');
+    final residual = withoutEmoji.replaceAll(RegExp(r'[\s!.:,\-]'), '');
+    return residual.isEmpty;
+  }
+
+  static bool _isEndMarkerComment(String trimmed) {
+    final normalized = trimmed.toLowerCase();
+    if (normalized == 'end') return true;
+    if (!_endMarkerPattern.hasMatch(normalized)) return false;
+    final wordCount = normalized.split(RegExp(r'\s+')).length;
+    return wordCount <= 4;
+  }
+
+  static bool _isVagueTodo(String body) {
+    final normalized = body
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[.,:;!]+$'), '')
+        .trim();
+    return _vagueTodoPhrases.contains(normalized);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Comment detection (category A)
   // ---------------------------------------------------------------------------
 
   /// Returns the `//` comment token on the line directly before [node], or
@@ -244,7 +547,7 @@ class _NarrativeCommentVisitor extends RecursiveAstVisitor<void> {
   }
 
   // ---------------------------------------------------------------------------
-  // Normalisation & restatement check
+  // Normalisation & restatement check (category A)
   // ---------------------------------------------------------------------------
 
   /// Strips `//`, trims, lowercases, and removes trailing `.,:;!`.
