@@ -286,6 +286,18 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
 .grade-d { color: #ff9944; background: rgba(255,153,68,0.12); }
 .grade-f { color: var(--error); background: rgba(255,107,107,0.12); }
 
+/* ---- preventive-recommendations section -------------------------------- */
+.recommendations-bar { max-width: 1440px; margin: 1.5rem auto 0; padding: 0 1.75rem; }
+.recommendations-card { animation: none; }
+.rec-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.7rem; }
+.rec-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.6rem; font-size: 0.84rem; }
+.rec-rule {
+  font-size: 0.7rem; color: var(--green); background: var(--panel-2);
+  border: 1px solid rgba(136,200,64,0.3); border-radius: 4px;
+  padding: 0.05rem 0.4rem; flex-shrink: 0;
+}
+.rec-guidance { color: var(--ink); flex: 1 1 20rem; }
+
 /* ---- responsive -------------------------------------------------------- */
 /* The masthead carries decoration and provenance, never content, so it must not
    cost the report more than one extra row as the viewport shrinks. Each step
@@ -354,15 +366,15 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
       <a class="sponsor-link" href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" title="Support loam.dev development">&#10084; Sponsor</a>
       <div class="chips">
         <span class="chip">loam 0.1.14</span>
-        <span class="chip chip-ruleset">ruleset@382b63c5</span>
+        <span class="chip chip-ruleset">ruleset@d7f99e91</span>
       </div>
     </div>
   </header>
   <div class="health-badge-bar" aria-label="Health-Score">
-    <div class="health-badge">
+    <div class="health-badge" title="Findings: 0 / 100 · Complexity: 86 / 100">
       <span class="health-label">Health-Score</span>
-      <span class="health-score">88<span class="health-max"> / 100</span></span>
-      <span class="health-grade grade-b" aria-label="Grade B">B</span>
+      <span class="health-score">34<span class="health-max"> / 100</span></span>
+      <span class="health-grade grade-f" aria-label="Grade F">F</span>
     </div>
   </div>
 
@@ -412,8 +424,8 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
         <h2 class="card-title">Toolchain</h2>
         <dl class="kv">
           <dt>tool</dt><dd>loam 0.1.14</dd>
-          <dt>ruleset</dt><dd>ruleset@382b63c5</dd>
-          <dt>files</dt><dd>5 (5 under lib/)</dd><dt>lines</dt><dd>147</dd><dt>rules</dt><dd>a11y-form-field-label, a11y-icon-button-label, a11y-image-label, a11y-interactive-semantics, circular-dependencies, code-duplicates, complexity-hotspots, slop-empty-catch, slop-narrative-comment, slop-unjustified-ignore, unused-public-exports</dd>
+          <dt>ruleset</dt><dd>ruleset@d7f99e91</dd>
+          <dt>files</dt><dd>5 (5 under lib/)</dd><dt>lines</dt><dd>147</dd><dt>rules</dt><dd>a11y-form-field-label, a11y-icon-button-label, a11y-image-label, a11y-interactive-semantics, circular-dependencies, code-duplicates, complexity-hotspots, slop-empty-catch, slop-narrative-comment, slop-unjustified-ignore, slop-workflow-narration-comment, unused-public-exports</dd>
           <dt>report</dt><dd>self-contained &middot; offline</dd>
         </dl>
         <ol class="howto">
@@ -426,7 +438,7 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
       <section class="card prompt-card" id="fix-prompt-section" aria-label="Fix-Prompt">
         <div class="prompt-head">
           <h2 class="card-title">Fix-Prompt</h2>
-          <span class="chip chip-prompt">prompt@v2</span>
+          <span class="chip chip-prompt">prompt@v3</span>
         </div>
         <p class="card-meta" id="fix-prompt-count">No findings selected</p>
         <textarea id="fix-prompt-output" readonly aria-label="Generated Fix-Prompt" placeholder="Select one or more findings to assemble a deterministic, copy-ready Fix-Prompt for your AI agent."></textarea>
@@ -437,7 +449,16 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
       </section>
     </aside>
   </div>
-
+  <section class="recommendations-bar" aria-label="Preventive recommendations">
+    <div class="card recommendations-card">
+      <div class="prompt-head">
+        <h2 class="card-title">Preventive recommendations</h2>
+        <span class="chip chip-prompt">guidance@v2</span>
+      </div>
+      <p class="card-meta">Agent: propose the recommendations below to your user for their persistent instructions (e.g. CLAUDE.md) &mdash; loam.dev does not write to user instructions itself.</p>
+      <ul class="rec-list"><li class="rec-item"><span class="rec-rule">circular-dependencies</span><span class="rec-guidance">Keep first-party imports flowing one way between libraries — before adding a new cross-file import, check whether it would close a cycle with an existing import chain, and extract a shared abstraction instead of adding a back-reference.</span></li><li class="rec-item"><span class="rec-rule">code-duplicates</span><span class="rec-guidance">Before pasting a block of logic into a second location, extract it into a shared function/widget/mixin first — duplicated implementation logic drifts out of sync the moment one copy gets fixed and the other does not.</span></li><li class="rec-item"><span class="rec-rule">complexity-hotspots</span><span class="rec-guidance">Keep functions small and single-purpose as you write them: extract a helper as soon as a function accumulates several nested conditionals or branches, rather than letting cyclomatic/cognitive complexity grow to the point where it needs a later refactor.</span></li></ul>
+    </div>
+  </section>
   <footer class="appfoot">
     <span class="foot-tag">Generated by <a href="https://getloam.dev" target="_blank" rel="noopener">loam.dev</a> &middot; codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</span>
     <nav class="foot-links" aria-label="loam.dev links">
@@ -452,7 +473,7 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
 {
   "tool": "loam",
   "toolVersion": "0.1.14",
-  "ruleset": "ruleset@382b63c5",
+  "ruleset": "ruleset@d7f99e91",
   "findings": [
     {
       "ruleId": "circular-dependencies",
@@ -491,9 +512,9 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
 }
 </script>
 <script type="text/x-loam-template" id="loam-fix-prompt-template">
-# loam.dev Fix-Prompt (prompt@v2)
+# loam.dev Fix-Prompt (prompt@v3)
 
-Target project: `shopcart` — every file path below is relative to this project's root.
+Target project: `shopcart` — every file path below is relative to this project's root. Stay in scope: only read and change files inside this project's source tree; do not touch files outside it.
 
 Please fix the following findings identified by loam.dev.
 For each finding, the rule ID, file location, message, and a fix hint are provided.
@@ -504,10 +525,10 @@ For each finding, the rule ID, file location, message, and a fix hint are provid
 
 ## Instructions
 
-- Fix each finding listed above.
-- Do not change unrelated code.
-- Preserve existing formatting and style conventions.
-- If a fix requires a larger refactor, explain why and propose the smallest safe change.
+- Think first: state your assumptions; if a finding is ambiguous, ask instead of guessing.
+- Simplicity first: apply the smallest fix that resolves the finding — no speculative abstractions.
+- Surgical changes: only touch what the finding requires; do not change unrelated code; preserve existing formatting and style conventions.
+- Goal-driven: each finding has one verifiable success criterion — the finding is resolved and existing behavior is unchanged. If a fix requires a larger refactor, explain why and propose the smallest safe change instead.
 </script>
 <script>
 (function() {
