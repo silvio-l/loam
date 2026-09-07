@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.15
+
+- **Maintenance: dependency and CI upkeep, no rule/behavior changes.** Bumped
+  `analyzer` to 14.3.0 (constraint widened, lockfile re-resolved), grouped
+  `pub`/`npm` minor/patch dependency updates, and `web-vitals`/`vitest` majors
+  verified compatible. Pinned the CI Dart SDK to the version the repo is
+  actually formatted with, fixing recurring `dart format` CI failures caused
+  by the `stable` channel drifting ahead of the repo's formatting.
+
 ## 0.1.14
 
 - **Fix: `a11y-interactive-semantics` no longer flags custom widgets that
