@@ -112,6 +112,11 @@ import DemoReport from '../../components/DemoReport.astro';
               <code>json</code> / <code>sarif</code> / <code>markdown</code>
               für Agent-Pipelines und <code>html</code> für einen interaktiven,
               in sich geschlossenen Report mit eingebautem Fix-Prompt-Builder.
+              Bei einem Lauf mit Findings ergänzt loam.dev außerdem kuratierte,
+              an den Agenten adressierte <strong>präventive Empfehlungen</strong>
+              — eine pro gefeuerter Rule-Klasse, deterministisch, ohne
+              LLM-Call —, die der Agent seinem Nutzer für dessen persistente
+              Instructions vorschlagen soll.
             </p>
           </div>
         </div>

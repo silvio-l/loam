@@ -108,6 +108,10 @@ import DemoReport from '../components/DemoReport.astro';
               <code>json</code> / <code>sarif</code> / <code>markdown</code>
               for agent pipelines, and <code>html</code> for an interactive
               self-contained report file with a built-in fix-prompt builder.
+              A run with findings also appends curated, agent-addressed
+              <strong>preventive recommendations</strong> — one per fired
+              rule class, deterministic, no LLM call — that the agent is
+              asked to propose to you for your persistent instructions.
             </p>
           </div>
         </div>

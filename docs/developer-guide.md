@@ -96,6 +96,29 @@ influence on the gate decision or exit code (Invariant 4).
 
 Available formats: see [Output formats](#output-formats) below.
 
+### Recommendation
+
+A **Recommendation** is a curated, agent-addressed suggestion for how to avoid
+an entire *class* of Finding going forward — distinct from a Finding, which
+describes one concrete occurrence at a file/line. After a run with Findings,
+loam.dev appends **exactly one** Recommendation per distinct fired `ruleId`
+(deduplicated, even if that rule fired dozens of times), sorted
+lexicographically for determinism. The block is not shown on a clean run (no
+Findings ⇒ no empty-noise block).
+
+Recommendations are **curated, not LLM-generated** — a hand-written,
+versioned guidance corpus (`guidance@ver`, currently `guidance@v2`) keyed by
+`ruleId`, with no LLM call in the scan/gate path (Invariant 2). The text is
+addressed to the AI agent consuming loam.dev's output, and explicitly asks the
+agent to propose the relevant recommendations to its user for their
+persistent instructions (e.g. `CLAUDE.md`) — **loam.dev itself never writes to
+user instructions**.
+
+In `human`/`markdown`/`html` output the block renders as readable prose with
+the agent instruction spelled out; in `json` it is a structured
+`recommendations` array of `{ "ruleId": "...", "guidance": "..." }` entries,
+omitted entirely (not emitted empty) when there are no recommendations.
+
 <!-- concepts:end -->
 
 ---
@@ -168,13 +191,22 @@ Or via pub.dev (all platforms):
 dart pub global activate loam
 ```
 
-### Global option
+### Global options
 
 ```
 --format <format>    Output format (default: human).
+--no-progress         Suppress the live progress bar.
 ```
 
 Available formats: `human` · `sarif` · `json` · `markdown` · `html`.
+
+**Live progress.** `scan`, `gate`, `baseline`, `slop`, `a11y`, and `health` all
+show the same live loading/analysis progress bar in an interactive terminal.
+It is automatically disabled outside a TTY and under CI (non-empty `CI` env
+var) — never interferes with piped or machine-readable output. Silence it
+explicitly with `--no-progress` or the `LOAM_NO_PROGRESS` environment
+variable; progress never appears in structured output (`sarif`/`json`/
+`markdown`/`html`) regardless.
 
 ### `loam scan`
 
@@ -385,6 +417,17 @@ that produces Finding output.
 
 The **Reporter is a pure renderer** — format choice never affects exit codes or
 gate decisions.
+
+**Fix-Prompt (`html` report).** The HTML report lets you select Findings and
+copy a versioned Fix-Prompt (`prompt@v3`) for an AI coding agent. The prompt
+names the analysed project via a stable, checkout-independent identifier (no
+absolute path), scopes the agent to that project's own source tree, and
+structures its instructions along four principles: think first (state
+assumptions, ask instead of guessing), simplicity first (smallest fix, no
+speculative abstraction), surgical changes (touch only what the Finding
+requires, preserve existing style), and goal-driven (one verifiable success
+criterion per Finding). The Dart template and the report's inline JS build
+byte-identical prompts (single source of truth, Invariant 5).
 
 <!-- formats:end -->
 

@@ -99,6 +99,13 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
   --format html` writes `loam-report.html` and opens it in your browser; use
   `--output <file>` to pick the path, `--no-open` to skip the browser (auto-open
   is suppressed for piped output and under CI). *(live since 0.1.3; redesigned in 0.1.6)*
+- **🧭 Preventive recommendations for agents.** After a run with findings,
+  loam.dev appends one curated, agent-addressed recommendation per fired rule
+  class — how to avoid that class of finding going forward — and asks the
+  agent to propose it to you for your persistent instructions (e.g.
+  `CLAUDE.md`). Deterministic, no LLM call; structured as a `recommendations`
+  array in `--format json`. loam.dev never writes to your instructions itself.
+  *(live)*
 
 ## Quick start
 
@@ -107,8 +114,9 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 > `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
 > `slop-workflow-narration-comment`, `a11y-form-field-label`,
 > `a11y-image-label`, `a11y-icon-button-label`,
-> `a11y-interactive-semantics` — plus the `loam health` view. Commands marked
-> *coming soon* are wired in `loam --help` but not yet implemented.
+> `a11y-interactive-semantics` — plus the `loam health` composite score.
+> Commands marked *coming soon* are wired in `loam --help` but not yet
+> implemented.
 
 ### Install
 
@@ -174,10 +182,10 @@ loam init                          # scaffold loam.yaml config in the project
 loam init /path/to/project         # same, positional path to project root
 ```
 
-Complexity health score:
+Composite health score:
 
 ```bash
-loam health                        # cyclomatic/cognitive complexity distribution view
+loam health                        # composite score (findings + complexity) & grade
 loam health /path/to/project       # same, positional path to project root
 ```
 
@@ -239,16 +247,21 @@ Machine-readable output for CI and agents, a human-readable report for you:
 --output <file>       # write the report to <file> (html: overrides loam-report.html)
 --no-open             # html only: don't open the browser (auto-off when piped/CI)
 --no-progress         # suppress the live progress bar (auto-off when piped/CI)
+
+# scan, gate, baseline, slop, a11y and health all show the same live progress
+# bar in an interactive terminal; --no-progress / LOAM_NO_PROGRESS silence it
+# on any of them, and it is never emitted in structured formats.
 ```
 
 ## Status & roadmap
 
-**0.1.14** — eleven rules live end to end (`unused-public-exports`,
+**0.1.14** — twelve rules live end to end (`unused-public-exports`,
 `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
 `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
-`a11y-form-field-label`, `a11y-image-label`, `a11y-icon-button-label`,
-`a11y-interactive-semantics`) plus the `loam health` view; the remaining
-capabilities land as individual rules behind the same `Rule` interface.
+`slop-workflow-narration-comment`, `a11y-form-field-label`, `a11y-image-label`,
+`a11y-icon-button-label`, `a11y-interactive-semantics`) plus the `loam health`
+composite score; the remaining capabilities land as individual rules behind
+the same `Rule` interface.
 
 For a detailed walkthrough of concepts, CLI commands, output formats, and codegen
 handling, see the **[Developer & Tool Guide](./docs/developer-guide.md)**.
