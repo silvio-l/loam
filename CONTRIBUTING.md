@@ -6,9 +6,13 @@ anti-AI-slop on Dart/Flutter projects.
 > **Naming.** The product is **loam.dev**; `loam` (no `.dev`) is only the CLI
 > command and the pub.dev package name.
 
-loam.dev is solo-maintained. For bugs or ideas, reach out at
-silvio-lindstedt@outlook.com or via [getloam.dev](https://getloam.dev). If you
-work on the code, the notes below keep changes consistent.
+loam.dev is solo-maintained. **Bug reports and feature ideas** are welcome via
+[GitHub Issues](https://github.com/silvio-l/loam/issues) or
+silvio-lindstedt@outlook.com. Pull requests are welcome too — for anything
+beyond a small fix, please open an issue first to align on the approach
+before you invest the work. The notes below keep changes consistent.
+
+Participation is governed by the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Project layout
 

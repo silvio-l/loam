@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="https://pub.dev/packages/loam"><img alt="pub package" src="https://img.shields.io/pub/v/loam.svg?color=88C840"></a>
+  <a href="https://github.com/silvio-l/loam/actions/workflows/qa.yml"><img alt="QA" src="https://github.com/silvio-l/loam/actions/workflows/qa.yml/badge.svg"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-88C840">
   <img alt="Built with the Dart analyzer" src="https://img.shields.io/badge/built%20with-Dart%20analyzer-0175C2?logo=dart&logoColor=white">
   <img alt="Status: early preview" src="https://img.shields.io/badge/status-early%20preview-A2635A">
@@ -290,6 +291,17 @@ dart run bin/loam.dart scan
 
 loam.dev's first test target is **its own codebase** — the tool that finds slop
 and drift must carry none itself.
+
+## Contributing
+
+Bug reports and feature ideas are welcome via
+[GitHub Issues](https://github.com/silvio-l/loam/issues); open-ended
+questions and ideas fit better in
+[Discussions](https://github.com/silvio-l/loam/discussions). See
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the local gate commands and commit
+conventions, and [SECURITY.md](./SECURITY.md) to report vulnerabilities
+privately. Participation is governed by the
+[Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## License
 
