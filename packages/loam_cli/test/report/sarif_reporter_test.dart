@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:json_schema/json_schema.dart';
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
 import 'package:loam/src/report/sarif_reporter.dart';
@@ -40,12 +41,16 @@ ReportPayload _payload({
   String rulesetVersion = 'ruleset@abc12345',
   String toolVersion = '0.0.2',
   bool isTty = false,
+  List<String>? sourceDirs,
+  List<Recommendation> recommendations = const [],
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
   rulesetVersion: rulesetVersion,
   toolVersion: toolVersion,
   isTty: isTty,
+  sourceDirs: sourceDirs,
+  recommendations: recommendations,
 );
 
 late JsonSchema _sarifSchema;
@@ -332,6 +337,49 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Repo identity — Invariant 5 (Issue 05)
+  // -------------------------------------------------------------------------
+  group('Repo identity (Invariant 5)', () {
+    test('runs[0].properties.projectName is basename (not absolute path)', () {
+      final output = SarifReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final props =
+          ((doc['runs'] as List).first as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+      expect(props['projectName'], equals('project'));
+    });
+
+    test('runs[0].properties does not contain absolute projectRoot', () {
+      final output = SarifReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      expect(output, isNot(contains('/secret/project')));
+    });
+
+    test('runs[0].properties.sourceDirs present when supplied', () {
+      final output = SarifReporter().render(
+        _payload(sourceDirs: ['lib', 'bin']),
+      );
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final props =
+          ((doc['runs'] as List).first as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+      expect(props['sourceDirs'], equals(['lib', 'bin']));
+    });
+
+    test('runs[0].properties.sourceDirs absent when sourceDirs is null', () {
+      final output = SarifReporter().render(_payload());
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final props =
+          ((doc['runs'] as List).first as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+      expect(props.containsKey('sourceDirs'), isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // AC6: Real schema validation against official SARIF 2.1.0 JSON Schema
   // -------------------------------------------------------------------------
   group('Schema validation', () {
@@ -412,6 +460,65 @@ void main() {
     test('SarifReporter implements Reporter interface', () {
       final Reporter reporter = SarifReporter();
       expect(reporter.render(_payload()), isA<String>());
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Preventive recommendations in run-level properties (Issue 04)
+  // -------------------------------------------------------------------------
+  group('SARIF recommendations properties', () {
+    const recs = [
+      Recommendation(
+        ruleId: 'unused-public-exports',
+        guidance: 'Remove or internalize the unused declaration.',
+      ),
+    ];
+
+    test('recommendations + guidanceVersion absent from properties when '
+        'empty', () {
+      final doc =
+          jsonDecode(SarifReporter().render(_payload(findings: [_finding()])))
+              as Map<String, dynamic>;
+      final props =
+          ((doc['runs'] as List).first as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+      expect(props.containsKey('recommendations'), isFalse);
+      expect(props.containsKey('guidanceVersion'), isFalse);
+    });
+
+    test('recommendations rendered as ruleId + guidance objects', () {
+      final doc =
+          jsonDecode(
+                SarifReporter().render(
+                  _payload(findings: [_finding()], recommendations: recs),
+                ),
+              )
+              as Map<String, dynamic>;
+      final props =
+          ((doc['runs'] as List).first as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+      expect(props['guidanceVersion'], kGuidanceVersion);
+      final list = props['recommendations'] as List;
+      expect(list, hasLength(1));
+      final item = list.single as Map<String, dynamic>;
+      expect(item['ruleId'], 'unused-public-exports');
+      expect(item['guidance'], 'Remove or internalize the unused declaration.');
+    });
+
+    test('output with recommendations still validates against the official '
+        'SARIF 2.1.0 JSON schema', () {
+      final output = SarifReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      final doc = jsonDecode(output);
+      final result = _sarifSchema.validate(doc);
+      expect(
+        result.isValid,
+        isTrue,
+        reason:
+            'SARIF with recommendations properties must stay schema-valid: '
+            '${result.errors}',
+      );
     });
   });
 }

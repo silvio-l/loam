@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in loam.dev doesn't work as expected.
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: loam --version output
+      description: Run `loam --version` and paste the full output (version, install channel, executable path).
+      placeholder: "0.1.14 (homebrew) — /opt/homebrew/bin/loam"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux
+        - Windows
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal command(s) and, if possible, a minimal Dart/Flutter snippet or repo that triggers it.
+      placeholder: |
+        1. `loam scan`
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Full terminal output or `--format json` output, if useful. This will be rendered as a code block.
+      render: shell

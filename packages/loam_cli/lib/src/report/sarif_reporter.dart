@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 
 import '../model/finding.dart';
+import '../recommendation/recommendation_engine.dart';
 import 'reporter.dart';
 
 /// SARIF 2.1.0 reporter.
@@ -50,16 +51,28 @@ class SarifReporter implements Reporter {
             },
           },
           'results': results,
-          // Run-level property bag: scope + suppression context, so tooling can
-          // tell a clean run that covered the codebase from one that scanned
-          // little or hid findings. Standards-friendly (`runs[].properties`).
+          // Run-level property bag: repo identity, scope + suppression context,
+          // so tooling can tell a clean run that covered the codebase from one
+          // that scanned little or hid findings. Standards-friendly
+          // (`runs[].properties`). Invariant 5: only basename, no absolute path.
           'properties': {
+            'projectName': p.basename(payload.projectRoot),
+            if (payload.sourceDirs != null) 'sourceDirs': payload.sourceDirs,
             'suppressed': payload.suppressedCount,
             if (payload.stats case final stats?) ...{
               'filesAnalyzed': stats.filesAnalyzed,
               'libFilesAnalyzed': stats.libFilesAnalyzed,
               'linesAnalyzed': stats.linesAnalyzed,
               'rulesRun': stats.rulesRun,
+            },
+            // Preventive recommendations (issue 04): curated, deduplicated
+            // guidance for the rule classes that fired, keyed by ruleId.
+            // Omitted entirely when there are none (clean run).
+            if (payload.recommendations.isNotEmpty) ...{
+              'guidanceVersion': kGuidanceVersion,
+              'recommendations': payload.recommendations
+                  .map((r) => {'ruleId': r.ruleId, 'guidance': r.guidance})
+                  .toList(),
             },
           },
         },

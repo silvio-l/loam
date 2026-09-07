@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 
 import '../model/finding.dart';
+import '../recommendation/recommendation_engine.dart';
 import 'reporter.dart';
 
 // ---------------------------------------------------------------------------
@@ -46,15 +47,21 @@ class HumanReporter implements Reporter {
 
     if (payload.findings.isEmpty) {
       final buf = StringBuffer()
+        ..write(_identityHeader(payload, tty))
         ..write('0 findings — clean')
         ..write(_suppressedSuffix(payload.suppressedCount))
         ..writeln();
       final stats = _statsLine(payload.stats, tty);
       if (stats != null) buf.writeln(stats);
+      final recommendations = _recommendationsBlock(
+        payload.recommendations,
+        tty,
+      );
+      if (recommendations != null) buf.write(recommendations);
       return buf.toString();
     }
 
-    final buf = StringBuffer();
+    final buf = StringBuffer()..write(_identityHeader(payload, tty));
 
     // Group findings by filePath while preserving input order.
     final groups = <String, List<Finding>>{};
@@ -112,6 +119,58 @@ class HumanReporter implements Reporter {
     final stats = _statsLine(payload.stats, tty);
     if (stats != null) buf.writeln(stats);
 
+    final recommendations = _recommendationsBlock(payload.recommendations, tty);
+    if (recommendations != null) buf.write(recommendations);
+
+    return buf.toString();
+  }
+
+  /// Preventive-recommendations block, or `null` when [recommendations] is
+  /// empty (no findings ⇒ no block — avoids empty-run noise).
+  ///
+  /// Addressed to the AI agent consuming this report: names the fired rule
+  /// classes' curated guidance and explicitly asks the agent to propose each
+  /// one to its user for their persistent instructions (e.g. `CLAUDE.md`) —
+  /// loam.dev itself never writes to user instructions.
+  String? _recommendationsBlock(
+    List<Recommendation> recommendations,
+    bool tty,
+  ) {
+    if (recommendations.isEmpty) return null;
+    final buf = StringBuffer()..writeln();
+    final heading = 'Preventive recommendations ($kGuidanceVersion)';
+    buf.writeln(tty ? '$_bold$heading$_reset' : heading);
+    buf.writeln(
+      'Agent: propose the relevant recommendations below to your user for '
+      'their persistent instructions (e.g. CLAUDE.md) — loam.dev does not '
+      'write to user instructions itself.',
+    );
+    buf.writeln();
+    for (final r in recommendations) {
+      buf.writeln('- [${r.ruleId}] ${r.guidance}');
+    }
+    return buf.toString();
+  }
+
+  /// Repository identity header: name + absolute path + optional source dirs.
+  ///
+  /// The absolute path is human-only (Invariant 5 — structured formats use
+  /// only the basename). The source-dirs line is omitted when [sourceDirs] is
+  /// absent from the payload.
+  String _identityHeader(ReportPayload payload, bool tty) {
+    final name = p.basename(payload.projectRoot);
+    final path = payload.projectRoot;
+
+    final namePart = tty ? '$_bold$name$_reset' : name;
+    final pathPart = tty ? '$_grey$path$_reset' : path;
+    final buf = StringBuffer()..writeln('$namePart  $pathPart');
+
+    final dirs = payload.sourceDirs;
+    if (dirs != null && dirs.isNotEmpty) {
+      final dirLine = 'source: ${dirs.join(', ')}';
+      buf.writeln(tty ? '$_grey$dirLine$_reset' : dirLine);
+    }
+    buf.writeln(); // blank line separating header from content
     return buf.toString();
   }
 

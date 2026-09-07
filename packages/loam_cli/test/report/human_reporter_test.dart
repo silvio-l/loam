@@ -2,6 +2,7 @@
 library;
 
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/human_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
@@ -37,6 +38,8 @@ ReportPayload _payload({
   bool isTty = false,
   int suppressedCount = 0,
   ScanStats? stats,
+  List<String>? sourceDirs,
+  List<Recommendation> recommendations = const [],
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
@@ -45,6 +48,8 @@ ReportPayload _payload({
   isTty: isTty,
   suppressedCount: suppressedCount,
   stats: stats,
+  sourceDirs: sourceDirs,
+  recommendations: recommendations,
 );
 
 const _stats = ScanStats(
@@ -252,11 +257,70 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Repo identity header (Issue 05)
+  // -------------------------------------------------------------------------
+  group('HumanReporter repo identity header', () {
+    test('header shows repo name (basename of projectRoot)', () {
+      final out = const HumanReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      expect(out, contains('my-project'));
+    });
+
+    test('header shows absolute path (human-only)', () {
+      final out = const HumanReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      expect(out, contains('/home/user/my-project'));
+    });
+
+    test('header shows source dirs when provided', () {
+      final out = const HumanReporter().render(
+        _payload(
+          projectRoot: '/home/user/my-project',
+          sourceDirs: ['lib', 'bin'],
+        ),
+      );
+      expect(out, contains('lib'));
+      expect(out, contains('bin'));
+    });
+
+    test('no source dirs line when sourceDirs is null', () {
+      final out = const HumanReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      expect(out, isNot(contains('source:')));
+    });
+
+    test('header appears before findings content', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], projectRoot: '/home/user/my-project'),
+      );
+      final headerIdx = out.indexOf('my-project');
+      final findingIdx = out.indexOf('unused-public-exports');
+      expect(headerIdx, lessThan(findingIdx));
+    });
+
+    test('header appears before clean message', () {
+      final out = const HumanReporter().render(
+        _payload(projectRoot: '/home/user/my-project'),
+      );
+      final headerIdx = out.indexOf('my-project');
+      final cleanIdx = out.indexOf('0 findings');
+      expect(headerIdx, lessThan(cleanIdx));
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Suppression + scan-scope surfacing
   // -------------------------------------------------------------------------
   group('HumanReporter suppression + scope', () {
     test('clean run with no suppression is unchanged', () {
-      expect(const HumanReporter().render(_payload()), '0 findings — clean\n');
+      // Header (name + path) prepended; content line unchanged.
+      expect(
+        const HumanReporter().render(_payload()),
+        'project  /project\n\n0 findings — clean\n',
+      );
     });
 
     test('clean run shows suppressed count', () {
@@ -288,5 +352,61 @@ void main() {
         isNot(contains('Scanned')),
       );
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Preventive recommendations block (Issue 04)
+  // -------------------------------------------------------------------------
+  group('HumanReporter preventive recommendations block', () {
+    const recs = [
+      Recommendation(
+        ruleId: 'unused-public-exports',
+        guidance: 'Remove or internalize the unused declaration.',
+      ),
+    ];
+
+    test('empty recommendations (the real 0-findings case, since '
+        'RecommendationEngine returns [] for [] findings) → no block', () {
+      final out = const HumanReporter().render(
+        _payload(findings: const [], recommendations: const []),
+      );
+      expect(out, isNot(contains('Preventive recommendations')));
+    });
+
+    test('non-empty recommendations → block with heading + version marker', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('Preventive recommendations'));
+      expect(out, contains(kGuidanceVersion));
+    });
+
+    test('block contains explicit instruction for the agent to propose to '
+        'the user and mentions persistent instructions', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('Agent:'));
+      expect(out, contains('propose'));
+      expect(out, contains('CLAUDE.md'));
+    });
+
+    test('block lists each recommendation with ruleId and guidance text', () {
+      final out = const HumanReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('unused-public-exports'));
+      expect(out, contains('Remove or internalize the unused declaration.'));
+    });
+
+    test(
+      'empty recommendations list → no block even with findings present',
+      () {
+        final out = const HumanReporter().render(
+          _payload(findings: [_finding()]),
+        );
+        expect(out, isNot(contains('Preventive recommendations')));
+      },
+    );
   });
 }

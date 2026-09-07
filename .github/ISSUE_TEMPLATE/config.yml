@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/silvio-l/loam/security/advisories/new
+    about: Please report security issues privately — see SECURITY.md — not as a public issue.
+  - name: Questions & ideas
+    url: mailto:silvio-lindstedt@outlook.com
+    about: General questions or early-stage ideas that aren't a concrete bug or feature request yet.

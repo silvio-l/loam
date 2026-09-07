@@ -5,6 +5,7 @@ import 'package:loam/src/complexity/complexity_metrics.dart';
 import 'package:loam/src/complexity/function_complexity.dart';
 import 'package:loam/src/complexity/health_score.dart';
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/fix_prompt_template.dart';
 import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
@@ -39,12 +40,14 @@ ReportPayload _payload({
   String rulesetVersion = 'ruleset@abc12345',
   String toolVersion = '0.0.2',
   bool isTty = false,
+  List<Recommendation> recommendations = const [],
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
   rulesetVersion: rulesetVersion,
   toolVersion: toolVersion,
   isTty: isTty,
+  recommendations: recommendations,
 );
 
 // ---------------------------------------------------------------------------
@@ -53,7 +56,13 @@ ReportPayload _payload({
 
 /// Builds a [HealthReport] directly (no collector needed in unit tests).
 HealthReport _healthReport({int score = 87, String grade = 'B'}) =>
-    HealthReport(score: score, grade: grade, hotspots: []);
+    HealthReport(
+      score: score,
+      grade: grade,
+      hotspots: [],
+      findingsContribution: score,
+      complexityContribution: score,
+    );
 
 /// Builds a [HealthReport] via [HealthScore.compute] from a minimal fixture
 /// so the sidecar value matches what the production path produces (AC3).
@@ -67,7 +76,11 @@ HealthReport _healthReportWithHotspots() {
         metrics: const ComplexityMetrics(cyclomatic: 12, cognitive: 8),
       ),
   ];
-  return const HealthScore().compute(functions);
+  return const HealthScore().compute(
+    functions,
+    findings: const [],
+    linesAnalyzed: 10000,
+  );
 }
 
 void main() {
@@ -480,7 +493,7 @@ void main() {
       );
     });
 
-    test('embedded template names the analysed project (prompt@v2)', () {
+    test('embedded template names the analysed project (prompt@v3)', () {
       // _payload() uses projectRoot '/project' → target identifier 'project'.
       final output = const HtmlReporter().render(_payload());
       expect(
@@ -490,6 +503,23 @@ void main() {
             'the embedded Fix-Prompt must document which project it refers to; '
             'the {{TARGET}} placeholder is filled server-side at embed time',
       );
+    });
+
+    test('embedded template contains the prompt@v3 marker', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('prompt@v3'));
+    });
+
+    test('embedded template carries the scope instruction', () {
+      final output = const HtmlReporter().render(_payload());
+      expect(output, contains('Stay in scope'));
+    });
+
+    test('embedded template does not leak an absolute path', () {
+      final output = const HtmlReporter().render(_payload());
+      // The fix-prompt script block must only carry the checkout-independent
+      // basename identifier ('project'), never the payload's absolute root.
+      expect(output, isNot(contains('Target project: `/project`')));
     });
 
     test('no {{TARGET}} placeholder survives in the embedded template', () {
@@ -809,5 +839,41 @@ void main() {
         expect(reporter.render(payload), equals(reporter.render(payload)));
       },
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // Preventive recommendations section (Issue 04)
+  // -------------------------------------------------------------------------
+  group('HtmlReporter preventive recommendations section', () {
+    const recs = [
+      Recommendation(
+        ruleId: 'unused-public-exports',
+        guidance: 'Remove or internalize the unused declaration.',
+      ),
+    ];
+
+    test('empty recommendations (the real 0-findings case, since '
+        'RecommendationEngine returns [] for [] findings) → no section', () {
+      final out = const HtmlReporter().render(
+        _payload(findings: const [], recommendations: const []),
+      );
+      expect(out, isNot(contains('Preventive recommendations')));
+    });
+
+    test('non-empty recommendations → own section with version marker', () {
+      final out = const HtmlReporter().render(
+        _payload(findings: [_finding()], recommendations: recs),
+      );
+      expect(out, contains('Preventive recommendations'));
+      expect(out, contains(kGuidanceVersion));
+      expect(out, contains('unused-public-exports'));
+      expect(out, contains('Remove or internalize the unused declaration.'));
+    });
+
+    test('render is still a pure function with recommendations present', () {
+      final reporter = const HtmlReporter();
+      final payload = _payload(findings: [_finding()], recommendations: recs);
+      expect(reporter.render(payload), equals(reporter.render(payload)));
+    });
   });
 }

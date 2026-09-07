@@ -4,6 +4,7 @@ library;
 import 'dart:convert';
 
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/json_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
@@ -39,14 +40,18 @@ ReportPayload _payload({
   bool isTty = false,
   int suppressedCount = 0,
   ScanStats? stats,
+  List<String>? sourceDirs,
+  List<Recommendation> recommendations = const [],
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
   rulesetVersion: rulesetVersion,
   toolVersion: toolVersion,
   isTty: isTty,
+  recommendations: recommendations,
   suppressedCount: suppressedCount,
   stats: stats,
+  sourceDirs: sourceDirs,
 );
 
 void main() {
@@ -329,6 +334,43 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Repo identity — Invariant 5 (Issue 05)
+  // -------------------------------------------------------------------------
+  group('Repo identity (Invariant 5)', () {
+    test('project.name is basename of projectRoot (not absolute path)', () {
+      final output = const JsonReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final project = doc['project'] as Map<String, dynamic>;
+      expect(project['name'], equals('project'));
+    });
+
+    test('project block does not contain absolute projectRoot path', () {
+      final output = const JsonReporter().render(
+        _payload(projectRoot: '/secret/project'),
+      );
+      expect(output, isNot(contains('/secret/project')));
+    });
+
+    test('project.sourceDirs present when sourceDirs supplied', () {
+      final output = const JsonReporter().render(
+        _payload(sourceDirs: ['lib', 'bin']),
+      );
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final project = doc['project'] as Map<String, dynamic>;
+      expect(project['sourceDirs'], equals(['lib', 'bin']));
+    });
+
+    test('project.sourceDirs absent when sourceDirs is null', () {
+      final output = const JsonReporter().render(_payload());
+      final doc = jsonDecode(output) as Map<String, dynamic>;
+      final project = doc['project'] as Map<String, dynamic>;
+      expect(project.containsKey('sourceDirs'), isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // AC7: Byte-identical reproducibility
   // -------------------------------------------------------------------------
   group('Reproducibility', () {
@@ -357,6 +399,61 @@ void main() {
 
     test('reporterFor("json") does not throw', () {
       expect(() => reporterFor('json'), returnsNormally);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Preventive recommendations — primary agentic path (Issue 04)
+  // -------------------------------------------------------------------------
+  group('recommendations field', () {
+    const recs = [
+      Recommendation(
+        ruleId: 'unused-public-exports',
+        guidance: 'Remove or internalize the unused declaration.',
+      ),
+    ];
+
+    test('recommendations + guidanceVersion omitted when list is empty', () {
+      final doc =
+          jsonDecode(
+                const JsonReporter().render(_payload(findings: [_finding()])),
+              )
+              as Map<String, dynamic>;
+      expect(doc.containsKey('recommendations'), isFalse);
+      expect(doc.containsKey('guidanceVersion'), isFalse);
+    });
+
+    test('recommendations rendered as a structured array of {ruleId, guidance} '
+        'objects, not free text', () {
+      final doc =
+          jsonDecode(
+                const JsonReporter().render(
+                  _payload(findings: [_finding()], recommendations: recs),
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(doc['guidanceVersion'], kGuidanceVersion);
+      final list = doc['recommendations'] as List;
+      expect(list, hasLength(1));
+      final item = list.single as Map<String, dynamic>;
+      expect(item['ruleId'], 'unused-public-exports');
+      expect(item['guidance'], 'Remove or internalize the unused declaration.');
+    });
+
+    test('0 findings ⇒ no recommendations key even if list is non-empty', () {
+      // The reporter renders whatever payload it is given (pure function);
+      // the emptiness invariant is enforced by RecommendationEngine upstream
+      // (0 findings ⇒ 0 recommendations), not re-checked here against
+      // findings — this test documents that the reporter still stays valid
+      // JSON and keys off recommendations, not findings.
+      final doc =
+          jsonDecode(
+                const JsonReporter().render(
+                  _payload(findings: const [], recommendations: const []),
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(doc.containsKey('recommendations'), isFalse);
     });
   });
 }

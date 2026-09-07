@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest a rule, output format, or other capability for loam.dev.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What structural drift, AI-slop pattern, or workflow gap are you running into that loam.dev doesn't catch or support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should loam.dev do instead? A new rule, a CLI flag, an output format — be as concrete as you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links, examples from other tools (e.g. DCM, ESLint), or a minimal code sample.

@@ -18,6 +18,7 @@ import 'package:loam/src/model/rule_category.dart';
 import 'package:loam/src/progress/progress_sink.dart';
 import 'package:loam/src/progress/should_show_progress.dart';
 import 'package:loam/src/progress/tty_progress_renderer.dart';
+import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
@@ -309,7 +310,11 @@ class ScanCommand extends LoamCommand {
         root,
         sourceDirs: config.sourceDirs,
       );
-      final healthReport = const HealthScore().compute(functions);
+      final healthReport = const HealthScore().compute(
+        functions,
+        findings: outcome.findings,
+        linesAnalyzed: outcome.stats.linesAnalyzed,
+      );
 
       // HtmlReporter with the sidecar — only this format receives health data.
       reporter = HtmlReporter(healthSidecar: healthReport);
@@ -344,6 +349,8 @@ class ScanCommand extends LoamCommand {
       isTty: stdout.hasTerminal,
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
+      sourceDirs: config.sourceDirs,
+      recommendations: const RecommendationEngine().recommend(outcome.findings),
     );
 
     await _emitReport(
@@ -434,8 +441,31 @@ class _HealthCommand extends LoamCommand {
       sourceDirs: config.sourceDirs,
     );
 
+    // Findings + line count for the composite score's findings axis — shares
+    // the same loaded project (no second load, same as the HTML sidecar path
+    // above — AC: no drift between `loam health` and the HTML badge).
+    //
+    // Rule toggles are deliberately NOT forwarded here: `health` always
+    // measures with the full rule registry, regardless of `loam.yaml`
+    // (see the toggle note in this command's class doc) — only `sourceDirs`,
+    // `ignoreGlobs`, and `includeA11y` carry over from the loaded config.
+    final measurementConfig = LoamConfig(
+      ruleToggles: const {},
+      ignoreGlobs: config.ignoreGlobs,
+      sourceDirs: config.sourceDirs,
+      updateCheck: config.updateCheck,
+      includeA11y: config.includeA11y,
+    );
+    final outcome = AnalysisRunner(
+      config: measurementConfig,
+    ).analyzeWithLoadResult(projectRoot, loadResult);
+
     // Aggregate into a health report.
-    final report = const HealthScore().compute(functions);
+    final report = const HealthScore().compute(
+      functions,
+      findings: outcome.findings,
+      linesAnalyzed: outcome.stats.linesAnalyzed,
+    );
 
     // Render via command-own terminal renderer (not the Reporter pipeline).
     _renderHealthReport(report, projectRoot, stdout);
@@ -542,6 +572,8 @@ class _GateCommand extends LoamCommand {
         rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        sourceDirs: config.sourceDirs,
+        recommendations: const RecommendationEngine().recommend(findings),
       );
       await _emitReport(
         rendered: reporter.render(payload),
@@ -610,6 +642,8 @@ class _GateCommand extends LoamCommand {
         rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        sourceDirs: config.sourceDirs,
+        recommendations: const RecommendationEngine().recommend(findings),
       );
       await _emitReport(
         rendered: reporter.render(payload),
@@ -715,6 +749,8 @@ class _SlopCommand extends LoamCommand {
       isTty: stdout.hasTerminal,
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
+      sourceDirs: config.sourceDirs,
+      recommendations: const RecommendationEngine().recommend(outcome.findings),
     );
 
     await _emitReport(
@@ -814,6 +850,8 @@ class _A11yCommand extends LoamCommand {
       isTty: stdout.hasTerminal,
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
+      sourceDirs: config.sourceDirs,
+      recommendations: const RecommendationEngine().recommend(outcome.findings),
     );
 
     await _emitReport(
@@ -1065,6 +1103,7 @@ class _BaselineCommand extends LoamCommand {
         rulesetVersion: baseline.rulesetVersion,
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        recommendations: const RecommendationEngine().recommend(mappedFindings),
       );
 
       // Emit baseline header so the user knows this is the frozen state.
@@ -1203,6 +1242,8 @@ Future<LoamConfig> _loadConfig(String projectRoot) async {
 /// Output:
 /// ```
 /// loam health  Health-Score: 87 / 100  Grade: B
+///   Findings:   92 / 100
+///   Complexity: 80 / 100
 ///
 /// Hotspots (cyclomatic/cognitive complexity — top N, descending):
 ///
@@ -1224,6 +1265,10 @@ void _renderHealthReport(
     'loam health  '
     'Health-Score: ${report.score} / 100  '
     'Grade: ${report.grade}',
+  );
+  sink.writeln(
+    '  Findings:   ${report.findingsContribution} / 100\n'
+    '  Complexity: ${report.complexityContribution} / 100',
   );
 
   final hotspots = report.hotspots;

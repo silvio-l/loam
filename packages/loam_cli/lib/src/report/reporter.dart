@@ -1,4 +1,5 @@
 import '../model/finding.dart';
+import '../recommendation/recommendation_engine.dart';
 
 /// Coarse scope statistics for one analysis run.
 ///
@@ -52,6 +53,8 @@ class ReportPayload {
     required this.isTty,
     this.suppressedCount = 0,
     this.stats,
+    this.sourceDirs,
+    this.recommendations = const [],
   });
 
   /// All findings from the current run, pre-sorted by the [AnalysisRunner].
@@ -87,6 +90,26 @@ class ReportPayload {
   /// The calling command reads `stdout.hasTerminal` and passes the value here,
   /// so reporters never touch I/O directly (Invariant 4 — pure renderer).
   final bool isTty;
+
+  /// The source directories configured for this scan (e.g. `['lib', 'bin']`),
+  /// or `null` when the caller did not supply them (e.g. `gate`/`baseline`
+  /// without a config in scope).
+  ///
+  /// Reporters surface this in the identity header so the scan scope is visible.
+  /// Invariant 5: structured formats (json/sarif/markdown) emit only the
+  /// directory names — never an absolute path.
+  final List<String>? sourceDirs;
+
+  /// Curated, deduplicated preventive recommendations for the rule classes
+  /// that fired in [findings] — one per distinct `ruleId`, produced by
+  /// [RecommendationEngine.recommend] (see `recommendation_engine.dart`,
+  /// issue 04). Defaults to `const []`.
+  ///
+  /// Reporters render this as an additional block/section, addressed to the
+  /// AI agent consuming the report, on top of the individual [findings] —
+  /// never in place of them. Empty when [findings] is empty, so a clean run
+  /// never shows a hollow recommendations block.
+  final List<Recommendation> recommendations;
 }
 
 /// Pure renderer: converts a [ReportPayload] to a formatted [String].
