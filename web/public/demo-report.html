@@ -564,7 +564,8 @@ For each finding, the rule ID, file location, message, and a fix hint are provid
   function escHtml(s) {
     return String(s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
   }
 
   function groupKey(f, by) {
