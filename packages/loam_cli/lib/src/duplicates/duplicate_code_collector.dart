@@ -301,10 +301,20 @@ class _BodyCollector extends RecursiveAstVisitor<void> {
     while (tok != null && tok.offset < endOffset) {
       if (tok.isEof) break;
       if (tok.type == TokenType.IDENTIFIER) {
-        final slot = idMap.putIfAbsent(tok.lexeme, () => idCounter++);
+        // PERF: Avoid putIfAbsent with closure in tight loop to reduce allocations.
+        var slot = idMap[tok.lexeme];
+        if (slot == null) {
+          slot = idCounter++;
+          idMap[tok.lexeme] = slot;
+        }
         result.add('ID#$slot');
       } else if (_isLiteral(tok.type)) {
-        final slot = litMap.putIfAbsent(tok.lexeme, () => litCounter++);
+        // PERF: Avoid putIfAbsent with closure in tight loop to reduce allocations.
+        var slot = litMap[tok.lexeme];
+        if (slot == null) {
+          slot = litCounter++;
+          litMap[tok.lexeme] = slot;
+        }
         result.add('LIT#$slot');
       } else {
         // Keywords, punctuation, operators — keep as structural skeleton.
