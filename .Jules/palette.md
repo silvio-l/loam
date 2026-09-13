@@ -1,0 +1,3 @@
+## 2023-09-13 - [Global Keyboard Accessibility]
+**Learning:** Default browser focus outlines often fail completely on dark-themed websites due to poor contrast. We need to explicitly define `:focus-visible` styles using brand colors.
+**Action:** Add a global `*:focus-visible` style using the high-contrast brand color (`var(--green)`) and ensure that interactive elements that have specific hover styles also share those styles with `:focus-visible`.
