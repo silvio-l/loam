@@ -122,9 +122,11 @@ const copy = {
     padding: 0.3rem 0.62rem;
     transition: background 0.18s, border-color 0.18s;
   }
-  .frame-open:hover {
+  .frame-open:hover,
+  .frame-open:focus-visible {
     background: rgba(136, 200, 64, 0.12);
     border-color: rgba(136, 200, 64, 0.7);
+    outline: none;
   }
   /* Viewport-relative so the frame keeps some page around it instead of filling
      the screen (the report scrolls internally, so a full-height frame would trap

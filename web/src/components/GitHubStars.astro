@@ -89,10 +89,12 @@ const GITHUB_URL = `https://github.com/${REPO}`;
     transition: .18s;
     box-shadow: 0 4px 18px rgba(0,0,0,.35);
   }
-  .gh-stars:hover {
+  .gh-stars:hover,
+  .gh-stars:focus-visible {
     color: var(--green);
     border-color: rgba(136,200,64,.5);
     box-shadow: 0 4px 22px rgba(136,200,64,.15);
+    outline: none;
   }
   .gh-icon {
     display: flex;
@@ -100,7 +102,8 @@ const GITHUB_URL = `https://github.com/${REPO}`;
     color: var(--dim);
     flex-shrink: 0;
   }
-  .gh-stars:hover .gh-icon {
+  .gh-stars:hover .gh-icon,
+  .gh-stars:focus-visible .gh-icon {
     color: var(--green);
   }
   .gh-label {
