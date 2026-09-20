@@ -768,7 +768,8 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
   function escHtml(s) {
     return String(s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
   }
 
   function groupKey(f, by) {
@@ -853,7 +854,7 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
     var html = '';
     order.forEach(function(k) {
       var gFindings = groups[k];
-      var id = 'grp-' + encodeURIComponent(k);
+      var id = 'grp-' + encodeURIComponent(k).replace(/'/g, '%27');
       html += '<div class="group"><div class="group-header" onclick="toggleGroup(this, \'' + escHtml(id) + '\')">'
            + '<span class="group-name">' + escHtml(k) + '</span> <span class="count">(' + gFindings.length + ')</span>'
            + '<span class="toggle">&#9660;</span></div>'
