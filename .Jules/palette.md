@@ -1,0 +1,3 @@
+## $(date +%Y-%m-%d) - [Focus Visible Styles for Dark Theme]
+**Learning:** Default browser focus outlines often fail visually on dark themes, reducing keyboard accessibility. The established pattern for this design system is to explicitly mirror `:hover` styles using the brand color `var(--green)` with `:focus-visible`, and simultaneously add `outline: none;` to suppress the browser default.
+**Action:** Always include explicit `:focus-visible` styles with `outline: none;` whenever adding or modifying interactive elements (buttons, links) in the `web/` project to ensure high-contrast keyboard accessibility.
