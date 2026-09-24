@@ -101,16 +101,16 @@ try {
   .cmd .p{ color:var(--green); } .cmd .t{ color:var(--ink); }
   .cmd button{ font:600 .68rem var(--font); letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
     background:transparent; border:1px solid #2b2d33; border-radius:7px; padding:.34rem .6rem; cursor:pointer; transition:.18s; }
-  .cmd button:hover,.cmd button.ok{ color:var(--green); border-color:rgba(136,200,64,.5); }
+  .cmd button:hover, .cmd button:focus-visible, .cmd button.ok{ color:var(--green); border-color:rgba(136,200,64,.5); }
 
   .links{ margin-top:2.1rem; display:flex; gap:1.4rem; align-items:center; justify-content:center; font-size:.85rem;
     animation:rise .9s .4s cubic-bezier(.2,.8,.2,1) both; }
   .links a{ color:var(--ink); text-decoration:none; border-bottom:1px solid rgba(236,233,225,.22); padding-bottom:2px; transition:.18s; }
-  .links a:hover{ color:var(--green); border-color:var(--green); }
+  .links a:hover, .links a:focus-visible{ color:var(--green); border-color:var(--green); }
   .links .sep{ width:4px; height:4px; border-radius:50%; background:var(--line); }
   .links .sharelink{ font:inherit; color:var(--ink); background:transparent; border:none;
     border-bottom:1px solid rgba(236,233,225,.22); padding:0 0 2px; cursor:pointer; transition:.18s; }
-  .links .sharelink:hover,.links .sharelink.ok{ color:var(--green); border-color:var(--green); }
+  .links .sharelink:hover, .links .sharelink:focus-visible, .links .sharelink.ok{ color:var(--green); border-color:var(--green); }
 
   .stars-wrap{ margin-top:2rem; animation:rise .9s .48s cubic-bezier(.2,.8,.2,1) both; }
 
