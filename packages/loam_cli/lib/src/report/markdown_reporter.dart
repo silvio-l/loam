@@ -58,7 +58,13 @@ class MarkdownReporter implements Reporter {
     // Group findings by filePath while preserving input order.
     final groups = <String, List<Finding>>{};
     for (final f in payload.findings) {
-      groups.putIfAbsent(f.filePath, () => []).add(f);
+      // Avoid putIfAbsent to prevent closure allocation overhead
+      var group = groups[f.filePath];
+      if (group == null) {
+        group = [];
+        groups[f.filePath] = group;
+      }
+      group.add(f);
     }
 
     for (final entry in groups.entries) {
