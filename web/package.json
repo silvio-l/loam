@@ -19,7 +19,7 @@
     "web-vitals": "^6.2.1"
   },
   "devDependencies": {
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.5"
   },
   "overrides": {
     "esbuild": "^0.28.1"
