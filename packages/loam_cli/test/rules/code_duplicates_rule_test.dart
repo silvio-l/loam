@@ -4,6 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:loam/src/config/loam_config.dart';
+import 'package:loam/src/duplicates/duplicate_code_collector.dart';
 import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/model/fingerprint.dart';
@@ -181,27 +182,104 @@ void main() {
 
   test('fingerprint matches computeFingerprint specification', () {
     final findings = makeRule().run(loadResult);
+    final clusters = const DuplicateCodeCollector().collect(
+      loadResult,
+      fixturePath,
+    );
     expect(findings, isNotEmpty);
+    expect(clusters.length, equals(findings.length));
 
-    for (final f in findings) {
-      // Reconstruct semanticAnchor from the message.
-      final rest = f.message.split(RegExp(r'\d+ tokens\): ')).last;
-      final pairsRaw = rest.split(', ');
-      // token count from message: "N occurrences … (T tokens)"
-      final tokenMatch = RegExp(r'\((\d+) tokens\)').firstMatch(f.message);
-      expect(tokenMatch, isNotNull);
-      final tokenCount = int.parse(tokenMatch!.group(1)!);
-
-      final sortedPairs = List<String>.from(pairsRaw)..sort();
-      final expectedAnchor = 'tokens=$tokenCount\n${sortedPairs.join('\n')}';
-
+    for (var i = 0; i < findings.length; i++) {
+      final cluster = clusters[i];
+      final sortedPaths = cluster.locations.map((l) => l.filePath).toList()
+        ..sort();
       final expected = computeFingerprint(
         ruleId: 'code-duplicates',
-        relativePath: f.filePath,
-        semanticAnchor: expectedAnchor,
+        relativePath: cluster.locations.first.filePath,
+        semanticAnchor:
+            'tokens=${cluster.tokenCount}\n'
+            'sequence=${cluster.sequenceHash}\n'
+            '${sortedPaths.join('\n')}',
       );
-      expect(f.fingerprint, equals(expected));
+      expect(findings[i].fingerprint, equals(expected));
     }
+  });
+
+  // ---------------------------------------------------------------------------
+  // AC: Fingerprints survive pure line shifts (position-robust, Invariant 5)
+  // ---------------------------------------------------------------------------
+
+  group('position-robust fingerprint', () {
+    late Directory tmp;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('loam-dup-fingerprint-');
+      addTearDown(() => tmp.deleteSync(recursive: true));
+    });
+
+    /// Copies the fixture into [tmp] and prepends [shiftLines] blank lines to
+    /// every `lib/` file whose name is in [shiftFiles] (all files when null).
+    Future<List<String>> fingerprintsAfterShift({
+      List<String>? shiftFiles,
+      int shiftLines = 0,
+      Map<String, String> extraFiles = const {},
+    }) async {
+      final root = Directory(p.join(tmp.path, 'copy'))..createSync();
+      File(
+        p.join(fixturePath, 'pubspec.yaml'),
+      ).copySync(p.join(root.path, 'pubspec.yaml'));
+      final lib = Directory(p.join(root.path, 'lib'))..createSync();
+      for (final name in ['alpha.dart', 'beta.dart']) {
+        final source = File(
+          p.join(fixturePath, 'lib', name),
+        ).readAsStringSync();
+        final shift = shiftFiles == null || shiftFiles.contains(name)
+            ? shiftLines
+            : 0;
+        File(
+          p.join(lib.path, name),
+        ).writeAsStringSync('${'\n' * shift}$source');
+      }
+      extraFiles.forEach((name, content) {
+        File(p.join(lib.path, name)).writeAsStringSync(content);
+      });
+
+      final result = await ProjectLoader().load(root.path);
+      final findings = CodeDuplicatesRule(projectRoot: root.path).run(result);
+      expect(findings, isNotEmpty, reason: 'Copy must still contain clones');
+      return findings.map((f) => f.fingerprint).toList()..sort();
+    }
+
+    test('a pure line shift above every copy keeps all fingerprints', () async {
+      final original = await fingerprintsAfterShift();
+      final shifted = await fingerprintsAfterShift(shiftLines: 3);
+      expect(shifted, equals(original));
+    });
+
+    test('a pure line shift above one copy keeps all fingerprints', () async {
+      final original = await fingerprintsAfterShift();
+      final shifted = await fingerprintsAfterShift(
+        shiftFiles: const ['beta.dart'],
+        shiftLines: 3,
+      );
+      expect(shifted, equals(original));
+    });
+
+    test('adding a copy changes the fingerprint of the cluster', () async {
+      final original = await fingerprintsAfterShift();
+      final withCopy = await fingerprintsAfterShift(
+        extraFiles: {
+          'gamma.dart': File(
+            p.join(fixturePath, 'lib', 'alpha.dart'),
+          ).readAsStringSync(),
+        },
+      );
+      expect(
+        withCopy.toSet().intersection(original.toSet()),
+        isEmpty,
+        reason: 'An extra occurrence must re-key the affected clusters',
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------

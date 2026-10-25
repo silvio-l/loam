@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- **Fix: `code-duplicates` fingerprints are now truly position-robust.** The
+  fingerprint used to include the start line of every copy, so adding a line
+  above a duplicated block (for example a new field in a settings file) turned
+  an existing finding into a "new" one and failed the gate. The fingerprint is
+  now built from the clone's identity instead: the token count, a SHA-256 of the
+  normalised token sequence, and the occurrence file paths. Line shifts keep a
+  finding in `keptFindings`; adding or removing a copy still changes it.
+  **Migration (once):** the fingerprints of existing `code-duplicates` findings
+  change, so the first `loam gate` after upgrading reports them as new. Refresh
+  the baseline once with `loam baseline --update` and commit `baseline.json`.
+  The `rulesetVersion` does not change (it hashes rule IDs only), so the gate
+  does not print its refresh hint in this case.
+
 ## 0.1.15
 
 - **Maintenance: dependency and CI upkeep, no rule/behavior changes.** Bumped

@@ -80,7 +80,11 @@ final class DuplicateLocation {
 /// always the stable anchor used for fingerprinting.
 final class DuplicateCluster {
   /// Creates a [DuplicateCluster].
-  const DuplicateCluster({required this.locations, required this.tokenCount});
+  const DuplicateCluster({
+    required this.locations,
+    required this.tokenCount,
+    required this.sequenceHash,
+  });
 
   /// All occurrences of the duplicated block, sorted by filePath → startLine.
   ///
@@ -92,19 +96,29 @@ final class DuplicateCluster {
   /// Always ≥ [kMinDuplicateTokens].
   final int tokenCount;
 
+  /// SHA-256 (lowercase hex) of the normalised token sequence shared by all
+  /// [locations].
+  ///
+  /// Identifies the clone *content* without any position information, so
+  /// findings built from it stay stable under pure line shifts. Two clusters
+  /// never share a hash, because clusters are grouped by that same sequence.
+  final String sequenceHash;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is DuplicateCluster &&
           other.tokenCount == tokenCount &&
+          other.sequenceHash == sequenceHash &&
           _listEquals(other.locations, locations);
 
   @override
-  int get hashCode => Object.hashAll([tokenCount, ...locations]);
+  int get hashCode => Object.hashAll([tokenCount, sequenceHash, ...locations]);
 
   @override
   String toString() =>
-      'DuplicateCluster(tokenCount: $tokenCount, locations: $locations)';
+      'DuplicateCluster(tokenCount: $tokenCount, sequenceHash: $sequenceHash, '
+      'locations: $locations)';
 
   static bool _listEquals<T>(List<T> a, List<T> b) {
     if (a.length != b.length) return false;

@@ -80,32 +80,18 @@ class CodeDuplicatesRule implements Rule {
           '${cluster.locations.length} occurrences of duplicated block '
           '(${cluster.tokenCount} tokens): $locationStrings';
 
-      // Fingerprint: stable against pure line shifts; changes when copies
-      // are added or removed.
-      //
-      // semanticAnchor = normalised block hash (captured as sorted occurrence
-      // anchors "path:line" joined by '\n').  The block-hash component
-      // (token count) ensures two different blocks with the same occurrence
-      // set still produce different fingerprints.  Using startLine per
-      // occurrence intentionally makes the fingerprint shift when a copy
-      // moves to a different line, but keeps it stable when unrelated lines
-      // above it shift — because `DuplicateCodeCollector` uses AST-level
-      // token offsets, so the start line is the first token of the body,
-      // not a doc-comment or blank line.
-      //
-      // Trade-off accepted per issue spec: "stabil gegen reine Zeilenver-
-      // schiebung" means adding a blank line before the block should not
-      // change the fingerprint.  We achieve this by hashing the sorted
-      // occurrence list relative to the token-level start — which only
-      // changes when the block itself moves, not when preceding non-token
-      // lines shift.
-      final sortedOccurrences =
-          cluster.locations
-              .map((loc) => '${loc.filePath}:${loc.startLine}')
-              .toList()
-            ..sort();
+      // Fingerprint: position-free, so a pure line shift keeps the finding in
+      // `keptFindings`. The anchor is built from the clone's identity only:
+      // the token count and a SHA-256 of the normalised token sequence (which
+      // clusters are grouped by), plus the sorted occurrence file paths with
+      // multiplicity. Line numbers are deliberately absent. Adding or removing
+      // a copy changes the path multiset and therefore the fingerprint.
+      final sortedPaths = cluster.locations.map((loc) => loc.filePath).toList()
+        ..sort();
       final semanticAnchor =
-          'tokens=${cluster.tokenCount}\n${sortedOccurrences.join('\n')}';
+          'tokens=${cluster.tokenCount}\n'
+          'sequence=${cluster.sequenceHash}\n'
+          '${sortedPaths.join('\n')}';
 
       final fp = computeFingerprint(
         ruleId: ruleId,

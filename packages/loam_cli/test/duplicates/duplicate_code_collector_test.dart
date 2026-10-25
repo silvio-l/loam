@@ -97,9 +97,23 @@ void main() {
         startLine: 1,
         endLine: 5,
       );
-      const a = DuplicateCluster(locations: [loc1, loc2], tokenCount: 60);
-      const b = DuplicateCluster(locations: [loc1, loc2], tokenCount: 60);
+      const a = DuplicateCluster(
+        locations: [loc1, loc2],
+        tokenCount: 60,
+        sequenceHash: 'abc',
+      );
+      const b = DuplicateCluster(
+        locations: [loc1, loc2],
+        tokenCount: 60,
+        sequenceHash: 'abc',
+      );
+      const c = DuplicateCluster(
+        locations: [loc1, loc2],
+        tokenCount: 60,
+        sequenceHash: 'def',
+      );
       expect(a, equals(b));
+      expect(a, isNot(equals(c)));
     });
   });
 

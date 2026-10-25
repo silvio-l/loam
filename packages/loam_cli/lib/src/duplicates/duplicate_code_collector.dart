@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../config/loam_config.dart' show kDefaultSourceDirs;
@@ -133,6 +136,9 @@ class DuplicateCodeCollector {
         DuplicateCluster(
           locations: locations,
           tokenCount: group.first.tokens.length,
+          // The grouping key is the normalised sequence itself; hashing it
+          // gives a position-free identity for the clone content.
+          sequenceHash: sha256.convert(utf8.encode(entry.key)).toString(),
         ),
       );
     }
