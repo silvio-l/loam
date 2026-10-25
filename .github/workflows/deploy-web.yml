@@ -2,22 +2,17 @@ name: Deploy website
 
 # Baut die statische Astro-Website unter web/ reproduzierbar aus der Quelle und
 # deployt sie als Production zum Cloudflare-Pages-Projekt `loam` (getloam.dev).
-# dist/ ist gitignored — die Single Source of Truth ist immer web/src. Damit ist
-# jeder Push auf main, der web/ berührt, automatisch live; kein manueller Upload,
-# kein stale Deploy mehr.
+# dist/ ist gitignored — die Single Source of Truth ist immer web/src.
+# Deploys only on purpose (maintainer 2026-10-25): a merge to main never goes
+# live by itself. Start it by hand with `gh workflow run deploy-web.yml --ref main`.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'web/**'
-      - '.github/workflows/deploy-web.yml'
   workflow_dispatch: {}
 
 permissions:
   contents: read
 
-# Nie zwei Deploys parallel; ein neuerer Push überholt einen laufenden.
+# Nie zwei Deploys parallel; ein neuerer Start überholt einen laufenden.
 concurrency:
   group: deploy-web
   cancel-in-progress: true
