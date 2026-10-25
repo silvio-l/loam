@@ -9,8 +9,6 @@ on:
   push:
     branches: [dev, main]
   workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * 1'   # montags 06:00 UTC
 
 permissions:
   contents: read
