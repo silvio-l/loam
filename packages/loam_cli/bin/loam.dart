@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:loam/src/architecture/layer_detector.dart';
 import 'package:loam/src/baseline/baseline_engine.dart';
+import 'package:loam/src/changed/changed_files.dart';
 import 'package:loam/src/command/loam_command.dart';
 import 'package:loam/src/command/target_root_resolver.dart';
 import 'package:loam/src/complexity/function_complexity_collector.dart';
@@ -21,13 +24,21 @@ import 'package:loam/src/report/browser_launcher.dart';
 import 'package:loam/src/report/html_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
+import 'package:loam/src/rules/rule_profile.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
+import 'package:loam/src/timing/phase_timer.dart';
+import 'package:loam/src/timing/run_watchdog.dart';
+import 'package:loam/src/update/auto_update.dart';
 import 'package:loam/src/update/install_channel.dart';
-import 'package:loam/src/update/update_checker.dart';
-import 'package:loam/src/update/update_notice.dart';
+import 'package:loam/src/update/update_policy.dart';
+import 'package:loam/src/update/update_runtime.dart';
+import 'package:loam/src/update/update_state.dart';
 import 'package:loam/src/version.dart';
 import 'package:loam/src/version_report.dart';
+import 'package:loam/src/watch/watch_runner.dart';
+import 'package:loam/src/watch/watch_session.dart';
 import 'package:path/path.dart' as p;
+import 'package:pub_semver/pub_semver.dart';
 
 /// loam.dev CLI entrypoint (command: `loam`).
 ///
@@ -48,18 +59,20 @@ Future<int> run(List<String> args) async {
           'Codebase intelligence & anti-AI-slop for Dart/Flutter.',
         )
         ..addCommand(ScanCommand())
+        ..addCommand(_WatchCommand())
         ..addCommand(_HealthCommand())
         ..addCommand(_GateCommand())
         ..addCommand(_BaselineCommand())
         ..addCommand(_SlopCommand())
         ..addCommand(_A11yCommand())
         ..addCommand(_InitCommand())
-        ..addCommand(_FixCommand());
+        ..addCommand(_FixCommand())
+        ..addCommand(_UpdateWorkerCommand());
 
   runner.argParser
     ..addOption(
       'format',
-      allowed: ['human', 'sarif', 'json', 'markdown', 'html'],
+      allowed: ['human', 'sarif', 'json', 'markdown', 'html', 'agent'],
       defaultsTo: 'human',
       help: 'Output format.',
       allowedHelp: {
@@ -67,11 +80,21 @@ Future<int> run(List<String> args) async {
         'sarif': 'SARIF 2.1 JSON (CI/tooling).',
         'json': 'Machine-readable JSON (agent/tooling integration).',
         'markdown': 'Markdown report (PR/docs embedding, agent/LLM pipelines).',
+        'agent':
+            'Compact list of the highest-impact findings, capped by '
+            '--max-findings; says how many were left out.',
         'html':
             'Self-contained HTML report. Written to a file '
             '(default loam-report.html, override with --output) and opened '
             'in the default browser when run interactively.',
       },
+    )
+    ..addOption(
+      'max-findings',
+      valueHelp: 'n',
+      help:
+          'Cap on the findings listed by --format agent (default 20, highest '
+          'impact first; 0 = all). Other formats always list everything.',
     )
     ..addOption(
       'output',
@@ -93,7 +116,7 @@ Future<int> run(List<String> args) async {
       'no-update-check',
       negatable: false,
       help:
-          'Skip the update-availability check for this run. '
+          'Skip the update check and the automatic update for this run. '
           'See also: LOAM_NO_UPDATE_CHECK env var and '
           'update_check: false in loam.yaml.',
     )
@@ -103,6 +126,33 @@ Future<int> run(List<String> args) async {
       help:
           'Print the running version, install channel and executable path, '
           'then exit. Use this to confirm an upgrade actually took effect.',
+    )
+    ..addFlag(
+      'timing',
+      negatable: false,
+      help:
+          'Print wall-clock time per phase (setup, resolve, rules, '
+          'suppression, update-check; report for scan) and per rule to '
+          'stderr after the run. '
+          'stdout stays unchanged.',
+    )
+    ..addOption(
+      'timeout',
+      valueHelp: 'duration',
+      help:
+          'Abort the run when it takes longer than this (default 10m). '
+          'Seconds, or a number with s, m or h (90s, 10m, 1h); 0 or off '
+          'disables the limit. Also settable via LOAM_TIMEOUT; the flag wins. '
+          'On expiry loam prints the running phase and rule to stderr and '
+          'exits with 124 (not 1, so a hook can tell it from a red gate).',
+    )
+    ..addFlag(
+      'no-cache',
+      negatable: false,
+      help:
+          'Do not keep the analyzer\'s summary store in .dart_tool/loam/ '
+          'between runs (it speeds up resolving; results are the same '
+          'either way). See also: cache: false in loam.yaml.',
     )
     ..addFlag(
       'no-progress',
@@ -123,6 +173,14 @@ Future<int> run(List<String> args) async {
     stderr.writeln(e);
     return 64;
   }
+  final maxFindingsRaw = topLevelResults['max-findings'] as String?;
+  if (maxFindingsRaw != null && ((int.tryParse(maxFindingsRaw) ?? -1) < 0)) {
+    stderr.writeln(
+      'loam: --max-findings expects a whole number >= 0 (0 = all), '
+      'got "$maxFindingsRaw".',
+    );
+    return 64;
+  }
   // --version short-circuit: print version + install channel + resolved
   // executable path, then exit 0 before any command dispatch. This is the
   // anchor an agent uses to confirm an upgrade landed on the binary actually
@@ -133,6 +191,48 @@ Future<int> run(List<String> args) async {
   }
 
   final noUpdateCheckFlag = topLevelResults.flag('no-update-check');
+  _lastLoadedConfig = null; // run() is re-entered in-process by tests.
+  _noCacheFlag = topLevelResults.flag('no-cache');
+  final commandName = topLevelResults.command?.name;
+  if (commandName == kUpdateWorkerCommand) {
+    return await runner.runCommand(topLevelResults) ?? 0;
+  }
+
+  // Auto-update, foreground half (ADR-0004, issue #9): never touches the
+  // network and never waits. Before the command it reports the last
+  // background install once; after it, it starts the next background check
+  // when one is due. Everything goes to stderr and never changes the exit code.
+  final updates = _AutoUpdateGlue(noUpdateCheckFlag: noUpdateCheckFlag);
+  updates.announce();
+
+  // Time limit (issue #31): a watchdog isolate ends a hanging run with exit
+  // 124 and a message naming the phase/rule. It needs the phase events, so a
+  // timer exists whenever either --timing or the limit is on.
+  final Duration? limit;
+  try {
+    limit = resolveRunTimeout(
+      flag: topLevelResults.option('timeout'),
+      env: Platform.environment[kRunTimeoutEnv],
+    );
+  } on FormatException catch (e) {
+    stderr.writeln('loam: ${e.message}');
+    return 64;
+  }
+  // `watch` is meant to run until stopped; a time limit would end it by design.
+  final watchdog = await RunWatchdog.start(
+    topLevelResults.command?.name == 'watch' ? null : limit,
+  );
+  final timing = topLevelResults.flag('timing');
+  // --timing: one timer per invocation; the loader and runner report into it.
+  // Reset to null in the `finally` below, so no state outlives this run().
+  final PhaseTimer? timer = PhaseTimer.active = (timing || watchdog != null)
+      ? PhaseTimer.wallClock(
+          onEvent: watchdog == null
+              ? null
+              : (label, depth, {required started}) =>
+                    watchdog.event(label, depth, started: started),
+        )
+      : null;
 
   int code;
   try {
@@ -153,42 +253,121 @@ Future<int> run(List<String> args) async {
     // and a non-zero exit code (78 = EX_CONFIG — an environment misconfig).
     stderr.writeln(e.message);
     return 78;
+  } finally {
+    // Process-wide state must not leak into later in-process run() calls
+    // or tests; the timer itself stays reachable through the local below.
+    PhaseTimer.active = null;
+    watchdog?.stop();
   }
 
-  // Update notice: shown after command output (last line), out-of-band on
-  // stderr. Wrapped in try/catch so any error never affects the exit code.
-  // (ADR-0004, CONTEXT.md Invariant 4/5).
-  //
-  // Precedence chain: --no-update-check (CLI) > LOAM_NO_UPDATE_CHECK (env,
-  // handled inside UpdateChecker) > update_check: false (loam.yaml) >
-  // default (on).
-  //
-  // Config is loaded from cwd as a best-effort; load failure is silently
-  // swallowed so a broken loam.yaml never blocks the update notice.
-  try {
-    var configUpdateCheck = true;
-    try {
-      final config = await _loadConfig(Directory.current.path);
-      configUpdateCheck = config.updateCheck;
-      // loam-ignore: slop-empty-catch – config-load failure was already surfaced via ConfigLoadException above; swallowing here keeps the update-notice path non-blocking.
-    } catch (_) {
-      // Config load failure → use default (on). The command itself already
-      // surfaced the error via the ConfigLoadException path above.
-    }
-
-    final notice = await UpdateChecker(currentVersion: loamVersion).check(
-      noUpdateCheckFlag: noUpdateCheckFlag,
-      configUpdateCheck: configUpdateCheck,
-    );
-    if (notice != null) {
-      stderr.writeln(formatUpdateNotice(notice));
-    }
-    // loam-ignore: slop-empty-catch – update-check errors are non-fatal; the notice is optional and must never affect the exit code (ADR-0004).
-  } catch (_) {
-    // Silently swallow any unexpected error — notice is optional.
-  }
-
+  final stopUpdateCheck = timer?.begin('update-check');
+  await updates.afterCommand(warnOnPin: commandName != 'gate');
+  stopUpdateCheck?.call();
+  if (timing && timer != null) stderr.write(timer.render());
   return code;
+}
+
+/// Wires the auto-update into the CLI run. Every step is best-effort: an
+/// error is swallowed so the update machinery can never change a result.
+class _AutoUpdateGlue {
+  _AutoUpdateGlue({required this.noUpdateCheckFlag});
+
+  final bool noUpdateCheckFlag;
+  final UpdateRuntime _runtime = UpdateRuntime();
+  final UpdateStateStore _store = FileUpdateStateStore();
+
+  AutoUpdateCoordinator get _coordinator => AutoUpdateCoordinator(
+    current: Version.parse(loamVersion),
+    currentRuleIds: AnalysisRunner.fullRegistryIds,
+    upgradeCommand: _runtime.install.upgradeCommand,
+    store: _store,
+    spawnWorker: _runtime.spawnWorker,
+  );
+
+  /// The config that decides the update mode: the one the command loaded
+  /// (it sees the analysed project's `loam.yaml`), else the one around cwd.
+  Future<LoamConfig> _config() async {
+    final loaded = _lastLoadedConfig;
+    if (loaded != null) return loaded;
+    try {
+      return await _loadConfig(Directory.current.path);
+    } on Object {
+      return const LoamConfig.defaults();
+    }
+  }
+
+  Future<UpdateMode> _mode() async {
+    final config = await _config();
+    return decideUpdateMode(
+      env: Platform.environment,
+      noUpdateCheckFlag: noUpdateCheckFlag,
+      configUpdateCheck: config.updateCheck,
+      configAutoUpdate: config.autoUpdate,
+      requiredVersion: config.requiredVersion,
+      canSelfUpdate: _runtime.canUpdateItself,
+    );
+  }
+
+  void announce() {
+    try {
+      if (noUpdateCheckFlag ||
+          Platform.environment.containsKey('LOAM_NO_UPDATE_CHECK') ||
+          isCiEnvironment(Platform.environment)) {
+        return;
+      }
+      _coordinator.takeAnnouncements().forEach(stderr.writeln);
+      // loam-ignore: slop-empty-catch – the update report is optional and must never affect the run or its exit code (ADR-0004).
+    } catch (_) {
+      // Best-effort only.
+    }
+  }
+
+  Future<void> afterCommand({required bool warnOnPin}) async {
+    try {
+      final config = await _config();
+      final pin = config.requiredVersion;
+      final current = Version.parse(loamVersion);
+      if (warnOnPin && pin != null && pinViolation(current, pin)) {
+        stderr.writeln(formatPinViolation(current, pin));
+      }
+      final lines = await _coordinator.afterRun(await _mode());
+      lines.forEach(stderr.writeln);
+      // loam-ignore: slop-empty-catch – update errors are non-fatal; the update path is optional and must never affect the exit code (ADR-0004).
+    } catch (_) {
+      // Best-effort only.
+    }
+  }
+}
+
+/// Hidden sub-command: the background half of the auto-update. Started
+/// detached by a normal run; checks pub.dev and, with `--install`, installs a
+/// newer release for this install channel. Not meant to be run by hand.
+class _UpdateWorkerCommand extends Command<int> {
+  _UpdateWorkerCommand() {
+    argParser.addFlag('install', negatable: false);
+  }
+
+  @override
+  final String name = kUpdateWorkerCommand;
+  @override
+  final String description = 'Background update worker (internal).';
+  @override
+  bool get hidden => true;
+
+  @override
+  Future<int> run() async {
+    try {
+      await UpdateRuntime().runWorker(
+        installAllowed: argResults?.flag('install') ?? false,
+        current: Version.parse(loamVersion),
+        currentRuleIds: AnalysisRunner.fullRegistryIds,
+      );
+      // loam-ignore: slop-empty-catch – the detached worker has no terminal; a failure is recorded in the update state or retried on the next due run.
+    } catch (_) {
+      // Nothing to report to: the worker runs detached.
+    }
+    return 0;
+  }
 }
 
 /// Full audit: runs all active rules across the whole project
@@ -197,7 +376,7 @@ Future<int> run(List<String> args) async {
 /// Renders findings via the [Reporter] selected by `--format` (default: human).
 /// Exit-code semantics: 1 when any findings are present, 0 when clean.
 /// The reporter is a pure renderer — it has no influence on the exit code
-/// (Invariant 4).
+/// (ADR 0001).
 class ScanCommand extends LoamCommand {
   ScanCommand() {
     argParser
@@ -218,6 +397,7 @@ class ScanCommand extends LoamCommand {
             'CLI override for `a11y: false` in loam.yaml. '
             'Use `loam a11y` to run accessibility checks in isolation.',
       );
+    addChangedOptions(argParser);
   }
 
   @override
@@ -242,6 +422,15 @@ class ScanCommand extends LoamCommand {
     }
     final projectRoot = (rootResult as ResolvedRoot).root;
 
+    // --staged / --since / --changed: resolve first so a usage problem fails
+    // before the (slow) analysis. Null = whole project.
+    final scope = await _resolveChangedScope(argResults, projectRoot);
+    if (scope.error != null) {
+      stderr.writeln(scope.error);
+      return 64; // EX_USAGE
+    }
+    final changedFiles = scope.files;
+
     // Resolve the format from the global --format option.
     final format = (globalResults?['format'] as String?) ?? 'human';
 
@@ -258,6 +447,7 @@ class ScanCommand extends LoamCommand {
             sourceDirs: yamlConfig.sourceDirs,
             updateCheck: yamlConfig.updateCheck,
             includeA11y: false,
+            cache: yamlConfig.cache,
           )
         : yamlConfig;
 
@@ -276,7 +466,7 @@ class ScanCommand extends LoamCommand {
     //
     // For all other formats: delegate to AnalysisRunner.analyze() as before (no
     // change to their code path → byte-identical output guaranteed — AC2).
-    final AnalysisOutcome outcome;
+    AnalysisOutcome outcome;
     final Reporter reporter;
 
     if (format == 'html') {
@@ -286,6 +476,7 @@ class ScanCommand extends LoamCommand {
       final loadResult = await const ProjectLoader().load(
         root,
         progressSink: progressSink,
+        cacheDirectory: _analyzerCacheFor(root, config),
       );
 
       // Outcome via shared load result — same as before, just no second load.
@@ -293,6 +484,7 @@ class ScanCommand extends LoamCommand {
       outcome = AnalysisRunner(
         config: config,
         progressSink: progressSink,
+        analyzerCacheDirectory: _analyzerCacheFor(root, config),
       ).analyzeWithLoadResult(root, loadResult);
 
       // Health-Score sidecar: same collector as `loam health` (AC3 — no drift).
@@ -315,6 +507,7 @@ class ScanCommand extends LoamCommand {
       outcome = await AnalysisRunner(
         config: config,
         progressSink: progressSink,
+        analyzerCacheDirectory: _analyzerCacheFor(projectRoot, config),
       ).analyze(projectRoot);
       // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
       try {
@@ -323,6 +516,18 @@ class ScanCommand extends LoamCommand {
         stderr.writeln(e.toString());
         return 64; // EX_USAGE
       }
+    }
+
+    // The analysis above was project-wide; only the report is narrowed.
+    if (changedFiles != null) {
+      outcome = AnalysisOutcome(
+        findings: filterFindingsToFiles(outcome.findings, changedFiles),
+        suppressedCount: outcome.suppressedCount,
+        stats: outcome.stats,
+        stackProfile: outcome.stackProfile,
+        suppressionAudit: outcome.suppressionAudit,
+      );
+      stderr.writeln(_changedScopeNote(name, changedFiles.length));
     }
 
     // Diagnostic line: printed to stdout for human-readable output only.
@@ -338,14 +543,16 @@ class ScanCommand extends LoamCommand {
       rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
       toolVersion: loamVersion,
       isTty: stdout.hasTerminal,
+      maxFindings: maxFindings,
       suppressedCount: outcome.suppressedCount,
+      suppressionAudit: outcome.suppressionAudit,
       stats: outcome.stats,
       sourceDirs: config.sourceDirs,
       recommendations: const RecommendationEngine().recommend(outcome.findings),
     );
 
     await _emitReport(
-      rendered: reporter.render(payload),
+      rendered: PhaseTimer.time('report', () => reporter.render(payload)),
       format: format,
       commandName: name,
       outputOption: outputPath,
@@ -367,6 +574,151 @@ class ScanCommand extends LoamCommand {
     }
 
     return outcome.findings.isNotEmpty ? 1 : 0;
+  }
+}
+
+/// Watch mode for local iteration: runs the full audit once, then re-runs it
+/// after every change to a Dart file (or `pubspec.yaml`, `analysis_options.yaml`,
+/// `loam.yaml`) and prints what changed. See [runWatch] / [WatchSession].
+///
+/// Every run analyses the whole project (the analyzer's summary store on disk
+/// keeps it fast), so cross-file findings are never lost. Baseline-independent
+/// like `scan`. Runs until SIGINT/SIGTERM, then exits 0.
+class _WatchCommand extends LoamCommand {
+  _WatchCommand() {
+    argParser
+      ..addOption(
+        'project-root',
+        abbr: 'p',
+        help:
+            'Root directory of the Dart project to watch. '
+            'Overrides the positional [path] argument when both are given. '
+            'Defaults to the current working directory.',
+        defaultsTo: null,
+      )
+      ..addOption(
+        'debounce',
+        valueHelp: 'ms',
+        defaultsTo: '${kDefaultWatchDebounce.inMilliseconds}',
+        help:
+            'Quiet period after the last file change before a run starts, '
+            'in milliseconds (0-60000).',
+      );
+  }
+
+  @override
+  final String name = 'watch';
+  @override
+  String get invocation => 'loam watch [path] [options]';
+  @override
+  final String description =
+      'Watch mode: run the full audit, then re-run it after every change to '
+      'a Dart file and print what is new or resolved (stop with Ctrl+C).\n\n'
+      '[path] — optional positional path to the project root '
+      '(defaults to the current directory). '
+      '-p/--project-root overrides [path] when both are given.';
+
+  @override
+  Future<int> run() async {
+    final rootResult = TargetRootResolver.resolve(argResults);
+    if (rootResult is RootUsageError) {
+      stderr.writeln(rootResult.message);
+      return 64; // EX_USAGE
+    }
+    final projectRoot = p.normalize(
+      p.absolute((rootResult as ResolvedRoot).root),
+    );
+
+    if (format != 'human') {
+      stderr.writeln(
+        'loam watch: only --format human is supported '
+        '(got "$format"); use `loam scan --format $format` for a single run.',
+      );
+      return 64;
+    }
+    final debounceMs = int.tryParse(argResults?.option('debounce') ?? '');
+    if (debounceMs == null || debounceMs < 0 || debounceMs > 60000) {
+      stderr.writeln(
+        'loam watch: --debounce expects whole milliseconds between 0 and '
+        '60000.',
+      );
+      return 64;
+    }
+
+    // Same config for every run would hide edits to loam.yaml: load per run.
+    Future<List<Finding>> analyze() async {
+      final config = await _loadConfig(projectRoot);
+      final outcome = await AnalysisRunner(
+        config: config,
+        analyzerCacheDirectory: _analyzerCacheFor(projectRoot, config),
+      ).analyze(projectRoot);
+      return outcome.findings;
+    }
+
+    String renderFull(List<Finding> findings) {
+      final config = _lastLoadedConfig ?? const LoamConfig.defaults();
+      return reporterFor('human').render(
+        ReportPayload(
+          findings: findings,
+          projectRoot: projectRoot,
+          rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
+          toolVersion: loamVersion,
+          isTty: stdout.hasTerminal,
+          sourceDirs: config.sourceDirs,
+          recommendations: const RecommendationEngine().recommend(findings),
+        ),
+      );
+    }
+
+    // First signal: finish the running analysis and leave cleanly. A second
+    // one means "now": exit without waiting.
+    final stopRequests = StreamController<void>.broadcast();
+    var signals = 0;
+    void onSignal(ProcessSignal _) {
+      if (++signals > 1) exit(130);
+      stopRequests.add(null);
+    }
+
+    final subscriptions = <StreamSubscription<ProcessSignal>>[
+      ProcessSignal.sigint.watch().listen(onSignal),
+    ];
+    try {
+      subscriptions.add(ProcessSignal.sigterm.watch().listen(onSignal));
+      // loam-ignore: slop-empty-catch – SIGTERM cannot be watched on Windows; Ctrl+C (SIGINT) still stops the watch.
+    } on SignalException {
+      // Nothing to do.
+    }
+
+    var watcherErrorShown = false;
+    try {
+      return await runWatch(
+        root: projectRoot,
+        changes: Directory(projectRoot)
+            .watch(recursive: true)
+            .map((event) => event.path)
+            .handleError((Object error) {
+              // A dead file watcher (e.g. inotify limit) must not fail silently.
+              if (!watcherErrorShown) {
+                watcherErrorShown = true;
+                stderr.writeln(
+                  'loam watch: file watcher error ($error) - changes may be '
+                  'missed; restart watch if no reruns happen.',
+                );
+              }
+            }),
+        analyze: analyze,
+        renderFull: renderFull,
+        out: stdout,
+        err: stderr,
+        stopRequests: stopRequests.stream,
+        debounce: Duration(milliseconds: debounceMs),
+      );
+    } finally {
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+      await stopRequests.close();
+    }
   }
 }
 
@@ -425,14 +777,15 @@ class _HealthCommand extends LoamCommand {
     final progress = resolveProgress();
     final progressSink = progress.sink;
 
+    // Load config for the source-dir scope (loam.yaml); missing → defaults.
+    final config = await _loadConfig(projectRoot);
+
     // Load the project — ProjectLoader never throws.
     final loadResult = await const ProjectLoader().load(
       projectRoot,
       progressSink: progressSink,
+      cacheDirectory: _analyzerCacheFor(projectRoot, config),
     );
-
-    // Load config for the source-dir scope (loam.yaml); missing → defaults.
-    final config = await _loadConfig(projectRoot);
 
     // Collect complexity measurements from the configured source dirs (codegen
     // exclusion is inside the collector — no toggle check needed here).
@@ -456,10 +809,12 @@ class _HealthCommand extends LoamCommand {
       sourceDirs: config.sourceDirs,
       updateCheck: config.updateCheck,
       includeA11y: config.includeA11y,
+      cache: config.cache,
     );
     final outcome = AnalysisRunner(
       config: measurementConfig,
       progressSink: progressSink,
+      analyzerCacheDirectory: _analyzerCacheFor(projectRoot, measurementConfig),
     ).analyzeWithLoadResult(projectRoot, loadResult);
 
     // Aggregate into a health report.
@@ -489,9 +844,13 @@ class _HealthCommand extends LoamCommand {
 /// same exit-code semantics by design (PRD). They remain separate commands:
 /// scan is the full-audit report; gate is the dedicated pass/fail decision.
 ///
+/// **Rule profile** (`--profile core|strict`, `profile:` in loam.yaml, default
+/// `core`): only rules of the active profile can turn the gate red; findings
+/// of other rules are shown as a hint. `baseline.json` is profile-independent.
+///
 /// Findings are rendered via the [Reporter] selected by `--format`.
 /// The Gate-summary line and exit code are determined exclusively by
-/// [GateEngine] — the reporter is a pure renderer (Invariant 4).
+/// [GateEngine] — the reporter is a pure renderer (ADR 0001).
 class _GateCommand extends LoamCommand {
   _GateCommand() {
     argParser
@@ -503,6 +862,27 @@ class _GateCommand extends LoamCommand {
             'threshold (default 0) — the baseline is ignored. '
             'Use for greenfield projects.',
       )
+      ..addFlag(
+        'strict-baseline',
+        help:
+            'Ratchet mode: stale baseline entries (findings that no longer '
+            'occur) turn the gate red. Overrides `strict_baseline` in '
+            'loam.yaml; default off — stale entries are only reported. '
+            'Clean up with `loam baseline --prune`.',
+      )
+      ..addOption(
+        'profile',
+        allowed: ['core', 'strict'],
+        allowedHelp: {
+          'core':
+              'Only rules with a near-zero false-positive rate block '
+              '(default).',
+          'strict': 'Every rule blocks, including heuristic ones.',
+        },
+        help:
+            'Which rules may block the gate; other rules show up as a hint. '
+            'Overrides profile: in loam.yaml. Does not touch baseline.json.',
+      )
       ..addOption(
         'project-root',
         abbr: 'p',
@@ -512,6 +892,7 @@ class _GateCommand extends LoamCommand {
             'Defaults to the current working directory.',
         defaultsTo: null,
       );
+    addChangedOptions(argParser);
   }
 
   @override
@@ -535,6 +916,23 @@ class _GateCommand extends LoamCommand {
     }
     final projectRoot = (rootResult as ResolvedRoot).root;
     final absoluteMode = argResults?.flag('absolute') ?? false;
+    if (absoluteMode && (argResults?.wasParsed('strict-baseline') ?? false)) {
+      stderr.writeln(
+        'loam gate: --strict-baseline needs the baseline and cannot be '
+        'combined with --absolute.',
+      );
+      return 64; // EX_USAGE
+    }
+
+    final scope = await _resolveChangedScope(argResults, projectRoot);
+    if (scope.error != null) {
+      stderr.writeln(scope.error);
+      return 64; // EX_USAGE
+    }
+    final changedFiles = scope.files;
+    if (changedFiles != null) {
+      stderr.writeln(_changedScopeNote(name, changedFiles.length));
+    }
 
     // Resolve reporter — FormatNotImplementedError surfaces as a usage error.
     // Mirrors the pattern in ScanCommand (DRY — same catch path, same exit 64).
@@ -549,15 +947,61 @@ class _GateCommand extends LoamCommand {
     // Load project config (loam.yaml) — missing file returns defaults.
     final config = await _loadConfig(projectRoot);
 
+    // Version pin (required_version): a gate run on the wrong loam version
+    // would judge the code with a different ruleset, so it stops instead of
+    // reporting a result (78 = EX_CONFIG). Other commands only warn.
+    final pin = config.requiredVersion;
+    final running = Version.parse(loamVersion);
+    if (pin != null && pinViolation(running, pin)) {
+      stderr.writeln(formatPinViolation(running, pin));
+      stderr.writeln('loam gate: stopped — the loam version does not match.');
+      return 78;
+    }
+
+    // Precedence: --profile (CLI) > profile: (loam.yaml) > core.
+    final profile = RuleProfile.resolve(
+      cli: RuleProfile.tryParse(argResults?['profile'] as String? ?? ''),
+      config: config.profile,
+    );
+
     // Progress setup — shared seam (LoamCommand.resolveProgress). Visible on
     // a manual local run; the CI-env check inside shouldShowProgress turns it
     // off automatically under CI.
     final progressSink = resolveProgress().sink;
 
     if (absoluteMode) {
-      return _runAbsolute(projectRoot, reporter, config, progressSink);
+      return _runAbsolute(
+        projectRoot,
+        reporter,
+        config,
+        progressSink,
+        changedFiles,
+        profile,
+      );
     }
-    return _runRatchet(projectRoot, reporter, config, progressSink);
+    final strictBaseline = (argResults?.wasParsed('strict-baseline') ?? false)
+        ? argResults!.flag('strict-baseline')
+        : config.strictBaseline;
+    return _runRatchet(
+      projectRoot,
+      reporter,
+      config,
+      progressSink,
+      changedFiles,
+      profile,
+      strictBaseline,
+    );
+  }
+
+  /// Hint for findings outside the active profile (never affects the exit code).
+  void _writeAdvisory(GateResult result, RuleProfile profile) {
+    if (result.advisoryCount == 0) return;
+    final n = result.advisoryCount;
+    _noteSink(format).writeln(
+      'loam gate: $n Hinweis${n == 1 ? '' : 'e'} aus Rules außerhalb des '
+      'Profils ${profile.name} (nicht blockierend; '
+      '`--profile strict` lässt sie blocken).',
+    );
   }
 
   Future<int> _runAbsolute(
@@ -565,24 +1009,33 @@ class _GateCommand extends LoamCommand {
     Reporter reporter,
     LoamConfig config,
     ProgressSink progressSink,
+    Set<String>? changedFiles,
+    RuleProfile profile,
   ) async {
-    final findings = await AnalysisRunner(
+    final outcome = await AnalysisRunner(
       config: config,
       progressSink: progressSink,
-    ).run(projectRoot);
+      analyzerCacheDirectory: _analyzerCacheFor(projectRoot, config),
+    ).analyze(projectRoot);
+    var findings = outcome.findings;
+    if (changedFiles != null) {
+      findings = filterFindingsToFiles(findings, changedFiles);
+    }
     final result = const GateEngine().evaluate(
       mode: GateMode.absolute,
       findings: findings,
+      profile: profile,
     );
 
     // Render findings via reporter (pure display — does not influence exit code).
-    if (findings.isNotEmpty) {
+    if (findings.isNotEmpty || _isDocumentFormat(format)) {
       final payload = ReportPayload(
         findings: findings,
         projectRoot: projectRoot,
         rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        maxFindings: maxFindings,
         sourceDirs: config.sourceDirs,
         recommendations: const RecommendationEngine().recommend(findings),
       );
@@ -595,12 +1048,19 @@ class _GateCommand extends LoamCommand {
       );
     }
 
-    // Gate-summary line comes exclusively from GateEngine (Invariant 4).
+    // Gate-summary line comes exclusively from GateEngine (pure renderer, ADR 0001).
     final count = result.newCount;
-    stdout.writeln(
+    _noteSink(format).writeln(
       'loam gate --absolute: $count finding${count == 1 ? '' : 's'} '
       '— ${result.passed ? 'grün' : 'rot'}.',
     );
+    _writeAdvisory(result, profile);
+
+    // Suppression audit: per-rule counts and directive warnings on stderr —
+    // visible in CI logs, never part of the gate decision (warn, don't abort).
+    for (final line in outcome.suppressionAudit.toSummaryLines()) {
+      stderr.writeln('loam gate: $line');
+    }
 
     return result.exitCode;
   }
@@ -610,6 +1070,9 @@ class _GateCommand extends LoamCommand {
     Reporter reporter,
     LoamConfig config,
     ProgressSink progressSink,
+    Set<String>? changedFiles,
+    RuleProfile profile,
+    bool strictBaseline,
   ) async {
     final engine = BaselineEngine(projectRoot: projectRoot);
 
@@ -623,12 +1086,13 @@ class _GateCommand extends LoamCommand {
         'Hint: run `loam baseline --write` first, '
         'or use `loam gate --absolute` for a threshold-based check.',
       );
-      return 1;
+      return 66; // EX_NOINPUT: not a red gate, the gate could not run.
     }
 
     // AC4: rulesetVersion mismatch → warning on stderr, diff continues normally.
     final currentVersion = AnalysisRunner.rulesetVersionForConfig(config);
-    if (baseline.rulesetVersion != currentVersion) {
+    final rulesetChanged = baseline.rulesetVersion != currentVersion;
+    if (rulesetChanged) {
       stderr.writeln(
         'loam gate: warning — baseline rulesetVersion '
         '(${baseline.rulesetVersion}) differs from current '
@@ -637,26 +1101,47 @@ class _GateCommand extends LoamCommand {
       );
     }
 
-    final findings = await AnalysisRunner(
+    if (baseline.isLegacyScheme) {
+      stderr.writeln(
+        'loam gate: note — baseline.json uses the legacy fingerprint scheme; '
+        'findings are matched transitionally by rule, file and message. '
+        'Run `loam baseline --update` once to upgrade it.',
+      );
+    }
+
+    final outcome = await AnalysisRunner(
       config: config,
       progressSink: progressSink,
-    ).run(projectRoot);
-    final diff = engine.diff(findings, baseline);
+      analyzerCacheDirectory: _analyzerCacheFor(projectRoot, config),
+    ).analyze(projectRoot);
+    var findings = outcome.findings;
+    // Diff against the baseline over the whole project, then narrow both the
+    // diff and the rendered findings to the selected files (see
+    // scopeDiffToFiles for why the order matters).
+    var diff = engine.diff(findings, baseline);
+    if (changedFiles != null) {
+      diff = scopeDiffToFiles(diff, changedFiles);
+      findings = filterFindingsToFiles(findings, changedFiles);
+    }
     final result = const GateEngine().evaluate(
       mode: GateMode.ratchet,
       diff: diff,
+      profile: profile,
+      strictStale: strictBaseline,
     );
 
     // Render current findings (all of them: new + kept) via reporter.
     // The reporter shows what is there now — gate-decision stays in GateEngine.
     // Only render when there are findings to show (avoids empty output noise).
-    if (findings.isNotEmpty) {
+    if (findings.isNotEmpty || _isDocumentFormat(format)) {
       final payload = ReportPayload(
         findings: findings,
         projectRoot: projectRoot,
         rulesetVersion: AnalysisRunner.rulesetVersionForConfig(config),
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        maxFindings: maxFindings,
+        baselineDiff: diff,
         sourceDirs: config.sourceDirs,
         recommendations: const RecommendationEngine().recommend(findings),
       );
@@ -671,13 +1156,47 @@ class _GateCommand extends LoamCommand {
 
     // AC3: Terse summary line to stdout (neu/eingefroren/gefixt).
     // This line comes exclusively from GateEngine — reporter has no influence
-    // on the gate decision or exit code (Invariant 4).
-    stdout.writeln(
+    // on the gate decision or exit code (pure renderer, ADR 0001).
+    // A red gate after a ruleset change is explained, not left unexplained:
+    // the new findings may come from added rules (e.g. after a loam update).
+    if (rulesetChanged && !result.passed) {
+      stderr.writeln(
+        'loam gate: the ruleset differs from the baseline, so new findings '
+        'may come from changed rules (for example after a loam update), not '
+        'from your code. Review them, then run `loam baseline --update`.',
+      );
+    }
+
+    _noteSink(format).writeln(
       'loam gate: ${result.newCount} neu, '
       '${result.keptCount} eingefroren, '
       '${result.fixedCount} gefixt '
       '— ${result.passed ? 'grün' : 'rot'}.',
     );
+    _writeAdvisory(result, profile);
+
+    // Stale baseline entries (the "gefixt" count): name them per rule so a fix
+    // cannot slip back in unnoticed. With --changed/--staged/--since only the
+    // selected files count; `baseline --prune` is always project-wide.
+    final stale = diff.staleByRule;
+    if (stale.isNotEmpty) {
+      final perRule = stale.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join(', ');
+      final n = result.fixedCount;
+      stderr.writeln(
+        'loam gate: $n stale baseline entr${n == 1 ? 'y' : 'ies'} '
+        '($perRule) — no longer occurring; remove with '
+        '`loam baseline --prune`.'
+        '${strictBaseline ? ' Strict baseline: the gate is red.' : ''}',
+      );
+    }
+
+    // Suppression audit: per-rule counts and directive warnings on stderr —
+    // visible in CI logs, never part of the gate decision (warn, don't abort).
+    for (final line in outcome.suppressionAudit.toSummaryLines()) {
+      stderr.writeln('loam gate: $line');
+    }
 
     return result.exitCode;
   }
@@ -691,7 +1210,7 @@ class _GateCommand extends LoamCommand {
 ///
 /// Exit code `1` when any slop findings are present; `0` when clean.
 /// The reporter is a pure renderer — it has no influence on the exit code
-/// (Invariant 4).
+/// (ADR 0001).
 class _SlopCommand extends LoamCommand {
   _SlopCommand() {
     argParser.addOption(
@@ -750,6 +1269,7 @@ class _SlopCommand extends LoamCommand {
       config: config,
       categoryFilter: RuleCategory.slop,
       progressSink: progressSink,
+      analyzerCacheDirectory: _analyzerCacheFor(projectRoot, config),
     ).analyze(projectRoot);
 
     // Diagnostic line for human-readable output.
@@ -766,6 +1286,7 @@ class _SlopCommand extends LoamCommand {
       ),
       toolVersion: loamVersion,
       isTty: stdout.hasTerminal,
+      maxFindings: maxFindings,
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
       sourceDirs: config.sourceDirs,
@@ -793,7 +1314,7 @@ class _SlopCommand extends LoamCommand {
 ///
 /// Exit code `1` when any accessibility findings are present; `0` when clean.
 /// The reporter is a pure renderer — it has no influence on the exit code
-/// (Invariant 4).
+/// (ADR 0001).
 class _A11yCommand extends LoamCommand {
   _A11yCommand() {
     argParser.addOption(
@@ -854,6 +1375,7 @@ class _A11yCommand extends LoamCommand {
       config: config,
       categoryFilter: RuleCategory.accessibility,
       progressSink: progressSink,
+      analyzerCacheDirectory: _analyzerCacheFor(projectRoot, config),
     ).analyze(projectRoot);
 
     // Diagnostic line for human-readable output: identifies this as an
@@ -871,6 +1393,7 @@ class _A11yCommand extends LoamCommand {
       ),
       toolVersion: loamVersion,
       isTty: stdout.hasTerminal,
+      maxFindings: maxFindings,
       suppressedCount: outcome.suppressedCount,
       stats: outcome.stats,
       sourceDirs: config.sourceDirs,
@@ -913,7 +1436,8 @@ class _InitCommand extends LoamCommand {
   String get invocation => 'loam init [path] [options]';
   @override
   final String description =
-      'Scaffold a loam.yaml configuration file in the current project.\n\n'
+      'Scaffold a loam.yaml configuration file in the current project, '
+      'including the architecture layers and boundaries detected from lib/.\n\n'
       '[path] — optional positional path to the project root '
       '(defaults to the current directory). '
       '-p/--project-root overrides [path] when both are given.';
@@ -938,9 +1462,27 @@ class _InitCommand extends LoamCommand {
       return 1;
     }
 
-    final content = ConfigScaffold.generate();
+    final architecture = LayerDetector.detect(projectRoot);
+    final content = ConfigScaffold.generate(architecture: architecture);
+    try {
+      // Exclusive create: a config written in the meantime is never replaced.
+      target.createSync(exclusive: true);
+    } on FileSystemException {
+      stderr.writeln(
+        'loam init: ${ConfigLoader.fileName} already exists in $projectRoot — '
+        'not overwriting.',
+      );
+      return 1;
+    }
     target.writeAsStringSync(content);
     stdout.writeln('loam init: wrote ${ConfigLoader.fileName} to $projectRoot');
+    if (!architecture.isEmpty) {
+      stdout.writeln(
+        'loam init: detected layers (${architecture.layers.keys.join(', ')}) '
+        '- written to layers:/boundaries: in ${ConfigLoader.fileName}; '
+        'edit or delete them there.',
+      );
+    }
     return 0;
   }
 }
@@ -980,6 +1522,14 @@ class _BaselineCommand extends LoamCommand {
             'Refresh an existing baseline with the current findings. '
             'Warns if no baseline.json exists yet (use --write to create one).',
       )
+      ..addFlag(
+        'prune',
+        negatable: false,
+        help:
+            'Remove stale entries (findings that no longer occur) from '
+            'baseline.json without taking in anything new. Always '
+            'project-wide.',
+      )
       ..addOption(
         'project-root',
         abbr: 'p',
@@ -997,7 +1547,7 @@ class _BaselineCommand extends LoamCommand {
   String get invocation => 'loam baseline [path] [options]';
   @override
   final String description =
-      'Show or freeze the baseline (--write / --update) for the ratchet gate.\n\n'
+      'Show, freeze (--write / --update) or prune (--prune) the baseline for the ratchet gate.\n\n'
       '[path] — optional positional path to the project root '
       '(defaults to the current directory). '
       '-p/--project-root overrides [path] when both are given.';
@@ -1006,6 +1556,13 @@ class _BaselineCommand extends LoamCommand {
   Future<int> run() async {
     final write = argResults?.flag('write') ?? false;
     final update = argResults?.flag('update') ?? false;
+    final prune = argResults?.flag('prune') ?? false;
+    if (prune && (write || update)) {
+      stderr.writeln(
+        'loam baseline: --prune cannot be combined with --write or --update.',
+      );
+      return 64; // EX_USAGE
+    }
 
     // Resolve project root via shared resolver (positional or --project-root).
     final rootResult = TargetRootResolver.resolve(argResults);
@@ -1025,7 +1582,9 @@ class _BaselineCommand extends LoamCommand {
     // straight from disk and needs no progress sink.
     final progressSink = resolveProgress().sink;
 
-    if (write) {
+    if (prune) {
+      return _runPrune(engine, projectRoot, config, progressSink);
+    } else if (write) {
       return _runWrite(engine, projectRoot, config, progressSink);
     } else if (update) {
       return _runUpdate(engine, projectRoot, config, progressSink);
@@ -1060,6 +1619,7 @@ class _BaselineCommand extends LoamCommand {
     final findings = await AnalysisRunner(
       config: config,
       progressSink: progressSink,
+      analyzerCacheDirectory: _analyzerCacheFor(projectRoot, config),
     ).run(projectRoot);
     final version = AnalysisRunner.rulesetVersionForConfig(config);
     engine.write(findings, version);
@@ -1086,6 +1646,7 @@ class _BaselineCommand extends LoamCommand {
     final findings = await AnalysisRunner(
       config: config,
       progressSink: progressSink,
+      analyzerCacheDirectory: _analyzerCacheFor(projectRoot, config),
     ).run(projectRoot);
     final version = AnalysisRunner.rulesetVersionForConfig(config);
     engine.write(findings, version);
@@ -1093,6 +1654,45 @@ class _BaselineCommand extends LoamCommand {
     stdout.writeln(
       'loam baseline: updated to $count finding${count == 1 ? '' : 's'} '
       'in baseline.json ($version).',
+    );
+    return 0;
+  }
+
+  /// Removes baseline entries that no longer occur. Never adds anything; the
+  /// ruleset version in the file stays as it was.
+  Future<int> _runPrune(
+    BaselineEngine engine,
+    String projectRoot,
+    LoamConfig config,
+    ProgressSink progressSink,
+  ) async {
+    final Baseline baseline;
+    try {
+      baseline = engine.read();
+    } on BaselineException catch (e) {
+      stderr.writeln('loam baseline: ${e.message}');
+      return 66; // EX_NOINPUT, as in `loam gate`.
+    }
+    final findings = await AnalysisRunner(
+      config: config,
+      progressSink: progressSink,
+    ).run(projectRoot);
+    final diff = engine.diff(findings, baseline);
+    final removed = engine.prune(baseline, diff.fixedFindings);
+    if (removed == 0) {
+      stdout.writeln(
+        'loam baseline: no stale entries — baseline.json unchanged.',
+      );
+      return 0;
+    }
+    final perRule = diff.staleByRule.entries
+        .map((e) => '${e.key}: ${e.value}')
+        .join(', ');
+    final left = baseline.findings.length - removed;
+    stdout.writeln(
+      'loam baseline: pruned $removed stale '
+      'entr${removed == 1 ? 'y' : 'ies'} ($perRule); '
+      '$left remain in baseline.json.',
     );
     return 0;
   }
@@ -1139,12 +1739,13 @@ class _BaselineCommand extends LoamCommand {
         rulesetVersion: baseline.rulesetVersion,
         toolVersion: loamVersion,
         isTty: stdout.hasTerminal,
+        maxFindings: maxFindings,
         recommendations: const RecommendationEngine().recommend(mappedFindings),
       );
 
       // Emit baseline header so the user knows this is the frozen state.
       final count = baseline.findings.length;
-      stdout.writeln(
+      _noteSink(format).writeln(
         'loam baseline: $count finding${count == 1 ? '' : 's'} '
         '(${baseline.rulesetVersion}, schemaVersion=${baseline.schemaVersion})',
       );
@@ -1174,9 +1775,43 @@ class _BaselineCommand extends LoamCommand {
 // interactively — opened in the default browser. A non-HTML format also writes
 // to a file when --output is given.
 //
-// The reporter stays a pure renderer (Invariant 4 / reporter.dart); all I/O
+// The reporter stays a pure renderer (ADR 0001 / reporter.dart); all I/O
 // lives here in the CLI layer.
 // ---------------------------------------------------------------------------
+
+/// Resolves `--staged` / `--since` / `--changed` for [projectRoot].
+///
+/// `files` is `null` when no flag was given (whole project); `error` carries
+/// the message for exit 64 (no repository, unknown ref, conflicting flags).
+Future<({Set<String>? files, String? error})> _resolveChangedScope(
+  ArgResults? results,
+  String projectRoot,
+) async {
+  try {
+    final selection = changedSelectionFrom(results);
+    if (selection == null) return (files: null, error: null);
+    final files = await const ChangedFilesResolver().resolve(
+      p.normalize(p.absolute(projectRoot)),
+      selection,
+    );
+    return (files: files, error: null);
+  } on ChangedFilesException catch (e) {
+    return (files: null, error: 'loam: $e');
+  }
+}
+
+String _changedScopeNote(String command, int fileCount) =>
+    'loam $command: analysis is project-wide; reporting only the '
+    '$fileCount changed file${fileCount == 1 ? '' : 's'}.';
+
+/// Formats whose stdout is one parseable document (JSON, SARIF). Free text
+/// next to it would break the parse, so notes go to stderr (see [_noteSink]).
+bool _isDocumentFormat(String format) => format == 'json' || format == 'sarif';
+
+/// Where summary lines and hints go: stdout for the human/HTML runs, stderr
+/// for every other format so stdout carries nothing but the report.
+IOSink _noteSink(String format) =>
+    format == 'human' || format == 'html' ? stdout : stderr;
 
 Future<void> _emitReport({
   required String rendered,
@@ -1209,7 +1844,7 @@ Future<void> _emitReport({
   }
 
   stdout.writeln(
-    'loam $commandName: HTML-Report → $absPath'
+    'loam $commandName: ${isHtml ? 'HTML-Report' : 'Report'} → $absPath'
     '${opened ? ' (im Browser geöffnet)' : ''}',
   );
 }
@@ -1259,11 +1894,33 @@ String _formatStackDiagnostic(StackProfile profile) {
 // ---------------------------------------------------------------------------
 
 Future<LoamConfig> _loadConfig(String projectRoot) async {
-  return ConfigLoader.load(
+  final config = await ConfigLoader.load(
     projectRoot,
     knownRuleIds: AnalysisRunner.fullRegistryIds.toSet(),
   );
+  _lastLoadedConfig ??= config;
+  return config;
 }
+
+/// Set from the global `--no-cache` flag at the start of every [run].
+bool _noCacheFlag = false;
+
+/// Where the analyzer keeps its summary store for [projectRoot]
+/// (`.dart_tool/loam/analyzer/`), or `null` when caching is off for this run
+/// (`--no-cache`) or for the project (`cache: false`).
+String? _analyzerCacheFor(String projectRoot, LoamConfig config) =>
+    _noCacheFlag || !config.cache
+    ? null
+    : p.join(
+        p.normalize(p.absolute(projectRoot)),
+        '.dart_tool',
+        'loam',
+        'analyzer',
+      );
+
+/// The first config a command loaded in this run (the analysed project's), so
+/// the update decision honours that project's pin. `null` until loaded.
+LoamConfig? _lastLoadedConfig;
 
 // ---------------------------------------------------------------------------
 // Health-command terminal renderer.

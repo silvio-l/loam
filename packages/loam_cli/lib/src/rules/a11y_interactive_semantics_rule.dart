@@ -1,13 +1,15 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import '../model/anchor.dart';
 import '../model/finding.dart';
 import '../model/fingerprint.dart';
+import '../model/project_path.dart';
 import 'generated_file.dart';
 import 'rule.dart';
+import 'wrapper_semantics.dart';
 
 /// Detects interactive custom widgets without an accessible name (WCAG 4.1.2).
 ///
@@ -54,6 +56,26 @@ import 'rule.dart';
 /// value can't be evaluated statically (conservative by design, matching the
 /// callback-arg check above).
 ///
+/// **Project-defined wrappers (`wrapper_semantics.dart`):**
+/// For a widget class defined in the analysed project with a `build` method
+/// (or a `createState` returning a `State` with one), the rule reads the class
+/// via the element model instead of trusting the call site's argument names.
+/// A name reaching `Semantics(label:)`, `Tooltip`, a `label`/`semanticLabel`/
+/// `tooltip` argument of a Flutter widget, a Flutter `Text` inside an
+/// interactive element of the wrapper (a `Text` beside an unnamed icon button
+/// names nothing) or another project wrapper (followed up to four levels, each
+/// class analysed once) is a sink. A wrapper whose sink is independent of
+/// its fields labels itself, so call sites need nothing; a sink fed by
+/// fields requires the call site to pass the matching constructor argument
+/// non-empty (any parameter name). A wrapper that never routes a name to a
+/// sink (swallows its `label`) is reported once, at its class declaration,
+/// instead of at every call site (a wrapper that only forwards to such a
+/// wrapper is not reported again; wrappers that build each other are
+/// reported once, at the one with the smallest class key); a call that omits the name of a wrapper
+/// that does route one is still reported at the call site. Fields handed to
+/// helper methods or unanalysable widgets make the analysis inconclusive and
+/// fall back to the call-site check below.
+///
 /// **What AST detection does NOT catch (documented limitations):**
 /// - Widgets that become interactive at runtime via inherited callbacks
 ///   (e.g. via `InheritedWidget` or `Provider`).
@@ -77,10 +99,15 @@ import 'rule.dart';
 /// are skipped entirely.
 ///
 /// **Fingerprint semantics:**
-/// `computeFingerprint(ruleId, relativePath,
-///   enclosingMemberName + ':' + widgetName + ':' + occurrenceIndex)` —
-/// robust against line/column shifts; stable as long as the enclosing
-/// function/method name and the occurrence order within it don't change.
+/// `computeFingerprint(ruleId, relativePath, anchor)` with the anchor
+/// `enclosingMemberName:widgetName:contentHash:n` — `contentHash` covers the
+/// widget's normalised tokens (closure bodies collapsed, comments and
+/// formatting ignored) and `n` counts only earlier identical widgets in the
+/// same member. Inserting code or comments elsewhere, line shifts and
+/// re-formatting leave it unchanged.
+///
+/// A swallowing wrapper reported at its definition uses the anchor
+/// `wrapper:ClassName`, independent of the number of call sites.
 ///
 /// **Finding contract:**
 /// - `severity`: [Severity.warning]
@@ -113,26 +140,112 @@ class A11yInteractiveSemanticsRule implements Rule {
   RuleCategory get category => RuleCategory.accessibility;
 
   @override
-  // loam-ignore: code-duplicates – per-rule boilerplate shared with sibling a11y rules; extracting to a shared base class would add coupling without clarity gain.
+  // Per-rule boilerplate shared with sibling a11y rules; extracting to a shared base class would add coupling without clarity gain.
   List<Finding> run(ProjectLoadResult result) {
     final findings = <Finding>[];
+    // One index and one analysis cache per run, shared by all files.
+    final wrappers = WrapperSemantics(result);
+    // Swallowing wrappers seen at interactive call sites, by class key.
+    final swallowers = <String, WrapperDefinition>{};
 
     for (final file in result.resolved) {
       // Skip generated files — *.g.dart, *.freezed.dart, *.mocks.dart, gen-l10n.
       if (isGeneratedDartFile(file.path)) continue;
 
-      final relativePath = p.relative(file.path, from: projectRoot);
+      final relativePath = projectRelativePosixPath(file.path, projectRoot);
 
       final visitor = _InteractiveSemanticsVisitor(
         ruleId: ruleId,
         projectRoot: projectRoot,
         relativePath: relativePath,
         findings: findings,
+        wrappers: wrappers,
+        swallowers: swallowers,
       );
       file.result.unit.accept(visitor);
     }
 
+    _reportSwallowers(wrappers, swallowers, findings);
     return findings;
+  }
+}
+
+extension on A11yInteractiveSemanticsRule {
+  /// Emits one finding per swallowing wrapper, at its class declaration.
+  ///
+  /// A wrapper that only forwards to another swallowing wrapper is skipped:
+  /// the fix belongs to the wrapper that actually drops the name. Wrappers
+  /// that build each other (a cycle with no way out) are reported once, at the
+  /// one with the smallest class key.
+  void _reportSwallowers(
+    WrapperSemantics wrappers,
+    Map<String, WrapperDefinition> swallowers,
+    List<Finding> findings,
+  ) {
+    final keys = swallowers.keys.toSet();
+    final ordered = swallowers.values.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    // Direct "builds" edges between the swallowers, then their closure, so
+    // wrappers that build each other are recognised as one cycle.
+    final reach = <String, Set<String>>{
+      for (final k in keys)
+        k: {
+          for (final j in keys)
+            if (j != k && wrappers.constructsAnyOf(k, {j})) j,
+        },
+    };
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (final from in reach.values) {
+        for (final via in from.toList()) {
+          final before = from.length;
+          from.addAll(reach[via]!);
+          if (from.length != before) changed = true;
+        }
+      }
+    }
+    for (final def in ordered) {
+      final builds = reach[def.key]!;
+      // Forwarding to a swallower outside its own cycle: that one is reported.
+      if (builds.any((j) => !reach[j]!.contains(def.key))) continue;
+      // Mutually building swallowers: one deterministic representative
+      // (smallest key) speaks for the whole cycle.
+      final cycle = builds.where((j) => reach[j]!.contains(def.key));
+      if (cycle.any((j) => j.compareTo(def.key) < 0)) continue;
+      final relativePath = projectRelativePosixPath(def.filePath, projectRoot);
+      final unit = def.declaration.root;
+      final lineInfo = unit is CompilationUnit ? unit.lineInfo : null;
+      final location = lineInfo?.getLocation(
+        def.declaration.namePart.typeName.offset,
+      );
+      findings.add(
+        Finding(
+          ruleId: ruleId,
+          severity: Severity.warning,
+          filePath: relativePath,
+          line: location?.lineNumber ?? 1,
+          column: location?.columnNumber,
+          message:
+              '${def.name} is interactive but never routes a name to '
+              'Semantics(label: …), a Tooltip or a Text inside its tapped '
+              'area — its callers cannot label it, so screen readers have '
+              'no accessible name for it (WCAG 4.1.2 Name, Role, Value)',
+          fingerprint: computeFingerprint(
+            ruleId: ruleId,
+            relativePath: relativePath,
+            semanticAnchor: 'wrapper:${def.name}',
+          ),
+          kind: 'missing-accessible-name',
+          remedy:
+              'Give ${def.name} an accessible name: take a label parameter '
+              'and pass it to Semantics(label: …), Tooltip(message: …) or a '
+              'Text inside the tapped area. Fixing it here fixes every call '
+              'site.',
+          wcagRef: WcagRef.wcag412,
+        ),
+      );
+    }
   }
 }
 
@@ -143,18 +256,18 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
     required this.projectRoot,
     required this.relativePath,
     required this.findings,
+    required this.wrappers,
+    required this.swallowers,
   });
 
+  final WrapperSemantics wrappers;
+  final Map<String, WrapperDefinition> swallowers;
   final String ruleId;
   final String projectRoot;
   final String relativePath;
   final List<Finding> findings;
 
-  /// Occurrence counter keyed by `enclosingMemberName:widgetName`.
-  ///
-  /// Ensures that multiple flagged widgets of the same type within the same
-  /// enclosing member get distinct, deterministic fingerprints.
-  final Map<String, int> _occurrenceCount = {};
+  final AnchorCounter _anchors = AnchorCounter();
 
   /// Callback argument names that indicate an interactive widget.
   static const _callbackArgs = {'onTap', 'onPressed', 'onLongPress'};
@@ -187,7 +300,23 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
     // Suppressed by a Semantics(label: …) ancestor?
     if (_isWrappedInSemanticsLabel(node)) return;
 
-    // Suppressed by the call site's own label/semanticLabel/tooltip argument?
+    // Project-defined wrapper: judge by what its source does with the name.
+    switch (wrappers.coverage(node)) {
+      case WrapperNameCoverage.provided:
+        return;
+      case WrapperNameCoverage.missing:
+        _addFinding(node, widgetName: classEl.name ?? '<unknown>');
+        return;
+      case WrapperNameCoverage.swallowed:
+        // Reported once at the definition, not at each call site.
+        final def = wrappers.definitionOf(node);
+        if (def != null) swallowers.putIfAbsent(def.key, () => def);
+        return;
+      case WrapperNameCoverage.unknown:
+        break;
+    }
+
+    // Not analysable: the call site's own label/semanticLabel/tooltip argument.
     if (_hasAccessibleNameProperty(node)) return;
 
     _addFinding(node, widgetName: classEl.name ?? '<unknown>');
@@ -243,7 +372,7 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
   /// Walks the parent chain (any depth) looking for an
   /// [InstanceCreationExpression] whose class is Flutter's `Semantics` and
   /// that has a `label:` argument.
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
+  // Identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
   bool _isWrappedInSemanticsLabel(AstNode node) {
     AstNode? current = node.parent;
     while (current != null) {
@@ -277,44 +406,18 @@ class _InteractiveSemanticsVisitor extends RecursiveAstVisitor<void> {
     );
   }
 
-  /// Returns the qualified name of the enclosing function or method.
-  ///
-  /// Used as part of the semantic anchor for fingerprint stability. Walks the
-  /// parent chain and returns the first `MethodDeclaration` or
-  /// `FunctionDeclaration` name it finds. Returns `'<unknown>'` when no
-  /// enclosing member is found (e.g. initializer in a top-level variable).
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
-  String _enclosingMemberName(AstNode node) {
-    AstNode? current = node.parent;
-    while (current != null) {
-      if (current is MethodDeclaration) {
-        final className =
-            (current.parent is ClassDeclaration
-                ? (current.parent as ClassDeclaration).namePart.typeName.lexeme
-                : null) ??
-            '';
-        final method = current.name.lexeme;
-        return className.isEmpty ? method : '$className.$method';
-      }
-      if (current is FunctionDeclaration) {
-        return current.name.lexeme;
-      }
-      current = current.parent;
-    }
-    return '<unknown>';
-  }
-
   /// Emits a finding for [node] with [widgetName].
   void _addFinding(
     InstanceCreationExpression node, {
     required String widgetName,
   }) {
-    final enclosingName = _enclosingMemberName(node);
-    final counterKey = '$enclosingName:$widgetName';
-    final idx = _occurrenceCount[counterKey] ?? 0;
-    _occurrenceCount[counterKey] = idx + 1;
-
-    final anchor = '$enclosingName:$widgetName:$idx';
+    final enclosingName = enclosingMemberName(node);
+    // Scope + node content (closure bodies collapsed); the counter only
+    // separates true duplicates, so insertions elsewhere never shift it.
+    final anchor = _anchors.next(
+      '$enclosingName:$widgetName',
+      normalizedSource(node),
+    );
     final fingerprint = computeFingerprint(
       ruleId: ruleId,
       relativePath: relativePath,

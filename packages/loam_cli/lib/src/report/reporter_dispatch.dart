@@ -1,3 +1,4 @@
+import 'agent_reporter.dart';
 import 'html_reporter.dart';
 import 'human_reporter.dart';
 import 'json_reporter.dart';
@@ -19,7 +20,7 @@ class FormatNotImplementedError extends Error {
   @override
   String toString() =>
       'loam: output format "$format" is not yet implemented. '
-      'Available formats: human, sarif, json, markdown, html.';
+      'Available formats: human, sarif, json, markdown, html, agent.';
 }
 
 /// Returns the [Reporter] for [format].
@@ -29,6 +30,7 @@ class FormatNotImplementedError extends Error {
 /// - `'json'`     → [JsonReporter]
 /// - `'markdown'` → [MarkdownReporter]
 /// - `'html'`     → [HtmlReporter]
+/// - `'agent'`    → [AgentReporter]
 ///
 /// The calling command is responsible for catching [FormatNotImplementedError]
 /// and converting it to a clean user-facing message (exit code 64).
@@ -39,6 +41,7 @@ Reporter reporterFor(String format) {
     'json' => const JsonReporter(),
     'markdown' => const MarkdownReporter(),
     'html' => const HtmlReporter(),
+    'agent' => const AgentReporter(),
     _ => throw ArgumentError.value(format, 'format', 'Unknown output format.'),
   };
 }

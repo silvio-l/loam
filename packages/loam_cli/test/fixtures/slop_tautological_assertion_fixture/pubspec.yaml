@@ -1,0 +1,10 @@
+name: slop_tautological_assertion_fixture
+description: "Test fixture for SlopTautologicalAssertionRule tests."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  test: any

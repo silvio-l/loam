@@ -9,7 +9,12 @@ import 'package:loam/src/rules/unused_public_exports_rule.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fixture_packages.dart';
+import '../support/shared_store.dart';
+
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -23,6 +28,7 @@ void main() {
 
   setUpAll(() async {
     final loader = ProjectLoader();
+    await ensureFixtureResolved(fixturePath);
     loadResult = await loader.load(fixturePath);
     expect(loadResult.errors, isEmpty, reason: 'Fixture must load cleanly');
   });
@@ -953,6 +959,19 @@ void main() {
     });
   });
 
+  group('dynamically invoked members', () {
+    test('toJson and call are not reported, a plain unused method is', () {
+      final names = makeRule()
+          .run(loadResult)
+          .where((f) => f.filePath.endsWith('dynamic_members.dart'))
+          .map((f) => f.message)
+          .join('\n');
+      expect(names, contains('`unusedDynamicControl`'));
+      expect(names, isNot(contains('`toJson`')));
+      expect(names, isNot(contains('`call`')));
+    });
+  });
+
   group('member-name collision (semantic resolution)', () {
     test(
       'calling fatal() on one type does not suppress the unused fatal() on another',
@@ -1023,6 +1042,7 @@ void main() {
 
     setUpAll(() async {
       final loader = ProjectLoader();
+      await ensureFixtureResolved(publishableFixturePath);
       publishableResult = await loader.load(publishableFixturePath);
       expect(
         publishableResult.errors,
@@ -1084,6 +1104,7 @@ void main() {
 
     setUpAll(() async {
       final loader = ProjectLoader();
+      await ensureFixtureResolved(appFixturePath);
       appResult = await loader.load(appFixturePath);
       expect(
         appResult.errors,

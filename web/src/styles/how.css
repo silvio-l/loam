@@ -1,0 +1,93 @@
+/* How-it-works scenes (EN + DE share this file). Tokens: Layout.astro + site.css.
+   Order: page head → pipeline (sticky stage index + six stages) → live demo
+   report → scan vs. gate → semantics over syntax → try it. Everything is
+   readable without motion; scroll-driven layers only stage it.            */
+
+.page-head__grid { display: grid; gap: var(--s-5); }
+.how-head .display { max-width: 12ch; }
+.page-head__lead { color: var(--dim); max-width: 58ch; }
+@media (min-width: 1100px) {
+  .how-head .page-head__grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: var(--col-gap); }
+  .how-head .page-head__grid > .label, .how-head .display { grid-column: 1; }
+  .how-head .page-head__lead { grid-column: 2; grid-row: 2; align-self: end; padding-bottom: .6em; }
+}
+
+/* ── Pipeline ──────────────────────────────────────────────────────────── */
+.how-pipe__grid { display: grid; gap: var(--s-7) var(--col-gap); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1000px) {
+  .how-pipe__grid { grid-template-columns: minmax(16rem, 4fr) minmax(0, 8fr); align-items: start; }
+  .how-pipe__aside { position: sticky; top: calc(var(--header-h) + var(--s-6)); }
+}
+.how-pipe__aside { display: grid; gap: var(--s-4); align-content: start; }
+.how-pipe__index ol { list-style: none; margin: var(--s-4) 0 0; padding: 0; display: grid; gap: .15rem; }
+.how-pipe__index a { display: flex; align-items: baseline; gap: .9rem; padding: .5rem 0; min-height: 2.75rem;
+  font: 500 1.05rem / 1.3 var(--font-display); color: var(--dim); text-decoration: none; border-bottom: 1px solid var(--line);
+  transition: color .18s; }
+.how-pipe__index a span { font: 500 .75rem / 1 var(--font-mono); color: var(--green); letter-spacing: .08em; }
+.how-pipe__index a:hover, .how-pipe__index a:focus-visible { color: var(--ink); }
+@media (max-width: 999px) { .how-pipe__index { display: none; } }
+
+/* The stages hang off one vertical rail, like core samples down a soil profile. */
+.stages { list-style: none; margin: 0; padding: 0 0 0 clamp(1.4rem, 1rem + 1.5vw, 2.5rem); position: relative;
+  display: grid; gap: clamp(.6rem, .4rem + .6vw, 1rem); counter-reset: none; }
+.stages::before { content: ""; position: absolute; left: .35rem; top: 1.6rem; bottom: 1.6rem; width: 2px;
+  background: linear-gradient(var(--green-a70), var(--soil)); border-radius: 2px; }
+.stage { position: relative; display: grid; gap: var(--s-3) var(--s-6); grid-template-columns: minmax(0, 1fr);
+  padding: clamp(1.4rem, 1rem + 1.6vw, 2.6rem) clamp(1.2rem, .8rem + 1.6vw, 2.6rem);
+  border-radius: clamp(14px, 1.6vw, 28px); scroll-margin-top: calc(var(--header-h) + var(--s-5));
+  background: linear-gradient(100deg, rgba(86, 79, 71, .34), rgba(86, 79, 71, .1) 75%); border: 1px solid var(--soil-a30); }
+.stage::before { content: ""; position: absolute; left: calc(-1 * clamp(1.4rem, 1rem + 1.5vw, 2.5rem) + .35rem - 5px); top: 2.1rem;
+  width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--green); }
+@media (min-width: 760px) { .stage { grid-template-columns: 4.5rem 11rem minmax(0, 1fr); align-items: baseline; } }
+.stage__num { font: 500 .8rem / 1 var(--font-mono); color: var(--green); letter-spacing: .1em; }
+.stage__name { font-size: clamp(1.4rem, 1.1rem + 1vw, 2.1rem); letter-spacing: -.02em; }
+.stage__text { color: #b9b6aa; max-width: var(--measure); text-wrap: pretty; }
+.stage__text strong { color: var(--ink); font-weight: 600; }
+
+/* ── Demo report (component) sits between pipeline and compare. ────────── */
+
+/* ── scan vs. gate ─────────────────────────────────────────────────────── */
+.how-compare__head { display: grid; gap: var(--s-4); margin-bottom: var(--s-7); }
+.how-compare__head .lead { color: var(--dim); }
+.compare { display: grid; gap: var(--col-gap); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.compare__item { display: grid; gap: var(--s-4); align-content: start; padding: clamp(1.5rem, 1rem + 2vw, 3rem);
+  border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--panel); }
+.compare__item--gate { border-color: var(--green-a40); background: linear-gradient(160deg, var(--green-a12), var(--panel) 60%); }
+.compare__item h3 code { font: 500 clamp(1.3rem, 1rem + 1.1vw, 2rem) / 1.1 var(--font-mono); color: var(--ink); background: none; padding: 0; }
+.compare__item .body-copy, .compare__item p.body-copy { color: var(--dim); }
+.how-compare__flow { margin-top: var(--s-7); color: var(--dim); max-width: var(--measure); }
+
+/* ── Semantics over syntax ─────────────────────────────────────────────── */
+.how-sem__grid { display: grid; gap: var(--s-7) var(--col-gap); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1000px) {
+  .how-sem__grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; }
+  .how-sem__head { position: sticky; top: calc(var(--header-h) + var(--s-6)); }
+}
+.how-sem__head { display: grid; gap: var(--s-4); }
+.how-sem__head .lead { color: var(--dim); }
+.how-sem__body p { color: var(--dim); }
+.how-sem__body p, .how-sem__body ul { max-width: var(--measure); }
+.how-sem__body > * + * { margin-top: var(--s-5); }
+.how-sem__list { list-style: none; padding: 0; display: grid; gap: 0; border-top: 1px solid var(--line); }
+.how-sem__list li { position: relative; padding: var(--s-4) 0 var(--s-4) 2rem; border-bottom: 1px solid var(--line); color: var(--ink); }
+.how-sem__list li::before { content: ""; position: absolute; left: .2rem; top: 1.45em; width: .7rem; height: 2px; background: var(--green); }
+
+/* ── Try it ────────────────────────────────────────────────────────────── */
+.how-try__grid { display: grid; gap: var(--s-6) var(--col-gap); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1000px) { .how-try__grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: end; } }
+.how-try__cmds { display: grid; gap: var(--s-3); min-width: 0; }
+.how-try__text { margin-top: var(--s-4); }
+.how-try__text { color: var(--dim); max-width: var(--measure); }
+
+/* ── Motion ────────────────────────────────────────────────────────────── */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* The rail fills as the stages scroll past. */
+    .stages { view-timeline: --stages block; }
+    .stages::before { transform-origin: 50% 0; animation: stages-fill linear both; animation-timeline: --stages;
+      animation-range: entry 30% exit 60%; }
+    .stage.rv { animation-range: entry 0% entry 55%; }
+  }
+}
+@keyframes stages-fill { from { transform: scaleY(0); } to { transform: none; } }

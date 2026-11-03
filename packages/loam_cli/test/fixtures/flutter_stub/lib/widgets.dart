@@ -87,10 +87,13 @@ class Image {
 /// interactive widgets ([GestureDetector], [InkWell]).
 class Icon {
   /// Creates an [Icon].
-  const Icon(this.icon);
+  const Icon(this.icon, {this.semanticLabel});
 
   /// The icon data (e.g. an `IconData` instance in real Flutter).
   final Object? icon;
+
+  /// Accessible name announced for the icon.
+  final String? semanticLabel;
 }
 
 /// Stub of Flutter's `IconButton` widget.
@@ -155,7 +158,16 @@ class InkWell {
 /// non-null [label] as a sufficient accessible-name source.
 class Semantics {
   /// Creates a [Semantics] widget.
-  const Semantics({this.label, this.button, this.child, this.onTap});
+  const Semantics({
+    this.label,
+    this.button,
+    this.child,
+    this.onTap,
+    this.excludeSemantics = false,
+  });
+
+  /// Whether the subtree is dropped from the semantics tree.
+  final bool excludeSemantics;
 
   /// A textual description of the widget subtree for accessibility.
   final String? label;
@@ -176,6 +188,18 @@ class Semantics {
   /// both an [onTap] and a [label] is NOT flagged by `a11y-interactive-semantics`
   /// (the widget IS the accessibility provider; flagging it would be circular).
   final void Function()? onTap;
+}
+
+/// Stub of Flutter's `ExcludeSemantics` widget.
+class ExcludeSemantics {
+  /// Creates an [ExcludeSemantics].
+  const ExcludeSemantics({this.excluding = true, this.child});
+
+  /// Whether the subtree is dropped from the semantics tree.
+  final bool excluding;
+
+  /// The widget below this widget in the tree.
+  final Object? child;
 }
 
 /// Stub of Flutter's `ElevatedButton` widget.
@@ -218,7 +242,10 @@ class TextButton {
 /// sufficient.
 class InputDecoration {
   /// Creates an [InputDecoration].
-  const InputDecoration({this.labelText, this.hintText});
+  const InputDecoration({this.labelText, this.hintText, this.label});
+
+  /// A widget (usually a `Text`) used as the field's label.
+  final Object? label;
 
   /// The primary label text shown floating above the input field.
   ///
@@ -257,4 +284,34 @@ class TextFormField {
 
   /// The visual decoration and label configuration for this field.
   final InputDecoration? decoration;
+}
+
+/// Stub of Flutter's `Text` widget (visible text is the accessible name).
+class Text {
+  /// Creates a [Text] widget.
+  const Text(this.data);
+
+  /// The text to display.
+  final String data;
+}
+
+/// Stub of Flutter's `Tooltip` widget.
+class Tooltip {
+  /// Creates a [Tooltip] widget.
+  const Tooltip({required this.message, this.child});
+
+  /// The text shown and announced for [child].
+  final String message;
+
+  /// The widget the tooltip describes.
+  final Object? child;
+}
+
+/// Stub of Flutter's `Row` widget (a plain, non-interactive container).
+class Row {
+  /// Creates a [Row].
+  const Row({this.children = const []});
+
+  /// The widgets laid out in the row.
+  final List<Object?> children;
 }

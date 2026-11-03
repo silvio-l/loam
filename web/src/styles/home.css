@@ -1,0 +1,282 @@
+/* Home page scenes (EN + DE share this file). Tokens: Layout.astro + site.css.
+   Scene order follows the copy journey: hero → problem → finds → how → proof →
+   FAQ → install. Every scene is complete and readable without motion; the
+   scroll-driven layers at the end of the file only stage it.              */
+
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+.hero { position: relative; padding-block: clamp(1.5rem, .5rem + 3vw, 4.5rem) 0; overflow: clip; }
+.hero::before { /* green ground-light behind the product view */
+  content: ""; position: absolute; inset: -20% -10% auto 35%; height: 120%; pointer-events: none;
+  background: radial-gradient(50% 45% at 55% 40%, rgba(136, 200, 64, .13), transparent 70%); }
+.hero__grid { position: relative; display: grid; gap: var(--s-7) var(--col-gap); grid-template-columns: minmax(0, 1fr);
+  align-items: center; }
+@media (min-width: 1100px) {
+  .hero__grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); min-height: calc(100svh - var(--header-h) - 9rem); }
+}
+@media (min-width: 2200px) { .hero__grid { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); } }
+.hero__copy { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-5); min-width: 0; }
+.hero__brand { display: flex; align-items: center; gap: clamp(.8rem, .5rem + 1vw, 1.4rem); }
+.hero__mark { width: clamp(3rem, 2.3rem + 2.6vw, 5.25rem); height: auto; overflow: visible; filter: drop-shadow(0 14px 40px rgba(136, 200, 64, .28)); }
+.hero__wordmark { height: clamp(1.35rem, 1rem + 1.2vw, 2.25rem); width: auto; }
+.hero__title { max-width: 16ch; }
+/* Landscape screens: cap the display size by height so the install command
+   stays above the fold (1440×900 and 375×812 are the reference viewports). */
+@media (min-width: 1100px) { .hero__title { max-width: none; font-size: min(var(--t-display), 6.1vw, 9svh + 1.5rem); } }
+/* The tool name sits in the brand mono, so the headline reads like the CLI it describes. */
+.hero__tool { font-family: var(--font-mono); font-weight: 500; font-size: .84em; letter-spacing: -.045em; white-space: nowrap; }
+.hero__lead { color: var(--dim); max-width: 50ch; }
+.hero__lead code { color: var(--ink); }
+.hero__install { display: grid; gap: var(--s-3); margin-top: var(--s-2); max-width: 100%; }
+.hero__install .cmd { font-size: clamp(.9rem, .82rem + .4vw, 1.15rem); padding-block: .6rem; }
+.hero__brew { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; }
+.mini-copy { font: 600 .66rem / 1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
+  background: transparent; border: 1px solid var(--line-strong); border-radius: 7px; padding: .45rem .55rem; min-height: 1.9rem; cursor: pointer;
+  transition: color .18s, border-color .18s; }
+.mini-copy:hover, .mini-copy:focus-visible, .mini-copy.ok { color: var(--green); border-color: var(--green-a70); }
+.hero__links { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem 1.3rem; margin-top: var(--s-2); font-size: var(--t-small); }
+.hero__links .link { padding-block: .35rem; }
+.sharelink { font: inherit; background: none; border: 0; cursor: pointer; }
+
+.hero__visual { position: relative; min-width: 0; margin: 0; }
+.term--hero { transform-origin: 70% 50%; }
+.term--hero .term__body { font-size: clamp(.72rem, .66rem + .3vw, .9rem); min-height: 20em; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (min-width: 1100px) {
+  .term--hero { transform: perspective(1600px) rotateY(-9deg) rotateX(3deg); }
+}
+.hero__caption { margin-top: var(--s-4); font: 400 .78rem / 1.55 var(--font-mono); color: var(--dim); max-width: 60ch; }
+.hero__caption code { font-size: 1em; }
+
+/* ── Problem: a file whose problems are marked one by one ─────────────────── */
+.problem { padding-top: calc(var(--section-y) * .75); border-top: 0 !important; }
+.problem__grid { display: grid; gap: var(--s-7) var(--col-gap); grid-template-columns: minmax(0, 1fr); align-items: center; }
+@media (min-width: 1000px) { .problem__grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } }
+.problem__text .h2 { margin-block: var(--s-4) var(--s-6); max-width: 13ch; }
+.problem__text .accent { display: block; }
+
+.codefile { margin: 0; background: #0b0c0f; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden;
+  box-shadow: 0 40px 120px rgba(0, 0, 0, .5); min-width: 0; }
+.codefile__bar { display: flex; align-items: center; gap: .6rem; padding: .7rem 1rem; border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #16181d, #111216); }
+.problem__count { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: .45rem; counter-reset: found var(--found, 4);
+  font: 600 .72rem / 1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--flag); }
+.problem__count::before { content: counter(found) " / 4"; color: var(--ink); }
+.codefile__name { font: 500 .74rem / 1 var(--font-mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.codefile__body { padding: 1rem 0; overflow-x: auto; font: 400 var(--t-code) / 1.75 var(--font-mono); color: #b9b6aa; }
+.codefile__body code { display: block; min-width: max-content; }
+.ln { position: relative; display: block; padding: 0 1.2rem 0 2.6rem; white-space: pre; }
+.flag { background: var(--flag-a14); box-shadow: inset 2px 0 0 var(--flag); color: var(--ink); }
+.flag__n { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%;
+  background: var(--flag); color: var(--bg); font: 700 .66rem / 1 var(--font-mono); }
+.ln .flag__n { position: absolute; left: .7rem; top: .22em; }
+.codefile__legend { border-top: 1px solid var(--line); padding: 1rem 1.2rem 1.2rem; }
+.codefile__legend ol { list-style: none; display: grid; gap: .55rem; }
+@media (min-width: 640px) { .codefile__legend ol { grid-template-columns: 1fr 1fr; } }
+.codefile__legend li { display: flex; gap: .6rem; align-items: flex-start; font-size: .86rem; color: var(--dim); line-height: 1.45; }
+.codefile__legend li .flag__n { flex: none; margin-top: .1rem; }
+.codefile__legend b { color: var(--ink); font-weight: 550; }
+.rule-id { display: inline-block; margin-top: .15rem; padding-block: .3rem; font: 500 .72rem / 1.3 var(--font-mono); color: var(--green); text-decoration: underline;
+  text-decoration-color: rgba(136, 200, 64, .45); text-underline-offset: .2em; }
+.rule-id:hover, .rule-id:focus-visible { text-decoration-color: var(--green); }
+
+/* ── Finds: three strata ───────────────────────────────────────────────── */
+.finds__head { margin-bottom: clamp(2.5rem, 2rem + 3vw, 6rem); }
+.finds__head .h2 { margin-top: var(--s-4); max-width: 16ch; }
+.strata { display: grid; gap: clamp(8px, .8vw, 14px); padding-inline: clamp(0px, 1.2vw, 24px); }
+.stratum { position: relative; border-radius: clamp(18px, 2.4vw, 44px); padding-block: clamp(2rem, 1.5rem + 2.5vw, 4.5rem);
+  background: linear-gradient(100deg, rgba(86, 79, 71, .5), rgba(86, 79, 71, .22) 70%); border: 1px solid rgba(86, 79, 71, .7); }
+.stratum--2 { background: linear-gradient(100deg, rgba(86, 79, 71, .38), rgba(86, 79, 71, .16) 70%); }
+.stratum--3 { background: linear-gradient(100deg, rgba(86, 79, 71, .26), rgba(86, 79, 71, .1) 70%); }
+.stratum__grid { display: grid; gap: var(--s-4) var(--col-gap); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1000px) {
+  .stratum__grid { grid-template-columns: 5rem minmax(0, 4fr) minmax(0, 5fr) minmax(0, 4fr); }
+}
+.stratum__depth { font: 500 .8rem / 1 var(--font-mono); color: var(--green); letter-spacing: .1em; padding-top: .55rem; }
+.stratum__title { font-size: clamp(1.6rem, 1.1rem + 1.8vw, 3.2rem); letter-spacing: -.025em; line-height: 1.05; }
+.stratum__text { color: #b9b6aa; max-width: 56ch; }
+.rule-chips { list-style: none; display: flex; flex-wrap: wrap; gap: .45rem; align-content: flex-start; }
+.rule-chips a { display: inline-flex; align-items: center; min-height: 2rem; padding: .3rem .7rem; border-radius: 999px;
+  border: 1px solid rgba(236, 234, 227, .16); background: rgba(16, 16, 20, .55); color: var(--ink);
+  font: 500 .72rem / 1.2 var(--font-mono); text-decoration: none; transition: border-color .18s, color .18s; }
+.rule-chips a:hover, .rule-chips a:focus-visible { border-color: var(--green-a70); color: var(--green); }
+.finds__more { margin-top: var(--s-7); }
+
+/* ── How: the ratchet ──────────────────────────────────────────────────── */
+.how__grid { display: grid; gap: var(--s-7) var(--col-gap); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1100px) {
+  .how__grid { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); }
+  .how__head { position: sticky; top: calc(var(--header-h) + 3rem); align-self: start; }
+  .how__after { grid-column: 2; }
+}
+.how__head .h2 { margin-top: var(--s-4); max-width: 12ch; }
+.how__head .accent { display: block; }
+.ratchet { list-style: none; position: relative; display: grid; gap: clamp(2.5rem, 2rem + 3vw, 6rem); padding-left: clamp(2.2rem, 1.6rem + 2vw, 4rem); }
+.ratchet::before, .ratchet::after { content: ""; position: absolute; left: .55rem; top: .4rem; bottom: .4rem; width: 2px; border-radius: 2px; }
+.ratchet::before { background: repeating-linear-gradient(180deg, var(--line-strong) 0 10px, transparent 10px 16px); }
+.ratchet::after { background: var(--green); transform-origin: top; transform: scaleY(1); box-shadow: 0 0 18px rgba(136, 200, 64, .5); }
+.ratchet__step { position: relative; display: grid; gap: var(--s-5) var(--col-gap); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1300px) { .ratchet__step { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } }
+.ratchet__step::before { content: ""; position: absolute; left: calc(-1 * clamp(2.2rem, 1.6rem + 2vw, 4rem) + .2rem); top: .35rem;
+  width: .9rem; height: .9rem; border-radius: 50%; background: var(--bg); border: 2px solid var(--green); }
+.ratchet__n { display: block; font: 500 .8rem / 1 var(--font-mono); color: var(--green); letter-spacing: .1em; margin-bottom: var(--s-3); }
+.ratchet__text .h3 { font-size: clamp(1.4rem, 1.1rem + 1.1vw, 2.2rem); letter-spacing: -.02em; margin-bottom: var(--s-3); }
+.ratchet__text p { color: var(--dim); max-width: 48ch; }
+.term--step { box-shadow: 0 24px 60px rgba(0, 0, 0, .45); }
+.term--step .term__body { padding: 1rem 1.1rem; }
+.how__after { padding-top: var(--s-4); }
+.how__after p + p { margin-top: var(--s-5); }
+
+/* ── Proof ─────────────────────────────────────────────────────────────── */
+.proof__head { margin-bottom: clamp(2rem, 1.5rem + 3vw, 5rem); }
+.proof__head .h2 { margin-top: var(--s-4); max-width: 18ch; }
+.report-preview { margin: 0; border: 1px solid var(--line-strong); border-radius: clamp(14px, 1.4vw, 22px); overflow: hidden;
+  background: var(--panel); box-shadow: 0 60px 160px rgba(0, 0, 0, .6), 0 0 0 1px rgba(136, 200, 64, .05); }
+.report-preview__bar { display: flex; align-items: center; gap: .7rem; padding: .6rem .7rem .6rem 1rem; border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #16181d, #111216); }
+.report-preview__name { font: 500 .76rem / 1 var(--font-mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.report-preview__open { margin-left: auto; }
+.report-preview__viewport { position: relative; height: clamp(360px, 62vw, 820px); overflow: hidden; background: #0c0d10; }
+.report-preview__viewport iframe { display: block; width: 100%; height: 100%; border: 0; }
+.report-preview__viewport.is-scaled { height: calc(var(--rp-scale) * 780px); max-height: 82svh; }
+.report-preview__viewport.is-scaled iframe { width: var(--rp-base); height: calc(100% / var(--rp-scale)); transform: scale(var(--rp-scale)); transform-origin: 0 0; }
+@media (max-width: 460px) { .report-preview__name { display: none; } }
+.proof__list { list-style: none; display: grid; gap: var(--s-6) var(--col-gap); margin-top: clamp(2.5rem, 2rem + 3vw, 6rem);
+  grid-template-columns: minmax(0, 1fr); counter-reset: proof; }
+@media (min-width: 760px) { .proof__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1500px) { .proof__list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.proof__list li { border-top: 1px solid var(--line-strong); padding-top: var(--s-5); counter-increment: proof; }
+.proof__list li::before { content: "0" counter(proof); display: block; font: 500 .74rem / 1 var(--font-mono); color: var(--green); letter-spacing: .1em; margin-bottom: var(--s-4); }
+.proof__list .h3 { margin-bottom: var(--s-3); }
+.proof__list p { color: var(--dim); max-width: 46ch; }
+
+/* ── FAQ ───────────────────────────────────────────────────────────────── */
+.faq__grid { display: grid; gap: var(--s-7) var(--col-gap); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1100px) {
+  .faq__grid { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); }
+  .faq__head { position: sticky; top: calc(var(--header-h) + 3rem); align-self: start; }
+}
+@media (min-width: 2000px) { .faq__list { max-width: 1100px; } }
+.faq__head .h2 { margin-top: var(--s-4); max-width: 11ch; }
+.qa { border-top: 1px solid var(--line-strong); }
+.qa:last-child { border-bottom: 1px solid var(--line-strong); }
+.qa summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-4); align-items: center;
+  padding: clamp(1.1rem, .9rem + .8vw, 1.8rem) 0; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::after { content: "+"; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 50%;
+  border: 1px solid var(--line-strong); color: var(--green); font: 400 1.3rem / 1 var(--font-mono); transition: transform .3s var(--ease-out), border-color .18s; }
+.qa[open] summary::after { transform: rotate(45deg); border-color: var(--green-a70); }
+.qa summary:hover .qa__q { color: var(--green); }
+.qa__q { font-family: var(--font-display); font-size: clamp(1.1rem, 1rem + .6vw, 1.6rem); font-weight: 560; letter-spacing: -.015em; line-height: 1.3;
+  transition: color .18s; }
+.qa__a { padding: 0 3.4rem clamp(1.2rem, 1rem + .8vw, 2rem) 0; }
+.qa__a p { color: var(--dim); max-width: 64ch; }
+@media (prefers-reduced-motion: no-preference) {
+  .qa[open] .qa__a { animation: rise .5s var(--ease-out) both; }
+}
+
+/* ── Install ───────────────────────────────────────────────────────────── */
+.start { overflow: clip; }
+.start__grid { display: grid; gap: var(--s-7) var(--col-gap); grid-template-columns: minmax(0, 1fr); align-items: center; }
+@media (min-width: 1000px) { .start__grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+.start__art { display: grid; place-items: center; }
+.start__mark { width: clamp(9rem, 5rem + 22vw, 30rem); height: auto; filter: drop-shadow(0 30px 80px rgba(136, 200, 64, .22)); overflow: visible; }
+.start__body .h2 { margin-block: var(--s-4) var(--s-6); font-size: clamp(2.4rem, 1.2rem + 4.2vw, 6.2rem); max-width: 12ch; }
+.start__cmds { display: grid; gap: var(--s-3); }
+.start__cmds .cmd { width: 100%; max-width: 40rem; }
+.start__cmds .cmd:first-child { font-size: clamp(.95rem, .85rem + .5vw, 1.3rem); padding-block: .7rem; }
+.start__alt { display: grid; gap: var(--s-3); margin-top: var(--s-6); max-width: 40rem; }
+.start__alt .cmd { width: 100%; }
+.start__guide { margin-top: var(--s-6); max-width: var(--measure); }
+
+/* ── Motion (scroll-driven, layered on top of the finished state) ─────── */
+@keyframes hero-line { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes strata-open { from { transform: scaleX(.6); opacity: .2; } to { transform: none; } }
+@keyframes flag-on { from { background: transparent; box-shadow: inset 0 0 0 transparent; color: #b9b6aa; } to { } }
+@keyframes legend-on { from { opacity: .28; } to { opacity: 1; } }
+@keyframes num-on { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
+@property --found { syntax: '<integer>'; inherits: false; initial-value: 4; }
+@keyframes count-up { from { --found: 0; } to { --found: 4; } }
+@keyframes rail-fill { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes tilt-flat { from { transform: perspective(1800px) rotateX(16deg) scale(.9); opacity: .4; } to { transform: none; opacity: 1; } }
+/* The mark is drawn in a flipped (scale(.1,-.1)) coordinate space: local -Y is visual down. */
+@keyframes sprout-grow { from { transform: translateY(-18%) scale(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes soil-settle { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes hero-tilt { from { transform: perspective(1600px) rotateY(-9deg) rotateX(3deg); } to { transform: perspective(1600px) rotateY(0) rotateX(10deg) translateY(6%); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The scan prints line by line on load. */
+  .term--hero .l { animation: hero-line .35s var(--ease-out) both; }
+  .term--hero .l:nth-child(1) { animation-delay: .5s; } .term--hero .l:nth-child(2) { animation-delay: .9s; }
+  .term--hero .l:nth-child(3) { animation-delay: 1s; } .term--hero .l:nth-child(4) { animation-delay: 1.15s; }
+  .term--hero .l:nth-child(5) { animation-delay: 1.3s; } .term--hero .l:nth-child(6) { animation-delay: 1.4s; }
+  .term--hero .l:nth-child(7) { animation-delay: 1.55s; } .term--hero .l:nth-child(8) { animation-delay: 1.7s; }
+  .term--hero .l:nth-child(9) { animation-delay: 1.8s; } .term--hero .l:nth-child(10) { animation-delay: 1.95s; }
+  .term--hero .l:nth-child(11) { animation-delay: 2.1s; } .term--hero .l:nth-child(12) { animation-delay: 2.2s; }
+  .term--hero .l:nth-child(13) { animation-delay: 2.35s; } .term--hero .l:nth-child(14) { animation-delay: 2.5s; }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* Hero: the terminal leans back as you leave. */
+    .hero { view-timeline: --hero block; }
+    @media (min-width: 1100px) {
+      .term--hero { animation: hero-tilt linear both; animation-timeline: --hero; animation-range: exit 0% exit 80%; }
+    }
+
+    /* Problem: the four defects light up one after another, each with its
+       legend entry and rule id, while a counter in the file bar runs 0 → 4.
+       Narrow or short screens: the sequence runs as the file crosses the viewport.
+       Wide screens: the scene pins for one extra viewport and the sequence
+       finishes before it unpins. Longhands only — the minifier collapses an
+       `animation` shorthand without a name to `animation: none`. */
+    .problem__code { view-timeline: --code block; }
+    .problem .flag, .problem .flag .flag__n, .codefile__legend li, .problem__count {
+      animation-timing-function: linear; animation-fill-mode: both; animation-timeline: --code; }
+    .problem .flag { animation-name: flag-on; }
+    .problem .flag .flag__n { animation-name: num-on; }
+    .codefile__legend li { animation-name: legend-on; }
+    .problem__count { animation-name: count-up; animation-range: cover 22% cover 64%; }
+    .problem .f1, .problem .f1 .flag__n { animation-range: cover 22% cover 28%; }
+    .problem .f2, .problem .f2 .flag__n { animation-range: cover 34% cover 40%; }
+    .problem .f3, .problem .f3 .flag__n { animation-range: cover 46% cover 52%; }
+    .problem .f4, .problem .f4 .flag__n { animation-range: cover 58% cover 64%; }
+    @media (min-width: 1000px) and (min-height: 880px) {
+      .problem { view-timeline: --problem block; min-height: 200vh; padding-block: 0; }
+      .problem__pin { position: sticky; top: var(--header-h); min-height: calc(100vh - var(--header-h)); display: grid; align-items: center;
+        padding-block: var(--s-6); }
+      .problem .flag, .problem .flag .flag__n, .codefile__legend li, .problem__count { animation-timeline: --problem; }
+      .problem__count { animation-range: contain 0% contain 78%; }
+      .problem .f1, .problem .f1 .flag__n { animation-range: contain 0% contain 12%; }
+      .problem .f2, .problem .f2 .flag__n { animation-range: contain 22% contain 34%; }
+      .problem .f3, .problem .f3 .flag__n { animation-range: contain 44% contain 56%; }
+      .problem .f4, .problem .f4 .flag__n { animation-range: contain 66% contain 78%; }
+    }
+
+    /* Finds: strata widen from the core outwards as they enter. */
+    .stratum.rv { animation-name: strata-open; animation-range: entry 0% cover 35%; transform-origin: 30% 50%; }
+
+    /* How: the ratchet rail fills as you read down the steps. */
+    .ratchet { view-timeline: --ratchet block; }
+    .ratchet::after { animation: rail-fill linear both; animation-timeline: --ratchet; animation-range: entry 60% exit 40%; }
+
+    /* Proof: the report tilts up and lies flat. */
+    .rv-tilt { animation: tilt-flat linear both; animation-timeline: view(); animation-range: entry 0% cover 45%; transform-origin: 50% 100%; }
+
+    /* Install: soil settles, the sprout grows. */
+    .start__mark .soil-layer, .start__mark .sprout { animation-timing-function: linear; animation-fill-mode: both;
+      animation-timeline: view(); transform-box: fill-box; }
+    .start__mark .soil-layer--3 { animation-name: soil-settle; animation-range: entry 10% cover 30%; }
+    .start__mark .soil-layer--2 { animation-name: soil-settle; animation-range: entry 20% cover 36%; }
+    .start__mark .soil-layer--1 { animation-name: soil-settle; animation-range: entry 30% cover 42%; }
+    .start__mark .sprout { animation-name: sprout-grow; animation-range: cover 30% cover 52%; transform-origin: 50% 0%; }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Hero mark: soil settles, then the sprout grows once on load. */
+  .hero__mark .soil-layer, .hero__mark .sprout { animation-duration: .7s; animation-timing-function: cubic-bezier(.2, .7, .2, 1);
+    animation-fill-mode: both; transform-box: fill-box; }
+  .hero__mark .soil-layer--3 { animation-name: soil-settle; animation-delay: .05s; }
+  .hero__mark .soil-layer--2 { animation-name: soil-settle; animation-delay: .15s; }
+  .hero__mark .soil-layer--1 { animation-name: soil-settle; animation-delay: .25s; }
+  .hero__mark .sprout { animation-name: sprout-grow; animation-delay: .45s; animation-duration: .9s; transform-origin: 50% 0%; }
+}

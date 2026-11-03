@@ -2,13 +2,12 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
-import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../model/fingerprint.dart';
-import 'generated_file.dart';
 import 'rule.dart';
+import 'visit_file.dart';
 
 /// Detects sequential "workflow narration" comment sequences: two or more
 /// `Step N: …` / `First, …` / `Next, …` / `Then, …` / `Finally, …` comments,
@@ -68,7 +67,7 @@ import 'rule.dart';
 /// `// loam-ignore: slop-workflow-narration-comment – <reason>` on or before
 /// the line of the *first* comment in the sequence suppresses the finding
 /// (the finding is located there).
-class SlopWorkflowNarrationCommentRule implements Rule {
+class SlopWorkflowNarrationCommentRule implements FileRule {
   /// The stable rule ID for [SlopWorkflowNarrationCommentRule].
   ///
   /// Exposed as a static constant so callers can filter findings by rule ID
@@ -89,27 +88,19 @@ class SlopWorkflowNarrationCommentRule implements Rule {
   @override
   RuleCategory get category => RuleCategory.slop;
 
-  // loam-ignore: code-duplicates – run() body is identical boilerplate across all Rule implementations; a shared mixin would couple unrelated rule files together.
   @override
-  List<Finding> run(ProjectLoadResult result) {
-    final findings = <Finding>[];
+  List<Finding> run(ProjectLoadResult result) => runPerFile(this, result);
 
-    for (final file in result.resolved) {
-      // Skip generated files — *.g.dart, *.freezed.dart, *.mocks.dart, gen-l10n.
-      if (isGeneratedDartFile(file.path)) continue;
-
-      final relativePath = p.relative(file.path, from: projectRoot);
-
-      final visitor = _WorkflowNarrationVisitor(
-        ruleId: ruleId,
-        relativePath: relativePath,
-        findings: findings,
-      );
-      file.result.unit.accept(visitor);
-    }
-
-    return findings;
-  }
+  @override
+  List<Finding> runFile(LoadedFile file) => visitFile(
+    file,
+    projectRoot,
+    (relativePath, findings) => _WorkflowNarrationVisitor(
+      ruleId: ruleId,
+      relativePath: relativePath,
+      findings: findings,
+    ),
+  );
 }
 
 /// Matches `step <number>` (optionally with a trailing `:`/text) or one of
@@ -141,7 +132,7 @@ class _WorkflowNarrationVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitMethodDeclaration(MethodDeclaration node) {
-    // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
+    // Identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
     final className = _enclosingClassName(node);
     final qualified = '$className.${node.name.lexeme}';
     _checkBody(node.body, qualified);
@@ -241,7 +232,7 @@ class _WorkflowNarrationVisitor extends RecursiveAstVisitor<void> {
   /// Returns the `//` comment token on the line directly before [node], or
   /// `null` when there is none, it is a `///` Dart-doc comment, or there is a
   /// blank line (or other code) between the comment and [node].
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
+  // Identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
   Token? _immediatelyPrecedingLineComment(AstNode node, LineInfo lineInfo) {
     final firstToken = node.beginToken;
 
@@ -274,7 +265,7 @@ class _WorkflowNarrationVisitor extends RecursiveAstVisitor<void> {
 
   /// Returns the name of the innermost enclosing [ClassDeclaration], or
   /// `'<unknown>'` if none is found.
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
+  // Identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
   String _enclosingClassName(AstNode node) {
     AstNode? current = node.parent;
     while (current != null) {

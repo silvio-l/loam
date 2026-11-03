@@ -9,6 +9,9 @@ import 'package:loam/src/loader/project_loader.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fixture_packages.dart';
+import '../support/shared_store.dart';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -26,6 +29,7 @@ final _fixturePath = p.normalize(
 /// Asserts that the fixture itself loads without fatal errors.
 Future<ProjectLoadResult> _loadFixture() async {
   final loader = const ProjectLoader();
+  await ensureFixtureResolved(_fixturePath);
   return loader.load(_fixturePath);
 }
 
@@ -38,6 +42,8 @@ List<FunctionComplexity> _collect(ProjectLoadResult result) =>
 // ---------------------------------------------------------------------------
 
 void main() {
+  useSharedAnalyzerStore();
+
   late ProjectLoadResult loadResult;
 
   setUpAll(() async {

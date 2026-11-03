@@ -1,7 +1,7 @@
 /// The high-level category a [Rule] belongs to.
 ///
 /// Three categories, corresponding to loam.dev's three analysis pillars
-/// (see CONTEXT.md for the canonical definitions):
+/// (see internal-notes for the canonical definitions):
 ///
 /// - [drift] — structural-drift detectors (circular dependencies, unused
 ///   public exports, code duplicates, complexity hotspots …).

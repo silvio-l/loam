@@ -86,11 +86,23 @@ class UsageIndex {
   }
 
   static void _collectMemberIds(Declaration decl, Set<int> ids) {
+    final List<ClassMember> members;
     if (decl is ClassDeclaration) {
-      for (final member in decl.body.members) {
-        final element = _elementOfDeclaration(member);
-        if (element != null) ids.add(_canonical(element).id);
-      }
+      members = decl.body.members;
+    } else if (decl is EnumDeclaration) {
+      members = decl.body.members;
+    } else if (decl is MixinDeclaration) {
+      members = decl.body.members;
+    } else if (decl is ExtensionDeclaration) {
+      members = decl.body.members;
+    } else if (decl is ExtensionTypeDeclaration) {
+      members = decl.body.members;
+    } else {
+      return;
+    }
+    for (final member in members) {
+      final element = _elementOfDeclaration(member);
+      if (element != null) ids.add(_canonical(element).id);
     }
   }
 

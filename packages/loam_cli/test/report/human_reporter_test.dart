@@ -1,6 +1,7 @@
 @TestOn('vm')
 library;
 
+import 'package:loam/src/baseline/baseline_diff.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/human_reporter.dart';
@@ -408,5 +409,41 @@ void main() {
         expect(out, isNot(contains('Preventive recommendations')));
       },
     );
+  });
+
+  group('HumanReporter baseline marker (ratchet gate)', () {
+    final fresh = _finding(line: 5, fingerprint: 'new-fp');
+    final frozen = _finding(line: 9, fingerprint: 'kept-fp');
+
+    String render({BaselineDiff? diff}) => const HumanReporter().render(
+      ReportPayload(
+        findings: [fresh, frozen],
+        projectRoot: '/project',
+        rulesetVersion: 'ruleset@abc12345',
+        toolVersion: '0.0.2',
+        isTty: false,
+        baselineDiff: diff,
+      ),
+    );
+
+    String lineOf(String out, String loc) =>
+        out.split('\n').firstWhere((l) => l.trimLeft().startsWith('$loc '));
+
+    test('marks exactly the findings that are missing from the baseline', () {
+      final out = render(
+        diff: BaselineDiff(
+          newFindings: [fresh],
+          keptFindings: [frozen],
+          fixedFindings: const [],
+        ),
+      );
+      expect(lineOf(out, '5'), contains(' new '));
+      expect(lineOf(out, '9'), isNot(contains(' new ')));
+    });
+
+    test('no marker outside the ratchet gate (no baseline diff)', () {
+      final out = render();
+      expect(lineOf(out, '5'), isNot(contains(' new ')));
+    });
   });
 }

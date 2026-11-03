@@ -34,8 +34,8 @@
 
 ## Why loam.dev?
 
-AI coding agents generate Dart/Flutter faster than anyone can review. Two classes
-of damage slip straight past the built-in `dart analyze`:
+AI coding agents generate Dart/Flutter faster than anyone can review. Two kinds
+of problems slip straight past the built-in `dart analyze`:
 
 1. **Structural drift** — dead code, duplication, circular dependencies,
    complexity hotspots, violated architecture boundaries.
@@ -48,9 +48,10 @@ license and it has no LLM-backed slop detection. loam.dev closes that gap.
 
 ## What it catches
 
-**Available now (0.1.15) — twelve live rules:** project-wide **unused public API**
+**Available now (0.1.16) — twenty live rules:** project-wide **unused public API**
 (dead exports, classes, methods, getters/setters and fields), **circular
-dependencies** between first-party libraries, **code duplicates** (AST-normalised
+dependencies** between first-party libraries, **architecture
+boundaries** (imports across a forbidden layer boundary configured in `loam.yaml`), **code duplicates** (AST-normalised
 token hashing — exact and structurally identical copies; one Finding per cluster
 with all locations), **complexity hotspots**
 (cyclomatic/cognitive, aggregated into a `loam health` score; scans `lib/` and
@@ -62,7 +63,22 @@ without a written justification;
 banner/divider comments, empty category labels, emoji-only decoration,
 end-of-block markers, and vague TODOs;
 `slop-workflow-narration-comment` — sequential `Step 1:`/`First,`/`Next,`/
-`Then,`/`Finally,` comments narrating a function body step-by-step), and **accessibility** (WCAG 1.1.1 — Flutter
+`Then,`/`Finally,` comments narrating a function body step-by-step;
+`slop-placeholder-comment` — comments such as `// ... rest of code` or `// your
+code here` standing in for code that is missing;
+`slop-unimplemented-stub` — functions and methods in `lib/`/`bin/` whose whole
+body is `throw UnimplementedError()`;
+`slop-tautological-assertion` — `expect`/`expectLater` calls that compare a constant with a
+constant or a value with itself, such as `expect(true, isTrue)`, and so cannot fail;
+`slop-undisposed-resource` — fields a `State` (or a class with its own
+`dispose()`) creates itself, such as a `TextEditingController` or a
+`Timer.periodic`, that `dispose()` never releases;
+`slop-assertion-free-test` — `test`/`testWidgets` bodies that never `expect`, `verify`
+or `check` anything, not even through your own helper functions;
+`slop-setstate-after-async-gap` — `setState` in a Flutter `State` after an `await`
+or in a `Future.then` callback with no `mounted` check, which throws once the screen is closed;
+`hardcoded-secrets` — API keys, passwords and tokens written into string
+literals, offline and with the value never echoed), and **accessibility** (WCAG 1.1.1 — Flutter
 images without a semantic label; WCAG 4.1.2 — icon buttons, gesture/ink-well
 with pure icon child, and generic interactive widgets without an accessible name;
 WCAG 3.3.2 — form fields without a label). All on the resolved Dart element model
@@ -78,7 +94,10 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 | ✅ Circular dependencies | ✅ Empty / comment-only `catch` blocks (slop-empty-catch) | ✅ Icon button without accessible name (a11y-icon-button-label, WCAG 4.1.2) |
 | ✅ Code duplicates (AST-normalised) | ✅ Narrative filler comments (slop-narrative-comment) | ✅ Form field without label (a11y-form-field-label, WCAG 3.3.2) |
 | ✅ Complexity hotspots + health score | ✅ Sequential workflow narration (slop-workflow-narration-comment) | ✅ Interactive widget without semantics (a11y-interactive-semantics, WCAG 4.1.2) |
-| 🚧 Architecture-boundary violations | 🚧 Hallucinated / superfluous abstractions | |
+| | ✅ Hardcoded secrets (hardcoded-secrets) | |
+| | ✅ Tautological test assertions (slop-tautological-assertion) | |
+| | ✅ setState after an async gap (slop-setstate-after-async-gap) | |
+| ✅ Architecture-boundary violations (architecture-boundaries) | 🚧 Hallucinated / superfluous abstractions | |
 
 ## What makes it different
 
@@ -95,10 +114,10 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
   cached by `sha(code)+prompt@ver` → fixed thresholds decide. Same code = cache
   hit = stable verdict = zero token cost. No flaky gate. *(🚧 planned)*
 - **📄 Self-contained HTML report.** A single offline `.html` artifact: browse
-  findings by rule, severity, or file — no server, no hosting. `loam scan
+  findings by rule, severity, or file, each with its remedy — no server, no hosting. `loam scan
   --format html` writes `loam-report.html` and opens it in your browser; use
   `--output <file>` to pick the path, `--no-open` to skip the browser (auto-open
-  is suppressed for piped output and under CI). *(live since 0.1.3; redesigned in 0.1.6)*
+  is suppressed for piped output and under CI). *(live since 0.1.3; redesigned in 0.1.16)*
 - **🧭 Preventive recommendations for agents.** After a run with findings,
   loam.dev appends one curated, agent-addressed recommendation per fired rule
   class — how to avoid that class of finding going forward — and asks the
@@ -109,10 +128,13 @@ single, stable `Rule` interface, so adding a feature never changes the pipeline
 
 ## Quick start
 
-> **0.1.15.** Twelve analysis rules are live — `unused-public-exports`,
-> `circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-> `slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
-> `slop-workflow-narration-comment`, `a11y-form-field-label`,
+> **0.1.16.** Twenty analysis rules are live — `unused-public-exports`,
+> `circular-dependencies`, `architecture-boundaries`, `code-duplicates`, `complexity-hotspots`,
+> `hardcoded-secrets`, `slop-empty-catch`, `slop-unjustified-ignore`,
+> `slop-narrative-comment`, `slop-workflow-narration-comment`,
+> `slop-placeholder-comment`, `slop-unimplemented-stub`, `slop-tautological-assertion`,
+> `slop-undisposed-resource`, `slop-assertion-free-test`, `slop-setstate-after-async-gap`,
+> `a11y-form-field-label`,
 > `a11y-image-label`, `a11y-icon-button-label`,
 > `a11y-interactive-semantics` — plus the `loam health` composite score.
 > Commands marked *coming soon* are wired in `loam --help` but not yet
@@ -152,7 +174,8 @@ echo 'export PATH="$PATH:$HOME/.pub-cache/bin"' >> ~/.bashrc && source ~/.bashrc
 ```
 </details>
 
-**To update**, re-run `dart pub global activate loam`.
+loam updates a pub install by itself (see **Updates** below); to update by
+hand, re-run `dart pub global activate loam`.
 
 <details>
 <summary>Install the unreleased <code>dev</code> branch instead</summary>
@@ -165,7 +188,7 @@ dart pub global activate --source git https://github.com/silvio-l/loam.git \
 
 ### Use
 
-Available now (twelve live rules — unused exports, circular deps, code duplicates, complexity hotspots, slop, a11y):
+Available now (twenty live rules — unused exports, circular deps, architecture boundaries, code duplicates, complexity hotspots, slop, a11y):
 
 ```bash
 loam scan                          # full audit: all active rules, whole repo
@@ -175,10 +198,17 @@ loam gate                          # CI from now on — ratchet: only new findin
 loam gate /path/to/project         # same, positional path to project root
 ```
 
+Iterate locally — re-audit on every save and see what is new or resolved:
+
+```bash
+loam watch                         # full audit, then re-run after each change (Ctrl+C stops)
+loam watch /path/to/project        # same, positional path to project root
+```
+
 Initialise configuration:
 
 ```bash
-loam init                          # scaffold loam.yaml config in the project
+loam init                          # scaffold loam.yaml (incl. detected architecture layers)
 loam init /path/to/project         # same, positional path to project root
 ```
 
@@ -203,7 +233,36 @@ loam slop                          # AI-slop audit: slop-focused rules only
 loam slop /path/to/project         # same, positional path to project root
 ```
 
-All seven commands (`scan`, `gate`, `health`, `init`, `baseline`, `a11y`, `slop`) accept an
+Only what you touched (`scan` and `gate`): the analysis stays project-wide, so
+cross-file rules keep their full context, but the report and the gate narrow to
+files that git lists as changed:
+
+```bash
+loam scan --changed                # working copy: staged, unstaged and untracked files
+loam gate --staged                 # pre-commit: files in the git index
+loam gate --since origin/main      # CI/PR: files changed since the merge base with a ref
+```
+
+`--staged`, `--since <ref>` and `--changed` are mutually exclusive. Outside a git
+repository, or with an unknown ref, loam exits with 64. In ratchet mode the diff
+against `baseline.json` stays project-wide and only its result is narrowed, so
+unchanged files never show up as "fixed".
+
+pre-commit recipe (`.git/hooks/pre-commit`, or a hook manager of your choice):
+
+```bash
+#!/bin/sh
+exec dart pub global run loam gate --staged
+```
+
+In hooks and CI call `dart pub global run loam …` instead of bare `loam`: pub
+puts its shim in `$HOME/.pub-cache/bin` on macOS/Linux but in
+`%LOCALAPPDATA%\Pub\Cache\bin` on Windows, so a hook that assumes a `PATH`
+entry fails there, while `dart` itself is always on the `PATH` of a Dart/Flutter
+setup. If `dart` is missing, the hook's shell reports it as not found; install
+the Dart or Flutter SDK, then `dart pub global activate loam`.
+
+All eight commands (`scan`, `watch`, `gate`, `health`, `init`, `baseline`, `a11y`, `slop`) accept an
 optional positional `[path]` as the project root. The explicit `-p`/`--project-root`
 option overrides the positional path when both are given.
 
@@ -215,18 +274,46 @@ loam fix --safe                    # apply mechanical fixes
 
 **Onboarding an existing repo** (turn an established codebase green, then keep it
 green): `scan` → clean up → `baseline --write` → `gate` in CI. A later cleanup
-round just repeats it. Greenfield? `loam gate --absolute` needs no baseline.
+round just repeats it. Fixed findings leave stale entries in `baseline.json`: `gate`
+names them, `baseline --prune` removes them, `gate --strict-baseline` fails on them.
+Greenfield? `loam gate --absolute` needs no baseline.
 
-**Update notice.** loam.dev checks pub.dev at most once a day and, when a newer
-release exists, prints one line to stderr *after* the command output — never to
-stdout, never touching the exit code. The line names the upgrade command that
-matches how loam was installed (`brew upgrade loam` for a Homebrew binary,
-`dart pub global activate loam` otherwise), so the update lands on the binary you
-actually run. To confirm it did, run `loam --version`: it prints the running
-version, the install channel and the resolved executable path. Silence the notice
-per run with `--no-update-check`, machine-wide with the `LOAM_NO_UPDATE_CHECK`
-environment variable, or repo-wide with `update_check: false` in `loam.yaml`. CI
-is always silent.
+**Rule profiles.** `loam gate` blocks only on the `core` profile by default:
+rules with a near-zero false-positive rate (`circular-dependencies`,
+`architecture-boundaries`, `unused-public-exports`, `slop-empty-catch`, `slop-tautological-assertion`, `slop-unjustified-ignore`,
+`hardcoded-secrets`). The heuristic and threshold-based rules show up as a hint;
+`loam gate --profile strict` (or `profile: strict` in `loam.yaml`) lets them
+block too. The baseline is the same for both; a gate that was red only
+because of strict rules turns green after upgrading, so set `profile: strict` to
+keep the old behaviour. See [`docs/developer-guide.md`](./docs/developer-guide.md).
+
+**Updates.** loam.dev keeps itself current without slowing a run: at most once
+a day it checks pub.dev in a detached background process, and the next run
+reports the result on stderr — never on stdout, never touching the exit code.
+How the update lands depends on how loam was installed:
+
+| Install | What happens |
+|---|---|
+| `dart pub global activate loam` | Updated automatically (`dart pub global activate loam <version>`; pub verifies the archive checksum). |
+| Standalone binary from a GitHub release | Updated automatically: the archive is only used if it matches the release's `.sha256`, then it replaces the binary. |
+| Homebrew | Notice only — run `brew upgrade loam` (loam never drives Homebrew for you). |
+| Source checkout, git/path pub install, locally compiled binary | Notice only. |
+
+After an automatic update the next run says so once and lists any rules the
+update added or removed, so new findings are not mistaken for regressions; the
+gate repeats that hint when it turns red on a changed ruleset. `loam --version`
+prints the running version, the install channel and the path.
+
+**Pin the version** for reproducible gates with `required_version` in
+`loam.yaml` (a pub constraint such as `">=0.1.15 <0.2.0"` or an exact
+`"0.1.15"`): a pinned project is never updated, other commands warn when the
+running version does not match, and `loam gate` stops with exit code 78.
+
+Nothing is checked or installed in CI (common CI variables such as `CI`,
+`GITHUB_ACTIONS`, `GITLAB_CI`), with `LOAM_OFFLINE` set, or when turned off:
+`--no-update-check`, `LOAM_NO_UPDATE_CHECK` or `update_check: false` switch off
+check and update; `LOAM_NO_AUTO_UPDATE` or `auto_update: false` keep the notice
+but never install.
 
 ## Built for the terminal
 
@@ -242,11 +329,17 @@ Machine-readable output for CI and agents, a human-readable report for you:
 --format json         # agent / tooling integration             (available)
 --format markdown     # PR / docs embedding                     (available)
 --format html         # interactive, self-contained report      (available)
+--format agent        # compact, capped list for agents/chat    (available)
+--max-findings <n>    # agent only: list at most n findings (default 20, 0 = all)
 
-# human/sarif/json/markdown stream to stdout; html writes a file and opens it.
+# human/sarif/json/markdown/agent stream to stdout; html writes a file and opens it.
+# Except for human and html, stdout carries only the report; summaries and hints go to stderr.
 --output <file>       # write the report to <file> (html: overrides loam-report.html)
 --no-open             # html only: don't open the browser (auto-off when piped/CI)
 --no-progress         # suppress the live progress bar (auto-off when piped/CI)
+--timing              # print wall-clock time per phase and per rule to stderr
+--no-cache            # don't keep the analyzer store in .dart_tool/loam/ (same results)
+--timeout <duration>  # abort a hanging run (default 10m; 90s, 10m, 1h; 0 = off); exit 124
 
 # scan, gate, baseline, slop, a11y and health all show the same live progress
 # bar in an interactive terminal; --no-progress / LOAM_NO_PROGRESS silence it
@@ -255,10 +348,13 @@ Machine-readable output for CI and agents, a human-readable report for you:
 
 ## Status & roadmap
 
-**0.1.15** — twelve rules live end to end (`unused-public-exports`,
-`circular-dependencies`, `code-duplicates`, `complexity-hotspots`,
-`slop-empty-catch`, `slop-unjustified-ignore`, `slop-narrative-comment`,
-`slop-workflow-narration-comment`, `a11y-form-field-label`, `a11y-image-label`,
+**0.1.16** — twenty rules live end to end (`unused-public-exports`,
+`circular-dependencies`, `architecture-boundaries`, `code-duplicates`, `complexity-hotspots`,
+`hardcoded-secrets`, `slop-empty-catch`, `slop-unjustified-ignore`,
+`slop-narrative-comment`, `slop-workflow-narration-comment`,
+`slop-placeholder-comment`, `slop-unimplemented-stub`, `slop-tautological-assertion`,
+`slop-undisposed-resource`, `slop-assertion-free-test`, `slop-setstate-after-async-gap`,
+`a11y-form-field-label`, `a11y-image-label`,
 `a11y-icon-button-label`, `a11y-interactive-semantics`) plus the `loam health`
 composite score; the remaining capabilities land as individual rules behind
 the same `Rule` interface.
@@ -284,7 +380,7 @@ The site is multilingual (EN default at root, DE under `/de/`) with 10 pages:
 
 | EN route | DE route | Content |
 |---|---|---|
-| `/` | `/de/` | Home — hero, install, GitHub-Stars CTA |
+| `/` | `/de/` | Home — hero with install, then problem → what it finds → workflow → proof → FAQ → get started |
 | `/how-it-works` | `/de/how-it-works` | Pipeline walkthrough |
 | `/rules` | `/de/rules` | Rule catalogue (live + planned) |
 | `/privacy` | `/de/privacy` | Privacy policy |
@@ -301,6 +397,7 @@ The Dart package lives in `packages/loam_cli/`:
 ```bash
 cd packages/loam_cli
 dart pub get
+find test/fixtures -name pubspec.yaml -execdir dart pub get \;   # fixture packages (optional: the tests resolve them themselves)
 dart format --output=none --set-exit-if-changed bin lib test
 dart analyze --fatal-infos --fatal-warnings
 dart test

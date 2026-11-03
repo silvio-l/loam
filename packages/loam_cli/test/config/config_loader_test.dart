@@ -7,8 +7,11 @@ import 'package:loam/src/config/config_loader.dart';
 import 'package:loam/src/config/loam_config.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   late Directory tempDir;
 
   setUp(() {
@@ -151,6 +154,40 @@ ignore:
     expect(
       config.ignoreGlobs,
       containsAll(['test/fixtures/**', 'lib/generated/**']),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // auto_update / required_version (auto-update pin, #9)
+  // ---------------------------------------------------------------------------
+
+  test('no config → auto_update on, no version pin', () async {
+    final config = await ConfigLoader.load(tempDir.path);
+    expect(config.autoUpdate, isTrue);
+    expect(config.requiredVersion, isNull);
+  });
+
+  test('auto_update: false and a required_version range parse', () async {
+    File(p.join(tempDir.path, 'loam.yaml')).writeAsStringSync(
+      'auto_update: false\nrequired_version: ">=0.1.15 <0.2.0"\n',
+    );
+    final config = await ConfigLoader.load(tempDir.path);
+    expect(config.autoUpdate, isFalse);
+    expect(config.requiredVersion.toString(), '>=0.1.15 <0.2.0');
+  });
+
+  test('invalid required_version or non-bool auto_update → '
+      'ConfigLoadException', () async {
+    final file = File(p.join(tempDir.path, 'loam.yaml'));
+    file.writeAsStringSync('required_version: "latest please"\n');
+    await expectLater(
+      ConfigLoader.load(tempDir.path),
+      throwsA(isA<ConfigLoadException>()),
+    );
+    file.writeAsStringSync('auto_update: "no"\n');
+    await expectLater(
+      ConfigLoader.load(tempDir.path),
+      throwsA(isA<ConfigLoadException>()),
     );
   });
 
@@ -316,6 +353,115 @@ rules:
 
     test('defaults() sourceDirs is lib + bin', () {
       expect(const LoamConfig.defaults().sourceDirs, ['lib', 'bin']);
+    });
+  });
+
+  test(
+    'strict_baseline defaults to false, parses true, rejects non-bool',
+    () async {
+      expect((await ConfigLoader.load(tempDir.path)).strictBaseline, isFalse);
+      final file = File(p.join(tempDir.path, 'loam.yaml'));
+      file.writeAsStringSync('strict_baseline: true\n');
+      expect((await ConfigLoader.load(tempDir.path)).strictBaseline, isTrue);
+      file.writeAsStringSync('strict_baseline: "yes"\n');
+      await expectLater(
+        ConfigLoader.load(tempDir.path),
+        throwsA(isA<ConfigLoadException>()),
+      );
+    },
+  );
+
+  group('intended-pattern settings', () {
+    test('defaults: boilerplate skipped, no extras', () async {
+      final config = await ConfigLoader.load(tempDir.path);
+      expect(config.skipBoilerplate, isTrue);
+      expect(config.boilerplateMethods, isEmpty);
+      expect(config.reservedAnnotations, isEmpty);
+      expect(config.assertionFunctions, isEmpty);
+    });
+
+    test('slop_assertion_free_test.assertion_functions is parsed', () async {
+      File(p.join(tempDir.path, 'loam.yaml')).writeAsStringSync('''
+slop_assertion_free_test:
+  assertion_functions: [expectGolden, checkAll]
+''');
+      final config = await ConfigLoader.load(tempDir.path);
+      expect(config.assertionFunctions, ['expectGolden', 'checkAll']);
+    });
+
+    test('parses sections', () async {
+      File(p.join(tempDir.path, 'loam.yaml')).writeAsStringSync('''
+code_duplicates:
+  boilerplate: false
+  boilerplate_methods: [build, toXml]
+unused_public_exports:
+  annotations: ["@Keep", Api]
+''');
+      final config = await ConfigLoader.load(tempDir.path);
+      expect(config.skipBoilerplate, isFalse);
+      expect(config.boilerplateMethods, ['build', 'toXml']);
+      expect(config.reservedAnnotations, ['Keep', 'Api']);
+    });
+
+    test('unknown key in a section is rejected', () async {
+      File(p.join(tempDir.path, 'loam.yaml')).writeAsStringSync('''
+code_duplicates:
+  boilerplat: false
+''');
+      await expectLater(
+        ConfigLoader.load(tempDir.path),
+        throwsA(isA<ConfigLoadException>()),
+      );
+    });
+  });
+
+  group('layer directories', () {
+    test('are normalized to project-relative POSIX prefixes', () {
+      for (final dir in [
+        'lib/core',
+        './lib/core',
+        'lib/core/',
+        r'lib\core',
+        r'.\lib\core\',
+        ' lib//core ',
+        'lib/x/../core',
+      ]) {
+        expect(ConfigLoader.normalizeLayerDir('core', dir), 'lib/core');
+      }
+    });
+
+    test('loading applies the normalization', () async {
+      File(p.join(tempDir.path, 'loam.yaml')).writeAsStringSync('''
+layers:
+  core: ./lib/core/
+  features: 'lib\\features'
+''');
+      final config = await ConfigLoader.load(tempDir.path);
+      expect(config.layers, {'core': 'lib/core', 'features': 'lib/features'});
+    });
+
+    test('absolute, outside or root paths are a config error', () {
+      for (final dir in [
+        '/lib/core',
+        r'C:\project\lib\core',
+        'c:/lib',
+        '../shared/lib',
+        'lib/../../x',
+        '.',
+        './',
+      ]) {
+        expect(
+          () => ConfigLoader.normalizeLayerDir('core', dir),
+          throwsA(
+            isA<ConfigLoadException>().having(
+              (e) => e.message,
+              'message',
+              allOf(contains('"core"'), contains('lib/core')),
+            ),
+          ),
+          reason: dir,
+        );
+      }
     });
   });
 }

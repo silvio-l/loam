@@ -1,3 +1,5 @@
+import '../architecture/layer_detector.dart';
+
 /// Generates a commented, annotated `loam.yaml` scaffold as a pure String.
 ///
 /// [ConfigScaffold] has **no I/O** — it returns a deterministic String that
@@ -8,6 +10,8 @@
 ///   so the file loads cleanly via [ConfigLoader] without triggering the
 ///   unknown-ruleId guard; active toggles reference only real registry IDs).
 /// - `ignore:` — list of project-relative glob patterns.
+/// - `layers:` / `boundaries:` — only when a [DetectedArchitecture] is passed
+///   to [generate]; active (not commented) so the detection is visible.
 ///
 /// **Design decision:** example rule toggles are shipped as YAML comments, not
 /// active entries. This guarantees that the generated file is always valid as-is
@@ -21,7 +25,38 @@ abstract final class ConfigScaffold {
   /// - Ends with a single trailing newline (`\n`).
   /// - Is POSIX line-ending only (`\n`, never `\r\n`).
   /// - Is identical across calls and platforms (Invariant 5 / reproducibility).
-  static String generate() => _content;
+  static String generate({DetectedArchitecture? architecture}) {
+    if (architecture == null || architecture.isEmpty) return _content;
+    return '$_content${_architectureBlock(architecture)}';
+  }
+
+  /// The visible, active `layers:` / `boundaries:` block that `loam init`
+  /// materialises from [LayerDetector]. Plain YAML the user can edit or delete;
+  /// loam never rewrites it on later runs.
+  static String _architectureBlock(DetectedArchitecture a) {
+    final b = StringBuffer('''
+# ---------------------------------------------------------------------------
+# layers / boundaries — architecture layers and the edges between them
+#
+# Detected by `loam init` from your lib/ directory structure and written here
+# so you can see, edit or delete them. loam never re-detects or overwrites
+# this block on later runs — what is below is exactly what applies.
+#
+# layers:     layer name -> project-relative directory prefix
+# boundaries: per importing layer (from), the layers it must not import (deny)
+# ---------------------------------------------------------------------------
+layers:
+''');
+    for (final e in a.layers.entries) {
+      b.writeln('  ${e.key}: ${e.value}');
+    }
+    b.writeln('boundaries:');
+    for (final bd in a.boundaries) {
+      b.writeln('  - from: ${bd.from}');
+      b.writeln('    deny: [${bd.deny.join(', ')}]');
+    }
+    return b.toString();
+  }
 
   // ---------------------------------------------------------------------------
   // The scaffold content is a compile-time constant so it is guaranteed to be
@@ -41,7 +76,7 @@ abstract final class ConfigScaffold {
 # (per-package) loam.yaml layers on top of it (nearer wins; ignore lists are
 # additive). See docs/developer-guide.md → "Configuration & discovery".
 #
-# Schema: https://github.com/silvio-l/loam (see docs/PRD.md)
+# Schema: https://github.com/silvio-l/loam (see internal-notes)
 
 # ---------------------------------------------------------------------------
 # update_check — opt out of the update-availability notice (bool, default true)
@@ -56,6 +91,43 @@ abstract final class ConfigScaffold {
 # update_check: true
 
 # ---------------------------------------------------------------------------
+# auto_update — let loam install new versions by itself (bool, default true)
+#
+# true  = a pub.dev install or a standalone release binary updates itself in
+#         the background (checksum-verified); Homebrew only gets the notice.
+# false = keep the update notice, never install. Machine-wide: set
+#         LOAM_NO_AUTO_UPDATE. CI and LOAM_OFFLINE never update.
+# ---------------------------------------------------------------------------
+# auto_update: true
+
+# ---------------------------------------------------------------------------
+# required_version — pin the loam version (pub constraint, default: no pin)
+#
+# A pinned project is never auto-updated. A running version outside the
+# constraint prints a warning, and `loam gate` stops with exit code 78.
+# ---------------------------------------------------------------------------
+# required_version: ">=0.1.15 <0.2.0"
+
+# ---------------------------------------------------------------------------
+# strict_baseline — fail `loam gate` on stale baseline entries (bool, default false)
+#
+# false = stale entries (findings that no longer occur) are only reported.
+# true  = they turn the ratchet gate red (for CI); clean up with
+#         `loam baseline --prune`. CLI: --strict-baseline / --no-strict-baseline.
+# ---------------------------------------------------------------------------
+# strict_baseline: false
+
+# ---------------------------------------------------------------------------
+# cache — keep the analyzer's summary store between runs (bool, default true)
+#
+# true  = the analyzer stores what it learned about the SDK, your dependencies
+#         and your libraries in .dart_tool/loam/ (trimmed at 512 MB), so the
+#         next run resolves faster. Results are identical either way.
+# false = resolve from scratch on every run. One run only: --no-cache.
+# ---------------------------------------------------------------------------
+# cache: true
+
+# ---------------------------------------------------------------------------
 # a11y — include accessibility-category rules in `loam scan` (bool, default true)
 #
 # true  = accessibility rules run as part of `loam scan` (default, Zero-Config).
@@ -64,6 +136,16 @@ abstract final class ConfigScaffold {
 #         Use `loam a11y` to run accessibility checks in isolation.
 # ---------------------------------------------------------------------------
 # a11y: true
+
+# ---------------------------------------------------------------------------
+# profile — which rules may block `loam gate` (core | strict, default core)
+#
+# core   = only rules with a near-zero false-positive rate block the gate.
+# strict = every rule blocks, including heuristic and threshold-based ones.
+# Rules outside the profile still run and show up as a hint. baseline.json is
+# the same for both profiles. Command line: loam gate --profile strict.
+# ---------------------------------------------------------------------------
+# profile: core
 
 # ---------------------------------------------------------------------------
 # rules — per-rule on/off switches (ruleId: true/false)
@@ -94,6 +176,30 @@ rules:
 # source_dirs:
 #   - lib
 #   - bin
+
+# ---------------------------------------------------------------------------
+# code_duplicates — intentional boilerplate is not compared by default:
+# copyWith, ==, hashCode, toString, toJson/toMap, fromJson/fromMap, props.
+# ---------------------------------------------------------------------------
+# code_duplicates:
+#   boilerplate: true            # false = compare boilerplate too
+#   boilerplate_methods: [toXml] # extra method names (matched by name only)
+
+# ---------------------------------------------------------------------------
+# unused_public_exports — symbols annotated @visibleForTesting, @internal,
+# @protected or @pragma('loam:reserved') are never reported. Add your own
+# annotation names here:
+# ---------------------------------------------------------------------------
+# unused_public_exports:
+#   annotations: [Keep]
+
+# ---------------------------------------------------------------------------
+# slop_assertion_free_test — a test that never calls expect/verify/check/fail
+# (directly or through your own helpers) is reported. List your own assertion
+# helpers here, matched by name:
+# ---------------------------------------------------------------------------
+# slop_assertion_free_test:
+#   assertion_functions: [expectGolden]
 
 # ---------------------------------------------------------------------------
 # ignore — project-relative glob patterns for path suppression

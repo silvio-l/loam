@@ -11,8 +11,11 @@ import 'package:loam/src/rules/slop_unjustified_ignore_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -68,6 +71,14 @@ void main() {
 
   test('category is RuleCategory.slop', () {
     expect(makeRule().category, RuleCategory.slop);
+  });
+
+  test('doc comments and strings are not directives; type=lint is checked', () {
+    final hits = makeRule()
+        .run(loadResult)
+        .where((f) => f.filePath.contains('ignore_edge_cases.dart'))
+        .toList();
+    expect(hits.map((f) => f.line), [11]);
   });
 
   // ---------------------------------------------------------------------------
@@ -149,13 +160,13 @@ void main() {
   // AC2: Total finding count across all fixture files
   // ---------------------------------------------------------------------------
 
-  test('AC2: total findings — exactly 2 (one per unjustified fixture file)', () {
+  test('AC2: total findings — exactly 3', () {
     final findings = makeRule().run(loadResult);
     expect(
       findings,
-      hasLength(2),
+      hasLength(3),
       reason:
-          'Expected exactly 2 findings total (one per unjustified fixture). '
+          'Expected exactly 3 findings total. '
           'Got: ${findings.map((f) => "${f.filePath}:${f.line} ${f.message}").join("; ")}',
     );
   });

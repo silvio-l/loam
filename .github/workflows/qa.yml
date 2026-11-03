@@ -1,8 +1,8 @@
 name: QA
 
 # Qualitäts-Gate für loam selbst: Format, Analyze, Tests (inkl. Self-Dogfooding)
-# und das loam-Dogfood-Gate (loam prüft loam). Läuft bei jedem Push auf dev/main,
-# manuell, UND wöchentlich (Cron) als regelmäßige Regressions-/SDK-Drift-Erkennung.
+# und das loam-Dogfood-Gate (loam prüft loam). Läuft bei jedem Push auf dev/main
+# und manuell (workflow_dispatch); bewusst kein Cron (Actions-Minuten).
 # Free-Tier-freundlich: ein einzelner ubuntu-Job, wenige Minuten.
 
 on:
@@ -28,14 +28,13 @@ jobs:
       # Pinned, not "stable": dart-lang/setup-dart@v1 without `sdk:` tracks the
       # rolling stable channel, so a new Dart release (e.g. a formatter-style
       # change) silently turns this job red weeks after the last real code
-      # change — exactly what happened repeatedly (see weekly schedule-run
-      # history). Pin to the SDK version the repo is actually formatted with
+      # change. Pin to the SDK version the repo is actually formatted with
       # (matches local dev machines) for reproducible CI (Invariant 5). Bump
-      # deliberately: update this pin + `.githooks/pre-push`'s matching check
-      # + reformat locally with the new SDK, all in one commit.
+      # deliberately: update this pin, the matching local check and reformat
+      # with the new SDK, all in one commit.
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: '3.12.1'
+          sdk: '3.13.7'
 
       - name: dart pub get
         run: dart pub get
@@ -65,8 +64,8 @@ jobs:
       - name: Public-Docs-QS (docs-attest check)
         run: bash ../../tool/docs-attest.sh check
 
-      - name: Test (inkl. Self-Dogfooding + Public-Docs-QS)
+      - name: Test (inkl. Public-Docs-QS)
         run: dart test
 
       - name: Dogfood-Gate — loam prüft loam
-        run: dart run bin/loam.dart gate --absolute --project-root .
+        run: dart run bin/loam.dart gate --absolute --profile strict --project-root .

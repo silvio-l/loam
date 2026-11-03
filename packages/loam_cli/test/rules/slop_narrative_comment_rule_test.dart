@@ -11,8 +11,11 @@ import 'package:loam/src/rules/slop_narrative_comment_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,

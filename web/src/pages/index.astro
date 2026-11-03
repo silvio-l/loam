@@ -1,142 +1,341 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import GitHubStars from '../components/GitHubStars.astro';
+import BrandMark from '../components/BrandMark.astro';
+import ReportPreview from '../components/ReportPreview.astro';
 import { t } from '../i18n/ui';
+import '../styles/home.css';
 
-// Build-time fetch — bake a star count into the HTML for JS-free fallback.
-// On any failure (network, timeout, API rate-limit) we fall back to null
-// and render the neutral CTA without a number. The build must never fail here.
-let initialStars: number | null = null;
-try {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3000);
-  const res = await fetch('https://api.github.com/repos/silvio-l/loam', {
-    signal: controller.signal,
-    headers: { 'Accept': 'application/vnd.github+json' },
-  });
-  clearTimeout(timer);
-  if (res.ok) {
-    const data = await res.json();
-    if (typeof data.stargazers_count === 'number') {
-      initialStars = data.stargazers_count;
-    }
-  }
-} catch (_) {
-  // Network unavailable, timeout, or API error — neutral CTA rendered below.
-}
+const newTab = t('en', 'a11y.newTab');
 ---
 
 <Layout
   lang="en"
   title="loam.dev — Codebase intelligence & anti-AI-slop for Dart & Flutter"
-  description="loam.dev catches the structural drift and AI-generated slop that dart analyze never sees — semantic, whole-project analysis. In CI a baseline tolerates what already exists and fails only on newly added problems."
+  description="Find what dart analyze misses: loam.dev checks Dart & Flutter projects for dead code, import cycles, copies, AI slop and accessibility gaps. In CI it fails only on new Findings."
   path="/"
 >
-  <div class="home-main">
-    <img class="mark" src="/icon-mark.svg" alt="loam.dev logo — a sprout growing from layered soil" width="128" height="120">
-    <span class="lockup">
-      <img class="wm-hero" src="/wordmark.svg" alt="loam.dev" width="480" height="120">
-      <span class="caret" aria-hidden="true"></span>
-    </span>
-    <h1 class="sr-only">loam.dev — Codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</h1>
-    <p class="tagline">Codebase intelligence &amp; <em>anti-AI-slop</em> for Dart&nbsp;&amp;&nbsp;Flutter.</p>
-    <p class="sub">Catches the structural drift and AI-generated slop that <code>dart&nbsp;analyze</code>
-       never sees.</p>
-    <div class="cmd">
-      <span class="p">$</span><span class="t" id="cmd">dart pub global activate loam</span>
-      <button id="copy" aria-label="Copy install command">copy</button>
+  <span id="status" class="sr-only" role="status" aria-live="polite"></span>
+
+  <!-- Scene 0 · Hero: the question, the install command, a real `loam scan`. -->
+  <section class="hero" aria-labelledby="hero-title" data-testid="home-hero">
+    <div class="wrap hero__grid">
+      <div class="hero__copy intro">
+        <div class="hero__brand" aria-hidden="true" data-testid="home-hero-brand"><BrandMark class="hero__mark" /><img class="hero__wordmark" src="/wordmark.svg" alt="" width="480" height="120"></div>
+        <p class="label">Codebase intelligence &amp; anti-AI-slop · Dart &amp; Flutter</p>
+        <h1 id="hero-title" class="display hero__title">Find what <span class="accent hero__tool">dart analyze</span> misses.</h1>
+        <p class="lead hero__lead">loam.dev is a CLI for Dart&nbsp;&amp;&nbsp;Flutter projects you build with AI coding agents.
+          It finds the structural drift, AI slop and accessibility gaps that <code>dart&nbsp;analyze</code> doesn’t
+          report — and in CI, it fails only on new Findings.</p>
+        <div class="hero__install">
+          <div class="cmd">
+            <span class="cmd__p" aria-hidden="true">$</span><span class="cmd__t" id="cmd">dart pub global activate loam</span>
+            <button class="cmd__copy" id="copy" type="button" data-testid="home-copy" data-copy-target="cmd" data-done="copied" data-failed="copy failed" aria-label="Copy install command">copy</button>
+          </div>
+          <p class="cmd-note next">Then run <code>loam&nbsp;scan</code> in your project. Early preview · 20 live rules · free · MIT · no account.</p>
+          <p class="cmd-note hero__brew">Homebrew on Apple Silicon Macs &amp; Linux: <code id="cmd-brew-hero">brew install silvio-l/loam/loam</code>
+            <button class="mini-copy" type="button" data-testid="home-copy-brew" data-copy-target="cmd-brew-hero" data-track="Install brew" data-done="copied" data-failed="copy failed" aria-label="Copy Homebrew install command">copy</button></p>
+        </div>
+        <nav class="hero__links" data-testid="home-links" aria-label="Project links">
+          <a class="link" href="https://pub.dev/packages/loam" data-testid="home-link-pubdev">pub.dev</a>
+          <a class="link" href="https://github.com/silvio-l/loam" data-testid="home-link-github">GitHub</a>
+          <a class="link" href="/developer-guide/" data-testid="home-link-docs">docs</a>
+          <a class="link" href="/demo-report" data-testid="home-link-report" data-track="report" target="_blank" rel="noopener">live demo report<span class="ext" aria-hidden="true">↗</span><span class="sr-only"> {newTab}</span></a>
+          <a class="link" href="mailto:silvio-lindstedt@outlook.com" data-testid="home-link-contact">contact</a>
+          <button class="link sharelink" id="share" data-testid="home-share" type="button" data-share="https://getloam.dev/" data-share-text="Codebase intelligence & anti-AI-slop for Dart & Flutter." data-done="link copied" data-failed="copy failed">share</button>
+        </nav>
+      </div>
+
+      <figure class="hero__visual" aria-label="Example: loam scan output on a small demo project">
+        <div class="term term--hero">
+          <div class="term__bar"><span class="term__dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="term__title">~/shopcart — loam scan</span></div>
+          <pre class="term__body"><span class="l"><span class="c-p">$</span> <span class="c-cmd">loam scan</span></span><span class="l c-dim">shopcart · source: lib, bin</span><span class="l"> </span><span class="l c-file">lib/services/cart_service.dart</span><span class="l">  1     <span class="c-warn">warning</span>  <span class="c-rule">circular-dependencies</span></span><span class="l c-dim">        cart_service.dart ⇄ checkout_service.dart</span><span class="l c-file">lib/services/order_notifier.dart</span><span class="l">  9     <span class="c-warn">warning</span>  <span class="c-rule">code-duplicates</span></span><span class="l c-dim">        2 occurrences of duplicated block (59 tokens)</span><span class="l c-file">lib/services/pricing_engine.dart</span><span class="l">  5     <span class="c-warn">warning</span>  <span class="c-rule">complexity-hotspots</span></span><span class="l c-dim">        PricingEngine.discountFor: cyclomatic=27, cognitive=39</span><span class="l"> </span><span class="l c-cmd">3 findings (warning: 3)</span></pre>
+        </div>
+        <figcaption class="hero__caption">Real output of <code>loam scan</code> on the demo project behind the <a class="link" href="/demo-report" data-track="report" data-testid="home-hero-report" target="_blank" rel="noopener">demo report<span class="ext" aria-hidden="true">↗</span><span class="sr-only"> {newTab}</span></a>, shortened.</figcaption>
+      </figure>
     </div>
-    <nav class="links">
-      <a href="https://pub.dev/packages/loam">pub.dev</a>
-      <span class="sep"></span>
-      <a href="https://github.com/silvio-l/loam">GitHub</a>
-      <span class="sep"></span>
-      <a href="/developer-guide/">docs</a>
-      <span class="sep"></span>
-      <a href="/demo-report" target="_blank" rel="noopener">report</a>
-      <span class="sep"></span>
-      <a href="mailto:silvio-lindstedt@outlook.com">contact</a>
-      <span class="sep"></span>
-      <button class="sharelink" id="share" type="button">share</button>
-    </nav>
-    <div class="stars-wrap">
-      <GitHubStars
-        initialCount={initialStars}
-        label={t('en', 'stars.label')}
-        ariaLabel={t('en', 'stars.ariaLabel')}
-      />
+  </section>
+
+  <!-- Scene 1 · Problem: a valid Dart file whose problems are marked line by line. -->
+  <section class="scene problem" aria-labelledby="problem-title" data-testid="home-problem">
+    <div class="problem__pin">
+      <div class="wrap problem__grid">
+        <div class="problem__text">
+          <p class="label">The problem</p>
+          <h2 id="problem-title" class="h2">Valid Dart <span class="accent">isn’t the same as clean code.</span></h2>
+          <div class="body-copy">
+            <p>
+              When an AI agent builds the feature, there is more to check than whether it works:
+              a helper copied under a new name, an empty <code>catch</code> that swallows the error,
+              a public class nothing uses, an icon button without an accessible name.
+            </p>
+            <p>
+              All of that is valid Dart, so <code>dart analyze</code> lets it pass — it checks
+              your code largely file by file, not the project as a whole. Left unchecked, it
+              piles up until the codebase gets hard to change.
+            </p>
+          </div>
+        </div>
+        <figure class="codefile problem__code">
+          <div class="codefile__bar"><span class="term__dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="codefile__name">lib/checkout/checkout_page.dart</span><span class="problem__count" aria-hidden="true">findings</span></div>
+          <pre class="codefile__body"><code><span class="ln">String formatPrice(int cents) =&gt;</span><span class="ln">    '$&#123;(cents / 100).toStringAsFixed(2)&#125; €';</span><span class="ln"> </span><span class="ln flag f1"><span class="flag__n" aria-hidden="true">1</span>String priceLabel(int cents) =&gt;</span><span class="ln flag f1">    '$&#123;(cents / 100).toStringAsFixed(2)&#125; €';</span><span class="ln"> </span><span class="ln">Future&lt;void&gt; submit(Order order) async &#123;</span><span class="ln">  try &#123;</span><span class="ln">    await api.send(order);</span><span class="ln flag f2"><span class="flag__n" aria-hidden="true">2</span>  &#125; catch (e) &#123;</span><span class="ln flag f2">    // TODO: handle error</span><span class="ln flag f2">  &#125;</span><span class="ln">&#125;</span><span class="ln"> </span><span class="ln flag f3"><span class="flag__n" aria-hidden="true">3</span>class CheckoutAnalyticsHelper &#123;</span><span class="ln flag f3">  void track(String event) &#123;&#125;</span><span class="ln flag f3">&#125;</span><span class="ln"> </span><span class="ln">IconButton(</span><span class="ln flag f4"><span class="flag__n" aria-hidden="true">4</span>  icon: const Icon(Icons.delete),</span><span class="ln">  onPressed: onRemove,</span><span class="ln">),</span></code></pre>
+          <figcaption class="codefile__legend">
+            <ol>
+              <li class="f1"><span class="flag__n">1</span><span><b>a helper copied under a new name</b> <a class="rule-id" href="/rules/#code-duplicates" data-testid="home-flag-rule-code-duplicates">code-duplicates</a></span></li>
+              <li class="f2"><span class="flag__n">2</span><span><b>an empty <code>catch</code> that swallows the error</b> <a class="rule-id" href="/rules/#slop-empty-catch" data-testid="home-flag-rule-slop-empty-catch">slop-empty-catch</a></span></li>
+              <li class="f3"><span class="flag__n">3</span><span><b>a public class nothing uses</b> <a class="rule-id" href="/rules/#unused-public-exports" data-testid="home-flag-rule-unused-public-exports">unused-public-exports</a></span></li>
+              <li class="f4"><span class="flag__n">4</span><span><b>an icon button without an accessible name</b> <a class="rule-id" href="/rules/#a11y-icon-button-label" data-testid="home-flag-rule-a11y-icon-button-label">a11y-icon-button-label</a></span></li>
+            </ol>
+          </figcaption>
+        </figure>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <!-- Scene 2 · What it finds: three strata, one run. -->
+  <section class="scene finds" aria-labelledby="finds-title" data-testid="home-finds">
+    <div class="wrap finds__head">
+      <p class="label">What loam.dev finds</p>
+      <h2 id="finds-title" class="h2">Three kinds of problems, <span class="accent">one scan.</span></h2>
+    </div>
+    <div class="strata">
+      <article class="stratum stratum--1 rv" aria-labelledby="stratum-drift">
+        <div class="wrap stratum__grid">
+          <span class="stratum__depth" aria-hidden="true">01</span>
+          <h3 id="stratum-drift" class="h3 stratum__title">Structural drift</h3>
+          <p class="stratum__text">
+            Public API that nothing in the project uses, libraries that import each other in a
+            circle, imports across the layer boundaries you set in <code>loam.yaml</code>,
+            duplicated code — renamed copies included — and complexity hotspots, summed up in a <code>loam health</code> score.
+          </p>
+          <ul class="rule-chips" aria-label="Rules">
+            <li><a href="/rules/#unused-public-exports" data-testid="home-rule-chip-unused-public-exports">unused-public-exports</a></li>
+            <li><a href="/rules/#circular-dependencies" data-testid="home-rule-chip-circular-dependencies">circular-dependencies</a></li>
+            <li><a href="/rules/#architecture-boundaries" data-testid="home-rule-chip-architecture-boundaries">architecture-boundaries</a></li>
+            <li><a href="/rules/#code-duplicates" data-testid="home-rule-chip-code-duplicates">code-duplicates</a></li>
+            <li><a href="/rules/#complexity-hotspots" data-testid="home-rule-chip-complexity-hotspots">complexity-hotspots</a></li>
+          </ul>
+        </div>
+      </article>
+      <article class="stratum stratum--2 rv" aria-labelledby="stratum-slop">
+        <div class="wrap stratum__grid">
+          <span class="stratum__depth" aria-hidden="true">02</span>
+          <h3 id="stratum-slop" class="h3 stratum__title">AI slop</h3>
+          <p class="stratum__text">
+            Empty or comment-only <code>catch</code> blocks, <code>// ignore:</code> without a
+            reason, comments that repeat the code or narrate it step by step, placeholders like <code>// ... rest of code</code>, functions that only throw <code>UnimplementedError</code>, tests that assert nothing (<code>expect(true, isTrue)</code>), <code>setState</code> after an <code>await</code> without a <code>mounted</code> check, and secrets hardcoded in strings — without ever
+            printing the value.
+          </p>
+          <ul class="rule-chips" aria-label="Rules">
+            <li><a href="/rules/#slop-empty-catch" data-testid="home-rule-chip-slop-empty-catch">slop-empty-catch</a></li>
+            <li><a href="/rules/#slop-unjustified-ignore" data-testid="home-rule-chip-slop-unjustified-ignore">slop-unjustified-ignore</a></li>
+            <li><a href="/rules/#slop-narrative-comment" data-testid="home-rule-chip-slop-narrative-comment">slop-narrative-comment</a></li>
+            <li><a href="/rules/#slop-workflow-narration-comment" data-testid="home-rule-chip-slop-workflow-narration-comment">slop-workflow-narration-comment</a></li>
+            <li><a href="/rules/#slop-placeholder-comment" data-testid="home-rule-chip-slop-placeholder-comment">slop-placeholder-comment</a></li>
+            <li><a href="/rules/#slop-unimplemented-stub" data-testid="home-rule-chip-slop-unimplemented-stub">slop-unimplemented-stub</a></li>
+            <li><a href="/rules/#slop-tautological-assertion" data-testid="home-rule-chip-slop-tautological-assertion">slop-tautological-assertion</a></li>
+            <li><a href="/rules/#slop-undisposed-resource" data-testid="home-rule-chip-slop-undisposed-resource">slop-undisposed-resource</a></li>
+            <li><a href="/rules/#slop-assertion-free-test" data-testid="home-rule-chip-slop-assertion-free-test">slop-assertion-free-test</a></li>
+            <li><a href="/rules/#slop-setstate-after-async-gap" data-testid="home-rule-chip-slop-setstate-after-async-gap">slop-setstate-after-async-gap</a></li>
+            <li><a href="/rules/#hardcoded-secrets" data-testid="home-rule-chip-hardcoded-secrets">hardcoded-secrets</a></li>
+          </ul>
+        </div>
+      </article>
+      <article class="stratum stratum--3 rv" aria-labelledby="stratum-a11y">
+        <div class="wrap stratum__grid">
+          <span class="stratum__depth" aria-hidden="true">03</span>
+          <h3 id="stratum-a11y" class="h3 stratum__title">Accessibility gaps</h3>
+          <p class="stratum__text">
+            Images without a semantic label, icon buttons and tappable widgets without an
+            accessible name, form fields without a label — the gaps behind WCAG 1.1.1, 4.1.2
+            and 3.3.2.
+          </p>
+          <ul class="rule-chips" aria-label="Rules">
+            <li><a href="/rules/#a11y-image-label" data-testid="home-rule-chip-a11y-image-label">a11y-image-label</a></li>
+            <li><a href="/rules/#a11y-icon-button-label" data-testid="home-rule-chip-a11y-icon-button-label">a11y-icon-button-label</a></li>
+            <li><a href="/rules/#a11y-interactive-semantics" data-testid="home-rule-chip-a11y-interactive-semantics">a11y-interactive-semantics</a></li>
+            <li><a href="/rules/#a11y-form-field-label" data-testid="home-rule-chip-a11y-form-field-label">a11y-form-field-label</a></li>
+          </ul>
+        </div>
+      </article>
+    </div>
+    <div class="wrap finds__more">
+      <a class="link link--arrow" href="/rules/" data-testid="home-finds-rules">See all 20 live rules, each with a flagged and a clean example</a>
+    </div>
+  </section>
+
+  <!-- Scene 3 · How it works: the ratchet — scan, baseline, gate. -->
+  <section class="scene how" aria-labelledby="how-title" data-testid="home-how">
+    <div class="wrap how__grid">
+      <header class="how__head">
+        <p class="label">How it works</p>
+        <h2 id="how-title" class="h2">Scan everything once. <span class="accent">Then block only what’s new.</span></h2>
+      </header>
+      <ol class="ratchet">
+        <li class="ratchet__step rv">
+          <div class="ratchet__text">
+            <span class="ratchet__n" aria-hidden="true">01</span>
+            <h3 class="h3">Audit what’s there.</h3>
+            <p><code>loam scan</code> runs every rule over
+              the whole project and lists all Findings. Fix what matters now.</p>
+          </div>
+          <div class="term term--step" aria-label="Example output">
+            <pre class="term__body"><span class="l"><span class="c-p">$</span> <span class="c-cmd">loam scan</span></span><span class="l">  <span class="c-warn">warning</span>  <span class="c-rule">circular-dependencies</span></span><span class="l">  <span class="c-warn">warning</span>  <span class="c-rule">code-duplicates</span></span><span class="l">  <span class="c-warn">warning</span>  <span class="c-rule">complexity-hotspots</span></span><span class="l c-cmd">3 findings (warning: 3)</span></pre>
+          </div>
+        </li>
+        <li class="ratchet__step rv">
+          <div class="ratchet__text">
+            <span class="ratchet__n" aria-hidden="true">02</span>
+            <h3 class="h3">Record what you accept.</h3>
+            <p><code>loam baseline --write</code> records the
+              Findings you accept in <code>baseline.json</code>. Commit it.</p>
+          </div>
+          <div class="term term--step" aria-label="Example output">
+            <pre class="term__body"><span class="l"><span class="c-p">$</span> <span class="c-cmd">loam baseline --write</span></span><span class="l">loam baseline: wrote 3 findings to baseline.json</span><span class="l"><span class="c-p">$</span> <span class="c-cmd">git add baseline.json</span></span></pre>
+          </div>
+        </li>
+        <li class="ratchet__step rv">
+          <div class="ratchet__text">
+            <span class="ratchet__n" aria-hidden="true">03</span>
+            <h3 class="h3">Block what’s new in CI.</h3>
+            <p><code>loam gate</code> in CI fails only on
+              new Findings from blocking rules. Your existing code doesn’t turn the build red, and
+              the score can only improve.</p>
+          </div>
+          <div class="term term--step" aria-label="Example output">
+            <pre class="term__body"><span class="l"><span class="c-p">$</span> <span class="c-cmd">loam gate</span></span><span class="l c-ok"># exit 0 · nothing new</span><span class="l c-dim"># …the agent adds an empty catch…</span><span class="l"><span class="c-p">$</span> <span class="c-cmd">loam gate</span></span><span class="l c-file">lib/models/order.dart</span><span class="l">  18:5  <span class="c-warn">warning</span>  <span class="c-rule">slop-empty-catch</span></span><span class="l c-bad"># exit 1 · one new Finding</span></pre>
+          </div>
+        </li>
+      </ol>
+      <div class="how__after body-copy">
+        <p>
+          Starting from scratch? <code>loam gate --absolute</code> ignores the baseline and
+          allows no blocking Findings at all. While you code, <code>loam watch</code> repeats the audit on
+          every save and shows what is new or resolved.
+        </p>
+        <p><a class="link link--arrow" href="/how-it-works/" data-testid="home-how-more">How loam.dev analyses your project</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scene 4 · Proof: the real report, framed large. -->
+  <section class="scene proof" aria-labelledby="proof-title" data-testid="home-proof">
+    <div class="wrap proof__head">
+      <p class="label">Proof</p>
+      <h2 id="proof-title" class="h2">Check the results <span class="accent">yourself.</span></h2>
+    </div>
+    <div class="wrap">
+      <ReportPreview lang="en" />
+    </div>
+    <div class="wrap">
+      <ul class="proof__list">
+        <li class="rv"><h3 class="h3">The live demo report.</h3><p>The <a class="link" href="/demo-report" data-testid="home-proof-report" data-track="report" target="_blank" rel="noopener">demo report<span class="ext" aria-hidden="true">↗</span><span class="sr-only"> {newTab}</span></a> is the exact <code>html</code> output of loam.dev, generated from a deliberately
+          messy demo project. Filter it, select Findings, copy the fix-prompt.</p></li>
+        <li class="rv"><h3 class="h3">loam.dev checks itself.</h3><p>On every push, loam.dev runs its own gate
+          on its own code — all rules, absolute mode, zero Findings allowed.</p></li>
+        <li class="rv"><h3 class="h3">Open source, MIT.</h3><p>Every rule is readable on <a class="link" href="https://github.com/silvio-l/loam" data-testid="home-proof-github">GitHub</a>.
+          No account, no licence key, no subscription.</p></li>
+        <li class="rv"><h3 class="h3">Early preview.</h3><p>Version 0.1.16 is an early preview: 20 rules are
+          live, and the one planned rule is labelled as planned.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Scene 5 · FAQ: objections, answered. Native <details>, works without JS. -->
+  <section class="scene faq" aria-labelledby="faq-title" data-testid="home-faq">
+    <div class="wrap faq__grid">
+      <header class="faq__head">
+        <p class="label">FAQ</p>
+        <h2 id="faq-title" class="h2">Questions before you install</h2>
+      </header>
+      <div class="faq__list">
+        <details class="qa" data-testid="home-faq-analyze" open>
+          <summary><h3 class="qa__q">Does it replace <code>dart analyze</code>?</h3></summary>
+          <div class="qa__a"><p>
+            No, it adds to it. Keep running <code>dart analyze</code> for types and lints.
+            loam.dev looks at the whole project at once — references, imports, copies across
+            files — and doesn’t set out to repeat what the analyzer already reports.
+          </p></div>
+        </details>
+        <details class="qa" data-testid="home-faq-legacy">
+          <summary><h3 class="qa__q">Can I add it to an existing codebase without a red CI?</h3></summary>
+          <div class="qa__a"><p>
+            No. The ratchet is the default: freeze today’s Findings in a baseline, and only new
+            ones fail. Clean up the backlog when it suits you.
+          </p></div>
+        </details>
+        <details class="qa" data-testid="home-faq-noise">
+          <summary><h3 class="qa__q">How noisy is it?</h3></summary>
+          <div class="qa__a"><p>
+            By default only the <code>core</code> profile can fail the gate: seven rules built for
+            near-zero false positives. Heuristic and threshold rules show up as hints until you
+            opt in with <code>--profile strict</code>. Code from generators such as freezed,
+            json_serializable, Drift and Riverpod is recognised automatically, and <code>// loam-ignore: &lt;rule&gt; – &lt;reason&gt;</code> silences a single Finding — the reason is mandatory.
+          </p></div>
+        </details>
+        <details class="qa" data-testid="home-faq-privacy">
+          <summary><h3 class="qa__q">Does my code leave my machine?</h3></summary>
+          <div class="qa__a"><p>
+            No. The analysis runs locally and offline, your code is never uploaded, and you need
+            no account. Apart from that, loam.dev checks pub.dev for updates once a day — off in CI
+            and easy to switch off anywhere.
+          </p></div>
+        </details>
+        <details class="qa" data-testid="home-faq-ai">
+          <summary><h3 class="qa__q">Does it use AI to judge my code?</h3></summary>
+          <div class="qa__a"><p>
+            Not today. All 20 live rules are deterministic: the same code and ruleset version
+            always give the same Findings. A planned, optional LLM rule will run on your own API
+            key, with every verdict cached, so the gate stays reproducible.
+          </p></div>
+        </details>
+        <details class="qa" data-testid="home-faq-agent">
+          <summary><h3 class="qa__q">How does it work with my AI agent?</h3></summary>
+          <div class="qa__a"><p>
+            <code>--format agent</code> gives your agent a short, capped list; <code>json</code> and <code>sarif</code> feed tools and CI. In the HTML report you pick Findings and
+            copy a ready-made fix-prompt. After a run, loam.dev suggests one preventive
+            instruction per problem class for your agent’s standing rules (for example <code>CLAUDE.md</code>) — it never edits them itself.
+          </p></div>
+        </details>
+        <details class="qa" data-testid="home-faq-cost">
+          <summary><h3 class="qa__q">What does it cost, and where does it run?</h3></summary>
+          <div class="qa__a"><p>
+            Nothing — it’s MIT-licensed. It runs on macOS, Linux and Windows: install it with
+            Dart pub on any of them, or with Homebrew on Apple Silicon Macs and Linux.
+          </p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scene 6 · Install: the sprout grows out of the soil. -->
+  <section class="scene start" id="install" aria-labelledby="start-title" data-testid="home-start">
+    <div class="wrap start__grid">
+      <div class="start__art" aria-hidden="true"><BrandMark class="start__mark" /></div>
+      <div class="start__body">
+        <p class="label">Get started</p>
+        <h2 id="start-title" class="h2">Run your first scan.</h2>
+        <div class="start__cmds">
+          <div class="cmd">
+            <span class="cmd__p" aria-hidden="true">$</span><span class="cmd__t" id="cmd-start-pub">dart pub global activate loam</span>
+            <button class="cmd__copy" type="button" data-testid="home-start-copy-pub" data-copy-target="cmd-start-pub" data-done="copied" data-failed="copy failed" aria-label="Copy install command">copy</button>
+          </div>
+          <div class="cmd cmd--secondary">
+            <span class="cmd__p" aria-hidden="true">$</span><span class="cmd__t"><span id="cmd-start-scan">loam scan</span> <span class="muted">  # in your project</span></span>
+            <button class="cmd__copy" type="button" data-testid="home-start-copy-scan" data-copy-target="cmd-start-scan" data-track="Scan" data-done="copied" data-failed="copy failed" aria-label="Copy scan command">copy</button>
+          </div>
+        </div>
+        <div class="start__alt">
+          <p class="cmd-note">On Apple Silicon Macs and Linux, Homebrew works too, with no <code>PATH</code> setup:</p>
+          <div class="cmd cmd--secondary">
+            <span class="cmd__p" aria-hidden="true">$</span><span class="cmd__t" id="cmd-start-brew">brew install silvio-l/loam/loam</span>
+            <button class="cmd__copy" type="button" data-testid="home-start-copy-brew" data-copy-target="cmd-start-brew" data-track="Install brew" data-done="copied" data-failed="copy failed" aria-label="Copy Homebrew install command">copy</button>
+          </div>
+          <p class="cmd-note">If your shell can’t find <code>loam</code> after a pub install, add <code>~/.pub-cache/bin</code> to your <code>PATH</code>.</p>
+        </div>
+        <p class="start__guide">
+          <a class="link link--arrow" href="/developer-guide/" data-testid="home-start-guide">Read the Developer Guide</a> <span class="muted">for every command, the CI setup and configuration.</span>
+        </p>
+      </div>
+    </div>
+  </section>
 </Layout>
-
-<style is:global>
-  .home-main{
-    display:flex; flex-direction:column; align-items:center;
-    justify-content:center; text-align:center;
-    padding:2.4rem clamp(1.2rem,5vw,3rem) 3rem;
-  }
-  .mark{ width:clamp(86px,13vw,128px); height:auto; display:block;
-    filter:drop-shadow(0 6px 26px rgba(136,200,64,.18)); animation:rise .9s cubic-bezier(.2,.8,.2,1) both; }
-  .lockup{ position:relative; display:inline-block; margin:1.5rem auto 0;
-    animation:rise .9s .08s cubic-bezier(.2,.8,.2,1) both; }
-  .wm-hero{ width:var(--wm); height:auto; display:block; }
-  .caret{ position:absolute; left:100%; bottom:0; display:block;
-    width:calc(var(--wm) * .104); height:calc(var(--wm) * .032);
-    margin-left:calc(var(--wm) * .015); margin-bottom:calc(var(--wm) * .015);
-    background:var(--green); border-radius:2px;
-    box-shadow:0 0 16px rgba(136,200,64,.7);
-    animation:blink 1.05s steps(1,end) infinite; }
-
-  .tagline{ font-size:clamp(1.15rem,3vw,1.7rem); font-weight:500; line-height:1.35; color:var(--ink);
-    max-width:26ch; margin:1.5rem auto 0; animation:rise .9s .16s cubic-bezier(.2,.8,.2,1) both; }
-  .tagline em{ font-style:italic; font-weight:400; color:var(--green); }
-  .sub{ font-size:clamp(.82rem,1.7vw,.95rem); font-weight:400; line-height:1.65; color:var(--dim);
-    max-width:56ch; margin:1.3rem auto 0; animation:rise .9s .24s cubic-bezier(.2,.8,.2,1) both; }
-  .sub code{ color:var(--ink); background:rgba(255,255,255,.05); padding:.05em .4em; border-radius:5px; }
-
-  .cmd{ margin:2.2rem auto 0; display:inline-flex; align-items:center; gap:.9rem; font-size:clamp(.82rem,1.8vw,.96rem);
-    background:linear-gradient(180deg,var(--panel),#101216); border:1px solid var(--line); border-radius:12px;
-    padding:.8rem 1rem .8rem 1.1rem; box-shadow:0 12px 40px rgba(0,0,0,.45);
-    animation:rise .9s .32s cubic-bezier(.2,.8,.2,1) both; }
-  .cmd .p{ color:var(--green); } .cmd .t{ color:var(--ink); }
-  .cmd button{ font:600 .68rem var(--font); letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
-    background:transparent; border:1px solid #2b2d33; border-radius:7px; padding:.34rem .6rem; cursor:pointer; transition:.18s; }
-  .cmd button:hover, .cmd button:focus-visible, .cmd button.ok{ color:var(--green); border-color:rgba(136,200,64,.5); }
-
-  .links{ margin-top:2.1rem; display:flex; gap:1.4rem; align-items:center; justify-content:center; font-size:.85rem;
-    animation:rise .9s .4s cubic-bezier(.2,.8,.2,1) both; }
-  .links a{ color:var(--ink); text-decoration:none; border-bottom:1px solid rgba(236,233,225,.22); padding-bottom:2px; transition:.18s; }
-  .links a:hover, .links a:focus-visible{ color:var(--green); border-color:var(--green); }
-  .links .sep{ width:4px; height:4px; border-radius:50%; background:var(--line); }
-  .links .sharelink{ font:inherit; color:var(--ink); background:transparent; border:none;
-    border-bottom:1px solid rgba(236,233,225,.22); padding:0 0 2px; cursor:pointer; transition:.18s; }
-  .links .sharelink:hover, .links .sharelink:focus-visible, .links .sharelink.ok{ color:var(--green); border-color:var(--green); }
-
-  .stars-wrap{ margin-top:2rem; animation:rise .9s .48s cubic-bezier(.2,.8,.2,1) both; }
-
-  .sr-only{ position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
-
-  @keyframes blink{ 0%,50%{ opacity:1; } 50.01%,100%{ opacity:0; } }
-</style>
-
-<script is:inline>
-  var _paq = window._paq || [];
-  const b=document.getElementById('copy');
-  b?.addEventListener('click',async()=>{ try{
-    await navigator.clipboard.writeText(document.getElementById('cmd').textContent.trim());
-    b.textContent='copied'; b.classList.add('ok'); setTimeout(()=>{b.textContent='copy';b.classList.remove('ok');},1600);
-    _paq.push(["trackEvent", "Engagement", "Install kopiert", "Install"]);
-  }catch(e){} });
-
-  const s=document.getElementById('share');
-  const shareData={ title:'loam.dev', text:'Codebase intelligence & anti-AI-slop for Dart & Flutter.', url:'https://getloam.dev/' };
-  s?.addEventListener('click',async()=>{ try{
-    if(navigator.share){ await navigator.share(shareData); return; }
-    await navigator.clipboard.writeText(shareData.url);
-    s.textContent='link copied'; s.classList.add('ok'); setTimeout(()=>{s.textContent='share';s.classList.remove('ok');},1600);
-  }catch(e){} });
-
-  document.querySelector('a[href="/demo-report"]')?.addEventListener('click',function(){
-    _paq.push(["trackEvent", "Engagement", "Demo-Report geöffnet", "report"]);
-  });
-</script>

@@ -1,11 +1,13 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import '../model/anchor.dart';
 import '../model/finding.dart';
 import '../model/fingerprint.dart';
+import '../model/project_path.dart';
+import 'a11y_name_sources.dart';
 import 'generated_file.dart';
 import 'rule.dart';
 
@@ -14,15 +16,18 @@ import 'rule.dart';
 /// Rule ID: `a11y-icon-button-label`
 ///
 /// A finding is emitted for:
-/// - [IconButton] that has **neither** a `tooltip` named argument **nor** an
-///   enclosing [Semantics] ancestor with a non-null `label` argument.
+/// - [IconButton] that has **neither** a `tooltip` named argument, an `Icon`
+///   with a `semanticLabel`, **nor** an enclosing `Semantics(label:)` or
+///   `Tooltip(message:)` ancestor.
 /// - [GestureDetector] or [InkWell] whose direct `child` argument resolves to
 ///   Flutter's [Icon] widget and that likewise has no enclosing
 ///   `Semantics(label: …)` ancestor.
 ///
 /// Conservative rule: any of the following suppresses the finding:
 /// - `IconButton(tooltip: '…')` — tooltip provides the accessible name.
-/// - A `Semantics(label: '…')` ancestor (any depth) around the widget.
+/// - An `Icon(…, semanticLabel: …)` as the `icon:`/`child:`.
+/// - A `Semantics(label: '…')` or `Tooltip(message: '…')` ancestor (any depth)
+///   around the widget (`IconButton` builds its own `Tooltip` from `tooltip:`).
 ///
 /// Out of scope (AST-level, not detectable without runtime information):
 /// - Composite children that happen to be semantically icon-only at runtime.
@@ -41,10 +46,12 @@ import 'rule.dart';
 /// are skipped entirely.
 ///
 /// **Fingerprint semantics:**
-/// `computeFingerprint(ruleId, relativePath,
-///   enclosingMemberName + ':' + widgetKind + ':' + occurrenceIndex)` —
-/// robust against line/column shifts; stable as long as the enclosing
-/// function/method name and the occurrence order within it don't change.
+/// `computeFingerprint(ruleId, relativePath, anchor)` with the anchor
+/// `enclosingMemberName:widgetKind:contentHash:n` — `contentHash` covers the
+/// widget's normalised tokens (closure bodies collapsed, comments and
+/// formatting ignored) and `n` counts only earlier identical widgets in the
+/// same member. Inserting code or comments elsewhere, line shifts and
+/// re-formatting leave it unchanged.
 ///
 /// **Finding contract:**
 /// - `severity`: [Severity.warning]
@@ -77,7 +84,6 @@ class A11yIconButtonLabelRule implements Rule {
   RuleCategory get category => RuleCategory.accessibility;
 
   @override
-  // loam-ignore: code-duplicates – per-rule boilerplate shared with sibling a11y rules; extracting to a shared base class would add coupling without clarity gain.
   List<Finding> run(ProjectLoadResult result) {
     final findings = <Finding>[];
 
@@ -85,7 +91,7 @@ class A11yIconButtonLabelRule implements Rule {
       // Skip generated files — *.g.dart, *.freezed.dart, *.mocks.dart, gen-l10n.
       if (isGeneratedDartFile(file.path)) continue;
 
-      final relativePath = p.relative(file.path, from: projectRoot);
+      final relativePath = projectRelativePosixPath(file.path, projectRoot);
 
       final visitor = _IconButtonLabelVisitor(
         ruleId: ruleId,
@@ -114,11 +120,7 @@ class _IconButtonLabelVisitor extends RecursiveAstVisitor<void> {
   final String relativePath;
   final List<Finding> findings;
 
-  /// Occurrence counter keyed by `enclosingMemberName:widgetKind`.
-  ///
-  /// Ensures that multiple flagged widgets of the same type within the same
-  /// enclosing member get distinct, deterministic fingerprints.
-  final Map<String, int> _occurrenceCount = {};
+  final AnchorCounter _anchors = AnchorCounter();
 
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
@@ -131,11 +133,12 @@ class _IconButtonLabelVisitor extends RecursiveAstVisitor<void> {
 
     final classEl = constructorEl.enclosingElement;
 
-    if (_isFlutterClass(classEl, 'IconButton')) {
+    if (isFlutterClass(classEl, 'IconButton')) {
       // An IconButton is accessible when it has a tooltip or a Semantics
       // ancestor with a non-null label.
-      if (_hasArg(node, 'tooltip')) return;
-      if (_isWrappedInSemanticsLabel(node)) return;
+      if (hasNamedArgument(node.argumentList, 'tooltip')) return;
+      if (hasLabelledIcon(node.argumentList, 'icon')) return;
+      if (hasNamingAncestor(node, tooltipCounts: true)) return;
       _addFinding(
         node,
         widgetKind: 'IconButton',
@@ -144,13 +147,14 @@ class _IconButtonLabelVisitor extends RecursiveAstVisitor<void> {
             '— screen readers have no accessible name '
             '(WCAG 4.1.2 Name, Role, Value)',
       );
-    } else if (_isFlutterClass(classEl, 'GestureDetector') ||
-        _isFlutterClass(classEl, 'InkWell')) {
+    } else if (isFlutterClass(classEl, 'GestureDetector') ||
+        isFlutterClass(classEl, 'InkWell')) {
       // A GestureDetector/InkWell is flagged only when its child is a pure
       // Flutter Icon and there is no enclosing Semantics label.
       final widgetName = classEl.name ?? 'GestureDetector';
       if (!_childIsPureFlutterIcon(node)) return;
-      if (_isWrappedInSemanticsLabel(node)) return;
+      if (hasLabelledIcon(node.argumentList, 'child')) return;
+      if (hasNamingAncestor(node, tooltipCounts: true)) return;
       _addFinding(
         node,
         widgetKind: widgetName,
@@ -160,26 +164,6 @@ class _IconButtonLabelVisitor extends RecursiveAstVisitor<void> {
             '(WCAG 4.1.2 Name, Role, Value)',
       );
     }
-  }
-
-  /// Returns `true` when [classEl] is Flutter's class with the given [name].
-  ///
-  /// Uses the resolved library URI — never a string/regex match on the source
-  /// (Invariant 1: semantics over syntax). [classEl] is always an
-  /// [InterfaceElement] for a [ConstructorElement.enclosingElement].
-  bool _isFlutterClass(InterfaceElement classEl, String name) {
-    if (classEl.name != name) return false;
-    final libUri = classEl.enclosingElement.uri;
-    return libUri.scheme == 'package' &&
-        libUri.pathSegments.isNotEmpty &&
-        libUri.pathSegments.first == 'flutter';
-  }
-
-  /// Returns `true` when [node] has a named argument with the given [argName].
-  bool _hasArg(InstanceCreationExpression node, String argName) {
-    return node.argumentList.arguments.any(
-      (arg) => arg is NamedArgument && arg.name.lexeme == argName,
-    );
   }
 
   /// Returns `true` when the direct `child:` argument of [node] is a Flutter
@@ -194,62 +178,12 @@ class _IconButtonLabelVisitor extends RecursiveAstVisitor<void> {
         if (expr is InstanceCreationExpression) {
           final childConstructorEl = expr.constructorName.element;
           if (childConstructorEl == null) return false;
-          return _isFlutterClass(childConstructorEl.enclosingElement, 'Icon');
+          return isFlutterClass(childConstructorEl.enclosingElement, 'Icon');
         }
         return false; // child exists but is not a simple Icon(…)
       }
     }
     return false; // no child argument
-  }
-
-  /// Returns `true` when [node] is enclosed in any `Semantics` ancestor that
-  /// has a non-null `label` named argument.
-  ///
-  /// Walks the parent chain (any depth) looking for an [InstanceCreationExpression]
-  /// whose class is Flutter's `Semantics` and that has a `label:` argument.
-  bool _isWrappedInSemanticsLabel(AstNode node) {
-    AstNode? current = node.parent;
-    while (current != null) {
-      if (current is InstanceCreationExpression) {
-        final constructorEl = current.constructorName.element;
-        if (constructorEl != null) {
-          final classEl = constructorEl.enclosingElement;
-          if (_isFlutterClass(classEl, 'Semantics') &&
-              _hasArg(current, 'label')) {
-            return true;
-          }
-        }
-      }
-      current = current.parent;
-    }
-    return false;
-  }
-
-  /// Returns the qualified name of the enclosing function or method.
-  ///
-  /// Used as part of the semantic anchor for fingerprint stability. Walks the
-  /// parent chain and returns the first `MethodDeclaration` or
-  /// `FunctionDeclaration` name it finds. Returns `'<unknown>'` when no
-  /// enclosing member is found (e.g. initializer in a top-level variable).
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
-  String _enclosingMemberName(AstNode node) {
-    AstNode? current = node.parent;
-    while (current != null) {
-      if (current is MethodDeclaration) {
-        final className =
-            (current.parent is ClassDeclaration
-                ? (current.parent as ClassDeclaration).namePart.typeName.lexeme
-                : null) ??
-            '';
-        final method = current.name.lexeme;
-        return className.isEmpty ? method : '$className.$method';
-      }
-      if (current is FunctionDeclaration) {
-        return current.name.lexeme;
-      }
-      current = current.parent;
-    }
-    return '<unknown>';
   }
 
   /// Emits a finding for [node], using [widgetKind] and [message].
@@ -258,12 +192,13 @@ class _IconButtonLabelVisitor extends RecursiveAstVisitor<void> {
     required String widgetKind,
     required String message,
   }) {
-    final enclosingName = _enclosingMemberName(node);
-    final counterKey = '$enclosingName:$widgetKind';
-    final idx = _occurrenceCount[counterKey] ?? 0;
-    _occurrenceCount[counterKey] = idx + 1;
-
-    final anchor = '$enclosingName:$widgetKind:$idx';
+    final enclosingName = enclosingMemberName(node);
+    // Scope + node content (closure bodies collapsed); the counter only
+    // separates true duplicates, so insertions elsewhere never shift it.
+    final anchor = _anchors.next(
+      '$enclosingName:$widgetKind',
+      normalizedSource(node),
+    );
     final fingerprint = computeFingerprint(
       ruleId: ruleId,
       relativePath: relativePath,
@@ -289,8 +224,11 @@ class _IconButtonLabelVisitor extends RecursiveAstVisitor<void> {
         kind: 'missing-accessible-name',
         remedy:
             "Add tooltip: '<label>' to the IconButton so screen readers "
-            'can announce its purpose. For GestureDetector/InkWell with an '
-            'Icon child, wrap with Semantics(label: \'<label>\') instead.',
+            'can announce its purpose; alternatively give its Icon a '
+            "semanticLabel or wrap it in Tooltip(message: '<label>'). For "
+            'GestureDetector/InkWell with an Icon child, wrap with '
+            "Semantics(label: '<label>') or Tooltip(message: '<label>') "
+            'instead.',
         wcagRef: WcagRef.wcag412,
       ),
     );

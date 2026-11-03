@@ -1,13 +1,12 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
-import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
 import '../model/fingerprint.dart';
-import 'generated_file.dart';
 import 'rule.dart';
+import 'visit_file.dart';
 
 /// Detects `//` comments that add no information beyond what the code
 /// already shows — either because they restate a declaration's name, or
@@ -92,7 +91,7 @@ import 'rule.dart';
 /// **Suppression:**
 /// `// loam-ignore: slop-narrative-comment – <reason>` on or before the line
 /// of the offending comment suppresses the finding.
-class SlopNarrativeCommentRule implements Rule {
+class SlopNarrativeCommentRule implements FileRule {
   /// The stable rule ID for [SlopNarrativeCommentRule].
   ///
   /// Exposed as a static constant so callers can filter findings by rule ID
@@ -113,27 +112,19 @@ class SlopNarrativeCommentRule implements Rule {
   @override
   RuleCategory get category => RuleCategory.slop;
 
-  // loam-ignore: code-duplicates – run() body is identical boilerplate across all Rule implementations; a shared mixin would couple unrelated rule files together.
   @override
-  List<Finding> run(ProjectLoadResult result) {
-    final findings = <Finding>[];
+  List<Finding> run(ProjectLoadResult result) => runPerFile(this, result);
 
-    for (final file in result.resolved) {
-      // Skip generated files — *.g.dart, *.freezed.dart, *.mocks.dart, gen-l10n.
-      if (isGeneratedDartFile(file.path)) continue;
-
-      final relativePath = p.relative(file.path, from: projectRoot);
-
-      final visitor = _NarrativeCommentVisitor(
-        ruleId: ruleId,
-        relativePath: relativePath,
-        findings: findings,
-      );
-      file.result.unit.accept(visitor);
-    }
-
-    return findings;
-  }
+  @override
+  List<Finding> runFile(LoadedFile file) => visitFile(
+    file,
+    projectRoot,
+    (relativePath, findings) => _NarrativeCommentVisitor(
+      ruleId: ruleId,
+      relativePath: relativePath,
+      findings: findings,
+    ),
+  );
 }
 
 /// One preset (message, remedy) pair for a context-free comment category.
@@ -254,9 +245,13 @@ const Set<String> _vagueTodoPhrases = {
 final RegExp _pureDividerPattern = RegExp(r'^[=*#~_]{3,}$');
 
 /// Matches a comment framed by 2+ decoration characters on both ends, with
-/// real content (and whitespace) in between, e.g. `****** SECTION ******`.
+/// real content separated from each frame by whitespace, e.g.
+/// `****** SECTION ******`. Decoration glued to words (`__init__ … __dispose__`,
+/// `**Note** … **bold**`) is ordinary text, not a frame.
 /// Excludes `-` for the same reason as [_pureDividerPattern].
-final RegExp _framedLabelPattern = RegExp(r'^[=*#~_]{2,}.*[=*#~_]{2,}$');
+final RegExp _framedLabelPattern = RegExp(
+  r'^([=*#~_])\1+\s+\S(?:.*\S)?\s+([=*#~_])\2+$',
+);
 
 /// Unicode ranges covering the common emoji blocks used for pure decoration.
 final RegExp _emojiPattern = RegExp(
@@ -316,7 +311,7 @@ class _NarrativeCommentVisitor extends RecursiveAstVisitor<void> {
   @override
   void visitMethodDeclaration(MethodDeclaration node) {
     final methodName = node.name.lexeme;
-    // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
+    // Identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
     final className = _enclosingClassName(node);
     final qualified = '$className.$methodName';
     _check(node, methodName, qualified);
@@ -598,7 +593,7 @@ class _NarrativeCommentVisitor extends RecursiveAstVisitor<void> {
   /// `'<unknown>'` if none is found.
   ///
   /// Used as part of the qualified name for fingerprint stability.
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
+  // Identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
   String _enclosingClassName(AstNode node) {
     AstNode? current = node.parent;
     while (current != null) {

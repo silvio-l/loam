@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:path/path.dart' as p;
 
+import '../baseline/baseline.dart';
 import '../model/finding.dart';
 import '../recommendation/recommendation_engine.dart';
 import 'reporter.dart';
@@ -12,7 +13,7 @@ import 'reporter.dart';
 /// [JsonEncoder.withIndent] from `dart:convert`. No third-party SARIF
 /// dependency — handbuilt per the SARIF 2.1.0 spec.
 ///
-/// Invariant 4 (pure renderer): no I/O, no exit-code logic, no thresholds.
+/// pure renderer, ADR 0001: no I/O, no exit-code logic, no thresholds.
 /// Invariant 5 (reproducible): no timestamps, no absolute paths in content;
 /// same input always produces a byte-identical string.
 class SarifReporter implements Reporter {
@@ -24,18 +25,64 @@ class SarifReporter implements Reporter {
 
   @override
   String render(ReportPayload payload) {
-    // Deduplicated, ordered rules catalog from the findings present.
-    final seenRuleIds = <String>{};
-    final rulesCatalog = <Map<String, dynamic>>[];
+    // Rules catalog: one entry per rule present (findings or, with a baseline
+    // diff, fixed entries), sorted by id so the catalog and every result's
+    // `ruleIndex` are deterministic.
+    final ruleIds = <String>{
+      for (final f in payload.findings) f.ruleId,
+      for (final f
+          in payload.baselineDiff?.fixedFindings ?? const <BaselineFinding>[])
+        f.ruleId,
+    }.toList()..sort();
+    final ruleIndex = {for (var i = 0; i < ruleIds.length; i++) ruleIds[i]: i};
+    final worst = <String, Severity>{};
     for (final f in payload.findings) {
-      if (seenRuleIds.add(f.ruleId)) {
-        rulesCatalog.add({'id': f.ruleId});
+      final cur = worst[f.ruleId];
+      if (cur == null || f.severity.index > cur.index) {
+        worst[f.ruleId] = f.severity;
       }
     }
+    final rulesCatalog = [for (final id in ruleIds) _buildRule(id, worst[id])];
 
-    final results = payload.findings
-        .map((f) => _buildResult(f, payload.projectRoot))
-        .toList();
+    final diff = payload.baselineDiff;
+    final keptFingerprints = {
+      for (final f in diff?.keptFindings ?? const <Finding>[]) f.fingerprint,
+    };
+    final results = <Map<String, dynamic>>[
+      for (final f in payload.findings)
+        _buildResult(
+          f,
+          payload.projectRoot,
+          ruleIndex[f.ruleId]!,
+          diff == null
+              ? null
+              : (keptFingerprints.contains(f.fingerprint)
+                    ? 'unchanged'
+                    : 'new'),
+        ),
+      // Baseline entries that no longer occur: reported as `absent` so a
+      // code-scanning system can close them.
+      if (diff != null)
+        for (final f in diff.fixedFindings)
+          {
+            'ruleId': f.ruleId,
+            'ruleIndex': ruleIndex[f.ruleId],
+            'level': 'none',
+            'message': {'text': f.message},
+            'locations': [
+              {
+                'physicalLocation': {
+                  'artifactLocation': {
+                    'uri': relativeReportPath(f.filePath, payload.projectRoot),
+                  },
+                  'region': {'startLine': f.line},
+                },
+              },
+            ],
+            'partialFingerprints': {_fingerprintKey: f.fingerprint},
+            'baselineState': 'absent',
+          },
+    ];
 
     final doc = <String, dynamic>{
       r'$schema': _schemaUri,
@@ -59,6 +106,8 @@ class SarifReporter implements Reporter {
             'projectName': p.basename(payload.projectRoot),
             if (payload.sourceDirs != null) 'sourceDirs': payload.sourceDirs,
             'suppressed': payload.suppressedCount,
+            if (!payload.suppressionAudit.isEmpty)
+              'suppression': payload.suppressionAudit.toJson(),
             if (payload.stats case final stats?) ...{
               'filesAnalyzed': stats.filesAnalyzed,
               'libFilesAnalyzed': stats.libFilesAnalyzed,
@@ -82,12 +131,38 @@ class SarifReporter implements Reporter {
     return const JsonEncoder.withIndent('  ').convert(doc);
   }
 
-  Map<String, dynamic> _buildResult(Finding f, String projectRoot) {
-    final uri = _toRelativeUri(f.filePath, projectRoot);
+  /// Stable key for [Finding.fingerprint] in `partialFingerprints`. The suffix
+  /// versions the hashing scheme (see `computeFingerprint`).
+  static const _fingerprintKey = 'loamFingerprint/v1';
+
+  Map<String, dynamic> _buildRule(String id, Severity? worstSeverity) {
+    final guidance = kGuidanceCorpus[id];
+    return {
+      'id': id,
+      'name': id,
+      'shortDescription': {'text': id},
+      'help': {
+        'text':
+            guidance ?? 'See the loam.dev documentation for the rule `$id`.',
+      },
+      'defaultConfiguration': ?(worstSeverity == null
+          ? null
+          : {'level': _levelFor(worstSeverity)}),
+    };
+  }
+
+  Map<String, dynamic> _buildResult(
+    Finding f,
+    String projectRoot,
+    int ruleIndex,
+    String? baselineState,
+  ) {
+    final uri = relativeReportPath(f.filePath, projectRoot);
     final region = _buildRegion(f);
 
     return {
       'ruleId': f.ruleId,
+      'ruleIndex': ruleIndex,
       'level': _levelFor(f.severity),
       'message': {'text': f.message},
       'locations': [
@@ -98,6 +173,8 @@ class SarifReporter implements Reporter {
           },
         },
       ],
+      'partialFingerprints': {_fingerprintKey: f.fingerprint},
+      'baselineState': ?baselineState,
       // Agent-proof message contract: expose the classifier, concrete next
       // action, and WCAG reference in the SARIF property bag so tooling/agents
       // read structure, not prose. Omitted entirely when all absent (no null keys).
@@ -113,17 +190,6 @@ class SarifReporter implements Reporter {
             },
         },
     };
-  }
-
-  /// Converts [filePath] to a forward-slash-normalised, no-leading-slash URI
-  /// relative to [projectRoot].
-  String _toRelativeUri(String filePath, String projectRoot) {
-    final rel = p.isAbsolute(filePath)
-        ? p.relative(filePath, from: projectRoot)
-        : filePath;
-    // Normalise to forward slashes (Windows safety) and strip any leading slash.
-    final forward = rel.replaceAll(r'\', '/');
-    return forward.startsWith('/') ? forward.substring(1) : forward;
   }
 
   Map<String, dynamic> _buildRegion(Finding f) {

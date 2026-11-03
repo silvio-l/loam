@@ -125,7 +125,7 @@ class ComplexityHotspotsRule implements Rule {
   final FunctionComplexityCollector collector;
 
   @override
-  String get ruleId => 'complexity-hotspots';
+  String get ruleId => ruleIdStatic;
 
   @override
   RuleCategory get category => RuleCategory.drift;

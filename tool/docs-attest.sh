@@ -4,7 +4,7 @@
 #   (1) Root-README  (2) CLI-Hilfe (loam --help)  (3) Website web/
 #
 #   docs-attest.sh check     Struktur-Invarianten je Artefakt gegen
-#                            docs/public-docs-spec.md. (immer erfüllen)
+#                            internal-notes. (immer erfüllen)
 #   docs-attest.sh attest    BEWUSSTE Bestätigung vor dem Push: ALLE Artefakte
 #                            folgen dem Aufbau UND sind inhaltlich aktuell ->
 #                            stempelt den aktuellen HEAD nach .docs-attest.
@@ -14,14 +14,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SPEC="$ROOT/docs/public-docs-spec.md"
+SPEC="$ROOT/internal-notes"
 ATTEST="$ROOT/.docs-attest"
 README="$ROOT/README.md"
 CLI="$ROOT/packages/loam_cli/bin/loam.dart"
 WEB="$ROOT/web"
 WEBPAGE="$ROOT/web/src/layouts/Layout.astro"  # Single Source des Chrome (Brand-Tokens, Versions-Chip, Footer-Links)
-WEBPAGE_HOME_EN="$ROOT/web/src/pages/index.astro"
-WEBPAGE_HOME_DE="$ROOT/web/src/pages/de/index.astro"
 PUBSPEC="$ROOT/packages/loam_cli/pubspec.yaml"
 PKGREADME="$ROOT/packages/loam_cli/README.md"
 PKGCHANGELOG="$ROOT/packages/loam_cli/CHANGELOG.md"
@@ -51,7 +49,7 @@ check_readme() {
   # Pflicht-Marker aus der Spec (Single Source of Truth für den Aufbau)
   # Verwende den exakten Kommentar-Marker (<!-- required:start -->) damit andere
   # Marker-Blöcke (z. B. devguide-required:start) nicht irrtümlich mitgelesen werden.
-  # SPEC ist bewusst gitignored (interne QS-Spec) -> in CI/Fresh-Clone abwesend.
+  # SPEC ist intern (eingecheckt, aber nicht per .ossallowlist exportiert) -> im GitHub-Export abwesend.
   # Dann Marker-Check überspringen statt unter set -e an awk zu sterben.
   local markers=""
   [ -f "$SPEC" ] && markers="$(awk '/<!-- required:start -->/{f=1;next} /<!-- required:end -->/{f=0} f' "$SPEC" \
@@ -382,7 +380,7 @@ check_shipped_status() {
     [ -f "$page" ] || continue
     while IFS=$'\t' read -r rid status; do
       [ -z "$rid" ] && continue
-      if printf '%s\n' "$live_rules" | grep -qx -- "$rid"; then
+      if grep -qx -- "$rid" <<<"$live_rules"; then
         [ "$status" = "live" ] || note "shipped-status: Rule '$rid' ist live (fullRegistryIds), aber ${page#$ROOT/} zeigt status=\"$status\""
       elif [ "$status" = "live" ]; then
         note "shipped-status: ${page#$ROOT/} markiert '$rid' als live, aber die Rule ist nicht in fullRegistryIds (nicht ausgeliefert)"
@@ -421,7 +419,7 @@ check_shipped_status() {
     while IFS=$'\t' read -r cname cstub; do
       [ -z "$cname" ] && continue
       local coming=0
-      if grep -F "loam $cname" "$DEVGUIDE" | grep -qiF "coming soon"; then coming=1; fi
+      if grep -F "loam $cname" "$DEVGUIDE" | grep -iF "coming soon" >/dev/null; then coming=1; fi
       if [ "$cstub" = "live" ] && [ "$coming" -eq 1 ]; then
         note "shipped-status: Command 'loam $cname' ist implementiert, im Developer-Guide aber als '(coming soon)' geführt"
       elif [ "$cstub" = "stub" ] && [ "$coming" -eq 0 ]; then
@@ -456,14 +454,14 @@ check_devguide_rules() {
   local rid
   while IFS= read -r rid; do
     [ -z "$rid" ] && continue
-    printf '%s\n' "$table_rules" | grep -qx -- "$rid" \
+    grep -qx -- "$rid" <<<"$table_rules" \
       || note "devguide-rules: Live-Rule '$rid' (fullRegistryIds) fehlt in der „Currently active rules\"-Tabelle von ${guide#$ROOT/} — Tabelle ergänzen"
   done <<< "$live_rules"
 
   # (B) Jede Tabellen-Rule-ID MUSS ausgeliefert sein (bidirektional).
   while IFS= read -r rid; do
     [ -z "$rid" ] && continue
-    printf '%s\n' "$live_rules" | grep -qx -- "$rid" \
+    grep -qx -- "$rid" <<<"$live_rules" \
       || note "devguide-rules: ${guide#$ROOT/} listet Rule '$rid' als aktiv, sie steht aber nicht in fullRegistryIds (nicht ausgeliefert) — nicht-ausgelieferte Rule aus der Tabelle entfernen"
   done <<< "$table_rules"
   return 0
@@ -497,14 +495,22 @@ check_pubspec_rules() {
       a11y-icon-button-label)         echo "a11y" ;;
       a11y-image-label)               echo "a11y" ;;
       a11y-interactive-semantics)     echo "a11y" ;;
+      architecture-boundaries) echo "boundar" ;;
       unused-public-exports)   echo "unused" ;;
       circular-dependencies)   echo "circular" ;;
       code-duplicates)         echo "duplicat" ;;
       complexity-hotspots)     echo "complexity" ;;
+      hardcoded-secrets)       echo "secrets" ;;
       slop-empty-catch)        echo "catch" ;;
       slop-narrative-comment)  echo "narrative" ;;
       slop-unjustified-ignore) echo "ignore" ;;
       slop-workflow-narration-comment) echo "workflow" ;;
+      slop-placeholder-comment) echo "placeholder" ;;
+      slop-unimplemented-stub) echo "stub" ;;
+      slop-tautological-assertion) echo "assertion" ;;
+      slop-undisposed-resource) echo "resource" ;;
+      slop-assertion-free-test) echo "assertion" ;;
+      slop-setstate-after-async-gap) echo "setstate" ;;
       *)                       echo "" ;;
     esac
   }
@@ -575,10 +581,10 @@ check_demo_report_fresh() {
 
 cmd_check() {
   fail=0
-  # public-docs-spec.md ist bewusst gitignored (interne QS-Spec, nicht nach
-  # GitHub). Lokal vorhanden -> Marker-Checks laufen normal. Fehlt sie (Fresh
-  # Clone ohne die lokale Spec), sichtbar überspringen statt still durchrutschen.
-  [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (lokal/gitignored) — Marker-Checks übersprungen." >&2
+  # public-docs-spec.md ist intern (eingecheckt, nicht per .ossallowlist
+  # exportiert). Vorhanden -> Marker-Checks laufen normal. Fehlt sie (Clone des
+  # GitHub-Exports), sichtbar überspringen statt still durchrutschen.
+  [ -f "$SPEC" ] || echo "  ⚠ ${SPEC#$ROOT/} nicht vorhanden (intern, nicht exportiert) — Marker-Checks übersprungen." >&2
   check_readme; check_cli; check_web; check_pub; check_brand; check_version_sync; check_devguide; check_devguide_rules; check_pubspec_rules; check_demo_report_fresh; check_pubdev_docs; check_i18n; check_privacy_footer; check_shipped_status
   [ "$fail" -eq 0 ] || { echo "Public-Docs-QS (check) fehlgeschlagen." >&2; exit 1; }
   echo "Public-Docs-QS check: ok (README · CLI · web/ · pub.dev · brand-tokens · version-sync · developer-guide · devguide-rules · pubspec-rules · demo-report-fresh · pub-points · i18n · privacy-footer · dist-regression-guard · shipped-status)"

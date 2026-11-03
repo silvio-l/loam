@@ -114,4 +114,54 @@ void main() {
       expect(diff.fixedFindings, isEmpty);
     });
   });
+
+  group('stale entries', () {
+    Finding rule(String fp, String ruleId) => Finding(
+      ruleId: ruleId,
+      severity: Severity.warning,
+      filePath: 'lib/src/foo.dart',
+      line: 1,
+      message: 'm',
+      fingerprint: fp,
+    );
+
+    test('staleByRule counts fixed entries per rule, sorted by rule', () {
+      engine.write([
+        rule('a', 'b-rule'),
+        rule('b', 'a-rule'),
+        rule('c', 'b-rule'),
+        rule('d', 'a-rule'),
+      ], 'ruleset@1');
+      final diff = engine.diff([rule('d', 'a-rule')], engine.read());
+      expect(diff.staleByRule, {'a-rule': 1, 'b-rule': 2});
+      expect(diff.staleByRule.keys, ['a-rule', 'b-rule']);
+    });
+
+    test('prune removes only stale entries and keeps ruleset and scheme', () {
+      engine.write([rule('keep', 'r'), rule('gone', 'r')], 'ruleset@old');
+      final baseline = engine.read();
+      // A brand-new finding must not be taken in by prune.
+      final diff = engine.diff([rule('keep', 'r'), rule('new', 'r')], baseline);
+      expect(engine.prune(baseline, diff.fixedFindings), 1);
+
+      final after = engine.read();
+      expect(after.findings.map((f) => f.fingerprint), ['keep']);
+      expect(after.rulesetVersion, 'ruleset@old');
+      expect(after.fingerprintScheme, baseline.fingerprintScheme);
+      expect(
+        File('${tempDir.path}/baseline.json.tmp').existsSync(),
+        isFalse,
+        reason: 'atomic write leaves no temp file behind',
+      );
+    });
+
+    test('prune with nothing stale leaves the file untouched', () {
+      engine.write([rule('keep', 'r')], 'ruleset@1');
+      final file = File('${tempDir.path}/baseline.json');
+      final before = file.readAsStringSync();
+      final baseline = engine.read();
+      expect(engine.prune(baseline, const []), 0);
+      expect(file.readAsStringSync(), before);
+    });
+  });
 }

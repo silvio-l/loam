@@ -2,63 +2,73 @@ import 'package:loam/src/update/install_channel.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('InstallInfo.fromExecutablePath — channel detection', () {
-    test('macOS Apple-Silicon Homebrew (Cellar segment) → homebrew', () {
-      final info = InstallInfo.fromExecutablePath(
+  group('InstallInfo.fromExecutablePath — compiled executable', () {
+    test('Homebrew Cellar (macOS, Intel, Linuxbrew) → homebrew', () {
+      for (final path in [
         '/opt/homebrew/Cellar/loam/0.1.7/bin/loam',
-      );
-      expect(info.channel, InstallChannel.homebrew);
-    });
-
-    test('Intel Homebrew (/usr/local/Cellar) → homebrew', () {
-      final info = InstallInfo.fromExecutablePath(
         '/usr/local/Cellar/loam/0.1.7/bin/loam',
-      );
-      expect(info.channel, InstallChannel.homebrew);
-    });
-
-    test('Linuxbrew (/home/linuxbrew/.linuxbrew/Cellar) → homebrew', () {
-      final info = InstallInfo.fromExecutablePath(
         '/home/linuxbrew/.linuxbrew/Cellar/loam/0.1.7/bin/loam',
-      );
-      expect(info.channel, InstallChannel.homebrew);
+      ]) {
+        expect(
+          InstallInfo.fromExecutablePath(path).channel,
+          InstallChannel.homebrew,
+          reason: path,
+        );
+      }
     });
 
-    test('pub-cache (Unix) → pubGlobal', () {
+    test('a standalone loam binary → binary', () {
+      expect(
+        InstallInfo.fromExecutablePath('/opt/loam/bin/loam').channel,
+        InstallChannel.binary,
+      );
+    });
+
+    test('a `cellar` substring that is not a path segment → binary', () {
+      expect(
+        InstallInfo.fromExecutablePath('/home/mycellar/loam').channel,
+        InstallChannel.binary,
+      );
+    });
+  });
+
+  group('InstallInfo.fromExecutablePath — Dart VM runs', () {
+    test('pub-global snapshot → pubGlobal, path is the snapshot', () {
+      const snapshot =
+          '/Users/x/.pub-cache/global_packages/loam/bin/loam.dart-3.13.7.snapshot';
       final info = InstallInfo.fromExecutablePath(
-        '/Users/x/.pub-cache/bin/loam',
+        '/usr/lib/dart/bin/dart',
+        scriptPath: snapshot,
+      );
+      expect(info.channel, InstallChannel.pubGlobal);
+      expect(info.executablePath, snapshot);
+    });
+
+    test('Homebrew-installed Dart SDK does not make pub-global look like '
+        'Homebrew', () {
+      final info = InstallInfo.fromExecutablePath(
+        '/opt/homebrew/Cellar/dart/3.13.7/libexec/bin/dart',
+        scriptPath:
+            '/Users/x/.pub-cache/global_packages/loam/bin/loam.dart-3.13.7.snapshot',
       );
       expect(info.channel, InstallChannel.pubGlobal);
     });
 
-    test('pub-cache (Windows backslashes) → pubGlobal', () {
+    test('Windows pub cache (global_packages, backslashes) → pubGlobal', () {
       final info = InstallInfo.fromExecutablePath(
-        r'C:\Users\x\AppData\Roaming\Pub\Cache\bin\loam.bat',
+        r'C:\dart-sdk\bin\dart.exe',
+        scriptPath:
+            r'C:\Users\x\AppData\Local\Pub\Cache\global_packages\loam\bin\loam.dart-3.13.7.snapshot',
       );
-      // The Windows pub cache directory is literally `.pub-cache` on the dart
-      // side; assert the canonical Unix-style form a resolved path reports.
-      final unix = InstallInfo.fromExecutablePath(
-        '/c/Users/x/.pub-cache/bin/loam',
+      expect(info.channel, InstallChannel.pubGlobal);
+    });
+
+    test('source run (dart run bin/loam.dart) → unknown', () {
+      final info = InstallInfo.fromExecutablePath(
+        '/opt/homebrew/Cellar/dart/3.13.7/libexec/bin/dart',
+        scriptPath: '/work/loam/packages/loam_cli/bin/loam.dart',
       );
-      expect(unix.channel, InstallChannel.pubGlobal);
-      // The AppData form has no `.pub-cache`/`Cellar` segment → unknown.
       expect(info.channel, InstallChannel.unknown);
-    });
-
-    test('arbitrary path (source build / manual) → unknown', () {
-      final info = InstallInfo.fromExecutablePath('/opt/loam/bin/loam');
-      expect(info.channel, InstallChannel.unknown);
-    });
-
-    test('a `cellar` substring that is not a path segment → unknown', () {
-      // Guards against substring-matching: `mycellar` must not count.
-      final info = InstallInfo.fromExecutablePath('/home/mycellar/loam');
-      expect(info.channel, InstallChannel.unknown);
-    });
-
-    test('executablePath is preserved verbatim', () {
-      const path = '/opt/homebrew/Cellar/loam/0.1.7/bin/loam';
-      expect(InstallInfo.fromExecutablePath(path).executablePath, path);
     });
   });
 
@@ -80,6 +90,16 @@ void main() {
           executablePath: '/x',
         ).upgradeCommand,
         'dart pub global activate loam',
+      );
+    });
+
+    test('binary → points to the release page', () {
+      expect(
+        const InstallInfo(
+          channel: InstallChannel.binary,
+          executablePath: '/x',
+        ).upgradeCommand,
+        contains(kReleasesUrl),
       );
     });
 

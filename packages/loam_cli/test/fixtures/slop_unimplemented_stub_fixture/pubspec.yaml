@@ -1,0 +1,7 @@
+name: slop_unimplemented_stub_fixture
+description: "Test fixture for the slop_unimplemented_stub rule tests."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0

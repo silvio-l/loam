@@ -1,0 +1,7 @@
+# Fixture code mirrors real app code (closures bound to variables, explicit
+# `this.setState`); the repo's style lints do not apply here.
+linter:
+  rules:
+    public_member_api_docs: false
+    prefer_function_declarations_over_variables: false
+    unnecessary_this: false

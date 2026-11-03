@@ -27,6 +27,9 @@ final class ComplexityMetrics {
   /// - `??` (null-coalescing binary operator)
   /// - `?:` conditional expression
   /// - `when` guard in a pattern (`GuardedPattern.whenClause`)
+  /// - collection `if` / `for` element
+  /// - arm of a switch expression (a bare `_` arm does NOT add a point)
+  /// - `||` / `&&` in a pattern
   ///
   /// Closures/local functions nested inside the executable are NOT counted as
   /// separate executables; their decision points contribute to the enclosing
@@ -43,8 +46,8 @@ final class ComplexityMetrics {
   /// [nestingDepth] is the number of nesting-control-flow levels already active
   /// at the point where the element is encountered:
   /// - `if` / `else if` / `else` (each branch adds independently at its depth)
-  /// - `for` / `while` / `do` loops
-  /// - `switch` statement
+  /// - `for` / `while` / `do` loops, collection `for` / `if` elements
+  /// - `switch` statement and switch expression
   /// - `catch` clause
   ///
   /// **Flat increments (no nesting multiplier):**
@@ -57,10 +60,11 @@ final class ComplexityMetrics {
   /// - `??` (null-coalescing) — flat +1 each occurrence.
   /// - `?:` conditional expression — flat +1 each occurrence.
   /// - `when` guard in a pattern — flat +1 each occurrence.
+  /// - `||` / `&&` in a pattern — counted like the binary operators.
   ///
   /// **Nesting-depth tracking:**
   /// Depth increments are scoped to `if`, `for`, `while`, `do`, `switch`, and
-  /// `catch` bodies. Closures/local functions reset the depth to 0 internally
+  /// `catch` bodies (and their collection-element / switch-expression forms). Closures/local functions reset the depth to 0 internally
   /// (their complexity flows into the enclosing metric but they do not carry
   /// the enclosing nesting depth into their own body).
   ///

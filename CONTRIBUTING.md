@@ -26,30 +26,26 @@ Run from `packages/loam_cli/`:
 
 ```bash
 dart pub get
+# test fixtures are standalone packages and need their own pub get
+find test/fixtures -name pubspec.yaml -execdir dart pub get \;
 dart format --output=none --set-exit-if-changed bin lib test
 dart analyze --fatal-infos --fatal-warnings
 dart test
 ```
 
-loam.dev **dogfoods itself**: it must report no dead/unused public code in its own
-CLI. Keep this green —
+loam.dev **dogfoods itself**: it must report no finding from any rule on its own
+CLI (`--profile strict`: every rule blocks). Keep this green —
 
 ```bash
-dart run bin/loam.dart gate --absolute --project-root .
+dart run bin/loam.dart gate --absolute --profile strict --project-root .
 ```
 
-The same checks run in CI (`.github/workflows/qa.yml`) and as a local pre-push
-gate.
+The same checks run in CI (`.github/workflows/qa.yml`) on pushes to the
+maintainer's branches.
 
 ## Commits
 
 - [Conventional Commits](https://www.conventionalcommits.org/) — `feat:`, `fix:`,
   `chore:`, `docs:`, `ci:`, …
 - No AI co-author / `Co-Authored-By` trailers and no AI author/committer
-  identities — these are stripped and blocked by git hooks.
-
-## Activate the repo hooks (once per clone)
-
-```bash
-git config core.hooksPath .githooks
-```
+  identities — the maintainers' commit hook strips such trailers.

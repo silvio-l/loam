@@ -11,18 +11,19 @@ baseline.json
 # Default output of `loam scan --format html` — never commit a generated report.
 loam-report.html
 
-# Lokales Issue-Tracking & Doku (PROTECTED — niemals nach GitHub)
+# Local scratch folder (issues live in Forgejo; the folder is only kept ignored)
 .scratch/
 
 # Lokales Dev-Tooling (PROTECTED — niemals nach GitHub)
 dev-tools/
 
-# Lokale Claude-Code-Projektkonfig & Dev-Skills (PROTECTED — niemals nach GitHub).
-# Das GANZE .claude/ bleibt lokal: Settings, lokale Skills, etwaiger Auth-/State.
-/.claude/
+# Local Claude Code state; project skills under .claude/skills are tracked.
+/.claude/*
+!/.claude/skills/
+!/.claude/review.md
 
 # Secrets / Tokens / Credentials (PROTECTED — niemals nach GitHub). Zusätzlich
-# HART erzwungen durch den Content-Secret-Scan in .githooks/pre-commit + pre-push.
+# HART erzwungen durch den Content-Secret-Scan der internen Git-Hooks (pre-commit + pre-push).
 .env
 .env.*
 !.env.example
@@ -47,14 +48,3 @@ id_ed25519
 
 # Wrangler (Cloudflare) lokaler Cache
 .wrangler/
-
-# Interne, nicht-öffentliche Doku & Agenten-/Repo-Guides (PROTECTED — niemals
-# nach GitHub). Bleiben lokal lesbar für dich/Agenten, sind aber untracked.
-# Mechanisch zusätzlich durch die Denylist in .githooks/pre-commit abgesichert.
-/CLAUDE.md
-/CONTEXT.md
-/docs/PRD.md
-/docs/zielgruppe.md
-/docs/public-docs-spec.md
-/docs/readme-spec.md
-/docs/adr/

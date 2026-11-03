@@ -2,11 +2,23 @@
 /**
  * GuideArticle — rendert den Developer & Tool Guide (docs/developer-guide.md)
  * über den Astro-Content-Layer in das gebrandete Layout. Single-Source: der
- * Inhalt kommt direkt aus docs/, es gibt keine Kopie unter web/. Die Prosa ist
- * bewusst an `.prose-page` (how-it-works / rules) angeglichen, damit alle
- * Inhalts-Seiten einheitlich aussehen.
+ * Inhalt kommt direkt aus docs/, es gibt keine Kopie unter web/.
+ *
+ * Layout (`.docs` in site.css): ab 1200 px ein sticky Inhaltsverzeichnis links
+ * neben dem Artikel, ab 1800 px zusätzlich eine Schnellstart-Spalte rechts;
+ * darunter ein aufklappbares Inhaltsverzeichnis über dem Artikel. Die Gliederung
+ * kommt aus den Überschriften des Markdown (h2/h3), nicht aus einer Kopie.
  */
 import { getEntry, render } from 'astro:content';
+import { t } from '../i18n/ui';
+import type { Locale } from '../i18n/utils';
+
+interface Props {
+  lang?: Locale;
+}
+const { lang = 'en' } = Astro.props;
+const de = lang === 'de';
+const base = de ? '/de' : '';
 
 const entry = await getEntry('guide', 'developer-guide');
 if (!entry) {
@@ -15,12 +27,54 @@ if (!entry) {
       'erwartet docs/developer-guide.md (siehe web/src/content.config.ts).',
   );
 }
-const { Content } = await render(entry);
+const { Content, headings } = await render(entry);
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const tocLabel = de ? 'Auf dieser Seite' : 'On this page';
 ---
 
-<article class="prose-page prose-page--md" style="position:relative;z-index:3;" id="guide-article">
-  <Content />
-</article>
+<span id="status" class="sr-only" role="status" aria-live="polite"></span>
+<div class="wrap docs docs--guide" data-testid="guide-layout">
+  <nav class="docs-toc" aria-label={tocLabel} data-testid="guide-toc">
+    <p class="label label--plain docs-toc__title">{tocLabel}</p>
+    <ol>
+      {toc.map((h) => (
+        <li class={`docs-toc__d${h.depth}`}>
+          <a href={`#${h.slug}`} data-testid={`guide-toc-${h.slug}`}>{h.text}</a>
+        </li>
+      ))}
+    </ol>
+  </nav>
+
+  <div class="docs-main">
+    <slot />
+    <details class="docs-toc-mobile" data-testid="guide-toc-mobile">
+      <summary data-testid="guide-toc-mobile-toggle">{tocLabel}</summary>
+      <ol>
+        {toc.map((h) => (
+          <li class={`docs-toc__d${h.depth}`}>
+            <a href={`#${h.slug}`} data-testid={`guide-toc-mobile-${h.slug}`}>{h.text}</a>
+          </li>
+        ))}
+      </ol>
+    </details>
+    <article class="prose-page prose-page--md" style="position:relative;z-index:3;" id="guide-article">
+      <Content />
+    </article>
+  </div>
+
+  <aside class="docs-rail" aria-label={de ? 'Schnellstart' : 'Quick start'} data-testid="guide-rail">
+    <p class="label label--plain">{t(lang, 'nav.install')}</p>
+    <div class="cmd cmd--rail">
+      <span class="cmd__p" aria-hidden="true">$</span><span class="cmd__t" id="guide-cmd">dart pub global activate loam</span>
+      <button class="cmd__copy" type="button" data-testid="guide-rail-copy" data-copy-target="guide-cmd" data-done={de ? 'kopiert' : 'copied'} data-failed={de ? 'Kopieren fehlgeschlagen' : 'copy failed'} aria-label={de ? 'Installationsbefehl kopieren' : 'Copy install command'}>{de ? 'kopieren' : 'copy'}</button>
+    </div>
+    <ul class="docs-rail__links">
+      <li><a class="link link--arrow" href={`${base}/how-it-works/`} data-testid="guide-rail-how">{t(lang, 'nav.howItWorks')}</a></li>
+      <li><a class="link link--arrow" href={`${base}/rules/`} data-testid="guide-rail-rules">{t(lang, 'nav.rules')}</a></li>
+      <li><a class="link" href="https://github.com/silvio-l/loam/blob/main/docs/developer-guide.md" target="_blank" rel="noopener" data-testid="guide-rail-source">docs/developer-guide.md<span class="ext" aria-hidden="true">↗</span><span class="sr-only"> {t(lang, 'a11y.newTab')}</span></a></li>
+    </ul>
+  </aside>
+</div>
 
 <script is:inline>
   (function(){

@@ -1,0 +1,7 @@
+name: suppression_audit_fixture
+description: "Test fixture for the suppression audit tests."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0

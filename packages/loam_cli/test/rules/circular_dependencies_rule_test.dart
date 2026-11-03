@@ -12,7 +12,12 @@ import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fixture_packages.dart';
+import '../support/shared_store.dart';
+
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(Directory.current.path, 'test', 'fixtures', 'circular_deps_fixture'),
   );
@@ -21,6 +26,7 @@ void main() {
 
   setUpAll(() async {
     final loader = ProjectLoader();
+    await ensureFixtureResolved(fixturePath);
     loadResult = await loader.load(fixturePath);
     expect(loadResult.errors, isEmpty, reason: 'Fixture must load cleanly');
   });

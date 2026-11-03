@@ -1,0 +1,7 @@
+name: line_endings_fixture
+description: "Test fixture: findings must not depend on LF vs CRLF line endings."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0

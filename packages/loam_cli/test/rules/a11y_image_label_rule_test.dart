@@ -15,8 +15,11 @@ import 'package:loam/src/rules/a11y_image_label_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -86,7 +89,10 @@ void main() {
   test(
     'AC1: 5 findings for unlabelled Image calls in image_missing_label.dart',
     () {
-      final findings = makeRule().run(loadResult);
+      final findings = makeRule()
+          .run(loadResult)
+          .where((f) => f.filePath.contains('image_missing_label.dart'))
+          .toList();
       // There are 5 Image instantiations without semanticLabel/excludeFromSemantics:
       //   Image.asset(), Image.network(), Image.file(), Image.memory(), Image()
       expect(
@@ -357,6 +363,27 @@ void main() {
       );
       final ids = AnalysisRunner.activeRuleIdsForConfig(config);
       expect(ids, isNot(contains('a11y-image-label')));
+    },
+  );
+
+  // #116: an ancestor that labels or hides the image, and dot shorthand.
+  test(
+    '#116: Semantics/ExcludeSemantics ancestors and shorthand are clean',
+    () {
+      final named = makeRule()
+          .run(loadResult)
+          .where((f) => f.filePath.contains('image_named_by_ancestor'));
+      expect(named, isEmpty);
+    },
+  );
+
+  test(
+    '#116: lookalikes, non-excluding ancestors and bare shorthand report',
+    () {
+      final reported = makeRule()
+          .run(loadResult)
+          .where((f) => f.filePath.contains('image_ancestor_lookalikes'));
+      expect(reported, hasLength(4));
     },
   );
 }

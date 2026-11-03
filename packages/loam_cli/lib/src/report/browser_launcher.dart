@@ -26,9 +26,9 @@ List<String>? browserOpenCommand(
     case 'linux':
       return ['xdg-open', filePath];
     case 'windows':
-      // `start` is a cmd builtin; the empty "" is the (ignored) window-title
-      // argument that `start` consumes before the path.
-      return ['cmd', '/c', 'start', '', filePath];
+      // Hands the path straight to the shell's open action, without cmd: a
+      // `cmd /c start` would read `&`, `^` and `|` in the path as cmd syntax.
+      return ['rundll32', 'url.dll,FileProtocolHandler', filePath];
     default:
       return null;
   }

@@ -8,6 +8,7 @@ import 'package:loam/src/recommendation/recommendation_engine.dart';
 import 'package:loam/src/report/json_reporter.dart';
 import 'package:loam/src/report/reporter.dart';
 import 'package:loam/src/report/reporter_dispatch.dart';
+import 'package:loam/src/suppression/suppression_audit.dart';
 import 'package:test/test.dart';
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ ReportPayload _payload({
   ScanStats? stats,
   List<String>? sourceDirs,
   List<Recommendation> recommendations = const [],
+  SuppressionAudit suppressionAudit = const SuppressionAudit.empty(),
 }) => ReportPayload(
   findings: findings,
   projectRoot: projectRoot,
@@ -52,9 +54,57 @@ ReportPayload _payload({
   suppressedCount: suppressedCount,
   stats: stats,
   sourceDirs: sourceDirs,
+  suppressionAudit: suppressionAudit,
 );
 
 void main() {
+  group('suppression object contract', () {
+    Map<String, dynamic> suppressionOf(SuppressionAudit audit) {
+      final doc =
+          jsonDecode(
+                const JsonReporter().render(_payload(suppressionAudit: audit)),
+              )
+              as Map<String, dynamic>;
+      return doc['suppression'] as Map<String, dynamic>;
+    }
+
+    test('has byRule, notices with fixed keys and every kind token', () {
+      final audit = SuppressionAudit(
+        byRule: const {'b-rule': 1, 'a-rule': 2},
+        notices: [
+          for (final k in SuppressionNoticeKind.values)
+            SuppressionNotice(
+              kind: k,
+              filePath: 'lib/a.dart',
+              line: 1,
+              message: 'm',
+            ),
+        ],
+        evaluatedOn: '2026-11-03',
+      );
+      final sup = suppressionOf(audit);
+      expect((sup['byRule'] as Map).keys.toList(), ['a-rule', 'b-rule']);
+      expect(sup['evaluatedOn'], '2026-11-03');
+      final notices = (sup['notices'] as List).cast<Map<String, dynamic>>();
+      expect(
+        notices.map((n) => n['kind']),
+        SuppressionNoticeKind.values.map((k) => k.id),
+      );
+      for (final n in notices) {
+        expect(n.keys, {'kind', 'filePath', 'line', 'ruleId', 'message'});
+      }
+    });
+
+    test('omits evaluatedOn without an expiry and the object when empty', () {
+      final sup = suppressionOf(const SuppressionAudit(byRule: {'a-rule': 1}));
+      expect(sup.containsKey('evaluatedOn'), isFalse);
+      final doc =
+          jsonDecode(const JsonReporter().render(_payload()))
+              as Map<String, dynamic>;
+      expect(doc.containsKey('suppression'), isFalse);
+    });
+  });
+
   // -------------------------------------------------------------------------
   // AC1: JsonReporter implements Reporter; render is a pure function
   // -------------------------------------------------------------------------

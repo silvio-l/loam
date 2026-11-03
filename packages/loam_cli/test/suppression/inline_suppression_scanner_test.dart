@@ -11,6 +11,7 @@ import 'package:loam/src/suppression/inline_suppression_scanner.dart';
 import 'package:loam/src/suppression/suppression_engine.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -37,6 +38,8 @@ Finding _finding({
 // ---------------------------------------------------------------------------
 
 void main() {
+  useSharedAnalyzerStore();
+
   // Path to the inline_suppression_fixture.
   final fixturePath = p.normalize(
     p.join(
@@ -497,24 +500,5 @@ void main() {
         );
       },
     );
-  });
-
-  // ---------------------------------------------------------------------------
-  // Self-dogfooding: loam.dev scans itself with inline directives wired in.
-  //
-  // The dogfooding_test.dart already covers the main self-scan; this test
-  // ensures that introducing inline suppression scanning does not break the
-  // self-scan (no crash, deterministic output).
-  // ---------------------------------------------------------------------------
-
-  group('Self-dogfooding: inline suppression does not break self-scan', () {
-    test('AnalysisRunner.run() on own codebase does not throw', () async {
-      // Resolve the loam_cli package root from the test working directory.
-      final packageRoot = p.normalize(Directory.current.path);
-      final runner = AnalysisRunner();
-      // Must not throw — any exception here is a regression.
-      final findings = await runner.run(packageRoot);
-      expect(findings, isA<List<Finding>>());
-    });
   });
 }

@@ -19,8 +19,9 @@ import 'usage_index.dart';
 ///
 /// Conservative defaults (in doubt → do NOT report):
 /// - Private symbols, entrypoints (`main`), generated files, re-exported
-///   symbols, `@visibleForTesting`/`@pragma` annotations are excluded by
-///   [PublicApiCollector].
+///   symbols and intent annotations (`@visibleForTesting`, `@internal`,
+///   `@protected`, `@pragma` incl. `@pragma('loam:reserved')`, plus names from
+///   `unused_public_exports.annotations`) are excluded by [PublicApiCollector].
 /// - The rule does NOT crash when [ProjectLoadResult.errors] is non-empty;
 ///   it analyses the resolvable files only.
 ///
@@ -41,7 +42,14 @@ import 'usage_index.dart';
 /// are reported.
 class UnusedPublicExportsRule implements Rule {
   /// Creates an [UnusedPublicExportsRule] rooted at [projectRoot].
-  const UnusedPublicExportsRule({required this.projectRoot});
+  const UnusedPublicExportsRule({
+    required this.projectRoot,
+    this.extraAnnotations = const {},
+  });
+
+  /// Extra annotation names that mark a symbol as deliberately public
+  /// (`unused_public_exports.annotations` in `loam.yaml`).
+  final Set<String> extraAnnotations;
 
   /// Absolute path of the project being analysed.
   ///
@@ -64,7 +72,7 @@ class UnusedPublicExportsRule implements Rule {
     final index = UsageIndex.build(result);
 
     // Collect public top-level candidates from lib/ files.
-    final collector = const PublicApiCollector();
+    final collector = PublicApiCollector(extraAnnotations: extraAnnotations);
     final candidates = collector.collect(result, projectRoot);
 
     // Compute the difference: candidates not referenced anywhere.

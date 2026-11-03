@@ -7,6 +7,8 @@
  *   title      — human-readable rule name
  *   status     — 'live' | 'planned'
  *   badgeLabel — localised status label (e.g. 'live' / 'geplant')
+ *   profile    — optional gate profile of a live rule: 'core' | 'strict'
+ *   profileLabel — localised label for the profile badge
  *   slopLabel  — localised label for the bad-code tab
  *   cleanLabel — localised label for the clean-code tab
  *   description — prose description of what the rule detects
@@ -19,6 +21,8 @@ interface Props {
   title: string;
   status: 'live' | 'planned';
   badgeLabel: string;
+  profile?: 'core' | 'strict';
+  profileLabel?: string;
   slopLabel: string;
   cleanLabel: string;
   description: string;
@@ -26,144 +30,74 @@ interface Props {
   cleanCode: string;
 }
 
-const { ruleId, title, status, badgeLabel, slopLabel, cleanLabel, description, slopCode, cleanCode } = Astro.props;
+const { ruleId, title, status, badgeLabel, profile, profileLabel, slopLabel, cleanLabel, description, slopCode, cleanCode } = Astro.props;
+// Long slash-joined API lists (Image/Image.asset/…) get a break opportunity
+// after each slash, so they wrap on narrow screens instead of widening the row.
+const descParts = description.split('/');
 ---
 
-<div id={ruleId} class={`rule-card rule-card--${status}`}>
-  <div class="rule-card__header">
-    <span class="rule-card__id">{ruleId}</span>
-    <span class={`rule-card__badge rule-card__badge--${status}`}>{badgeLabel}</span>
+<article id={ruleId} class={`rule-card rule-card--${status}`} aria-labelledby={`${ruleId}-title`} data-testid={`rule-card-${ruleId}`}>
+  <div class="rule-card__meta">
+    <div class="rule-card__header">
+      <a class="rule-card__id" href={`#${ruleId}`} data-testid={`rule-card-link-${ruleId}`}>{ruleId}</a>
+      <span class={`rule-card__badge rule-card__badge--${status}`}>{badgeLabel}</span>
+      {profile && <span class={`rule-card__badge rule-card__badge--${profile}`} data-testid={`rule-profile-${ruleId}`}>{profileLabel}</span>}
+    </div>
+    <h4 id={`${ruleId}-title`} class="rule-card__title">{title}</h4>
+    <p class="rule-card__desc">{descParts.map((part, i) => (i === 0 ? part : <>/<wbr />{part}</>))}</p>
   </div>
-  <h3 class="rule-card__title">{title}</h3>
-  <p class="rule-card__desc">{description}</p>
   <div class="rule-card__examples">
     <div class="example-block example-block--slop">
       <span class="example-label">{slopLabel}</span>
-      <pre><code>{slopCode}</code></pre>
+      <pre tabindex="0"><code>{slopCode}</code></pre>
     </div>
     <div class="example-block example-block--clean">
       <span class="example-label">{cleanLabel}</span>
-      <pre><code>{cleanCode}</code></pre>
+      <pre tabindex="0"><code>{cleanCode}</code></pre>
     </div>
   </div>
-</div>
+</article>
 
 <style is:global>
+  /* One rule = one row: meta on the left, flagged vs. clean side by side on
+     wide screens; stacked on narrow ones. Deep-link target for /rules/#id
+     (from the HTML report and the home page), so it keeps clear of the
+     sticky header. */
   .rule-card {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 1.2rem 1.4rem 1.1rem;
-    margin-bottom: 1.4rem;
-    /* Deep-link target (e.g. /rules#unused-public-exports from the HTML report):
-       keep the anchored card clear of the top edge when scrolled into view. */
-    scroll-margin-top: 1.5rem;
-  }
-  .rule-card:target {
-    border-color: rgba(136,200,64,.55);
-    box-shadow: 0 0 0 1px rgba(136,200,64,.25);
-  }
-  .rule-card--live {
-    border-color: rgba(136,200,64,.32);
-  }
-  .rule-card__header {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    margin-bottom: .45rem;
-  }
-  .rule-card__id {
-    font-size: .75rem;
-    letter-spacing: .06em;
-    color: var(--dim);
-    font-family: var(--font);
-  }
-  .rule-card__badge {
-    font-size: .65rem;
-    font-weight: 600;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    border-radius: 999px;
-    padding: .18rem .6rem;
-  }
-  .rule-card__badge--live {
-    color: var(--green);
-    background: rgba(136,200,64,.1);
-    border: 1px solid rgba(136,200,64,.28);
-  }
-  .rule-card__badge--planned {
-    color: var(--dim);
-    background: rgba(141,138,126,.08);
-    border: 1px solid rgba(141,138,126,.22);
-  }
-  .rule-card__title {
-    font-size: .95rem;
-    font-weight: 600;
-    color: var(--ink);
-    margin: 0 0 .5rem;
-  }
-  .rule-card__desc {
-    font-size: .88rem;
-    color: var(--dim);
-    line-height: 1.6;
-    margin: 0 0 1rem;
-  }
-  .rule-card__examples {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: .7rem;
+    gap: var(--s-5) var(--col-gap);
+    grid-template-columns: minmax(0, 1fr);
+    padding: clamp(1.4rem, 1rem + 1.4vw, 2.4rem) 0;
+    border-top: 1px solid var(--line);
+    scroll-margin-top: calc(var(--header-h) + var(--s-5));
   }
-  @media (max-width: 560px) {
-    .rule-card__examples { grid-template-columns: 1fr; }
+  @media (min-width: 1800px) {
+    .rule-card { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); align-items: start; }
   }
-  .example-block {
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid var(--line);
-  }
-  .example-block--slop {
-    border-color: rgba(200,64,64,.22);
-  }
-  .example-block--clean {
-    border-color: rgba(136,200,64,.22);
-  }
-  .example-label {
-    display: block;
-    font-size: .65rem;
-    font-weight: 600;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    padding: .3rem .7rem;
-  }
-  .example-block--slop .example-label {
-    background: rgba(200,64,64,.1);
-    color: #c85050;
-  }
-  .example-block--clean .example-label {
-    background: rgba(136,200,64,.08);
-    color: var(--green);
-  }
-  /* Selector scoped to .rule-card so its specificity (0,2,1) beats the global
-     .prose-page pre (0,1,1) deterministically — independent of bundle source
-     order — and the neutralisation always wins on the rules pages. */
-  .rule-card .example-block pre {
-    margin: 0;
-    padding: .6rem .8rem .7rem;
-    background: rgba(0,0,0,.18);
-    overflow-x: auto;
-    /* Neutralise the global .prose-page pre cascade (border+border-radius)
-       so RuleCard code boxes stay visually unchanged after Slice 02 adds
-       those rules globally. */
-    border: none;
-    border-radius: 0;
-  }
-  .example-block pre code {
-    font-size: .78rem;
-    line-height: 1.55;
-    color: var(--ink);
-    background: none;
-    padding: 0;
-    border-radius: 0;
-    white-space: pre;
-  }
+  .rule-card:target { background: linear-gradient(90deg, var(--green-a12), transparent 70%); box-shadow: inset 3px 0 0 var(--green); padding-left: var(--s-4); }
+  .rule-card__meta { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-3); align-content: start; min-width: 0; }
+  .rule-card__header { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+  .rule-card__id { font: 600 .95rem / 1.3 var(--font-mono); color: var(--ink); text-decoration: none; overflow-wrap: anywhere; margin-right: .2rem; }
+  .rule-card__id:hover, .rule-card__id:focus-visible { color: var(--green); }
+  .rule-card__badge { font: 600 .66rem / 1 var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
+    padding: .32rem .5rem; border-radius: 6px; border: 1px solid var(--line-strong); color: var(--dim); }
+  .rule-card__badge--live { color: var(--bg); background: var(--green); border-color: var(--green); }
+  .rule-card__badge--planned { color: var(--ink); border-style: dashed; }
+  .rule-card__badge--core { color: var(--green); border-color: var(--green-a50); }
+  .rule-card__badge--strict { color: var(--ink); border-color: var(--line-strong); }
+  .rule-card__title { font: 600 clamp(1.25rem, 1rem + .8vw, 1.7rem) / 1.15 var(--font-display); letter-spacing: -.02em; color: var(--ink); }
+  .rule-card__desc { color: var(--dim); max-width: 72ch; text-wrap: pretty; overflow-wrap: break-word; }
+  .rule-card__examples { display: grid; gap: var(--s-3); grid-template-columns: minmax(0, 1fr); min-width: 0; }
+  @media (min-width: 760px) { .rule-card__examples { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .example-block { min-width: 0; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: #0b0c0f; overflow: hidden; }
+  .example-block--slop { border-color: rgba(224, 120, 95, .35); }
+  .example-block--clean { border-color: var(--green-a40); }
+  .example-label { display: block; padding: .5rem .8rem; font: 600 .66rem / 1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase;
+    border-bottom: 1px solid var(--line); }
+  .example-block--slop .example-label { color: var(--flag); background: var(--flag-a14); }
+  .example-block--clean .example-label { color: var(--green); background: var(--green-a12); }
+  .example-block pre { margin: 0; padding: .9rem 1rem 1rem; overflow-x: auto; font: 400 var(--t-code) / 1.6 var(--font-mono); color: #c9c6ba;
+    scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  .example-block pre code { background: none; padding: 0; font: inherit; color: inherit; }
+  .example-block pre:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
 </style>

@@ -1,13 +1,16 @@
-import 'package:path/path.dart' as p;
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/token.dart';
 
 import '../loader/project_loader.dart';
+import '../model/anchor.dart';
 import '../model/finding.dart';
 import '../model/fingerprint.dart';
+import '../model/project_path.dart';
 import 'generated_file.dart';
 import 'rule.dart';
 
 /// Detects `// ignore:` and `// ignore_for_file:` directives that suppress an
-/// analyzer diagnostic without providing a justification (AI-slop, CONTEXT.md).
+/// analyzer diagnostic without providing a justification (AI-slop, internal-notes).
 ///
 /// Rule ID: `slop-unjustified-ignore`
 ///
@@ -29,19 +32,19 @@ import 'rule.dart';
 /// - Directives in generated files (`*.g.dart`, `*.freezed.dart`, etc.) —
 ///   excluded via [isGeneratedDartFile] at the start of each file loop.
 /// - `/// doc-comment` lines — these are not `// ignore:` directives.
+///   Only real `//` comment tokens are examined, so doc comments and
+///   `// ignore:` text inside string literals never trigger.
 /// - Multi-lint ignores where any lint name is accompanied by a trailing reason
 ///   (already covered by condition 1 above).
-/// - `// ignore:` text inside string literals — conservative: the raw comment
-///   scan cannot distinguish in-string from real directives without full parsing,
-///   but this false-positive case is practically non-existent and acceptable.
 ///
 /// **Semantic anchor (fingerprint stability):**
-/// `directiveKind:normalizedLintNames:occurrenceIndex` — where `directiveKind`
+/// `directiveKind:normalizedLintNames:contentHash:n` — where `directiveKind`
 /// is `ignore` or `ignore_for_file`, `normalizedLintNames` is the sorted,
-/// comma-joined lint names, and `occurrenceIndex` counts prior occurrences of
-/// the same `(kind, lints)` pair within the same file. A pure line shift (adding
-/// blank lines or moving the directive without changing order) leaves the anchor
-/// unchanged (Invariant 5 / fingerprint semantics).
+/// comma-joined lint names, `contentHash` covers the whitespace-normalised
+/// code line the directive silences (the same line for a trailing directive,
+/// otherwise the next code line; empty for `ignore_for_file`), and `n` counts
+/// only earlier identical directives on identical code. Adding or removing
+/// other directives elsewhere in the file leaves the anchor unchanged.
 ///
 /// **Finding contract:**
 /// - `severity`: [Severity.info]
@@ -52,7 +55,7 @@ import 'rule.dart';
 /// **Suppression:**
 /// `// loam-ignore: slop-unjustified-ignore – <reason>` on or before the line
 /// of the offending directive suppresses the finding.
-class SlopUnjustifiedIgnoreRule implements Rule {
+class SlopUnjustifiedIgnoreRule implements FileRule {
   /// The stable rule ID for [SlopUnjustifiedIgnoreRule].
   ///
   /// Exposed as a static constant so callers can filter findings by rule ID
@@ -74,45 +77,78 @@ class SlopUnjustifiedIgnoreRule implements Rule {
   RuleCategory get category => RuleCategory.slop;
 
   @override
-  List<Finding> run(ProjectLoadResult result) {
+  List<Finding> run(ProjectLoadResult result) => runPerFile(this, result);
+
+  @override
+  List<Finding> runFile(LoadedFile file) {
+    // Skip generated files — *.g.dart, *.freezed.dart, *.mocks.dart, gen-l10n.
+    if (isGeneratedDartFile(file.path)) return const [];
     final findings = <Finding>[];
-
-    for (final file in result.resolved) {
-      // Skip generated files — *.g.dart, *.freezed.dart, *.mocks.dart, gen-l10n.
-      if (isGeneratedDartFile(file.path)) continue;
-
-      final relativePath = p.relative(file.path, from: projectRoot);
-      _scanFile(file.result.content, relativePath, findings);
-    }
-
+    _scanFile(
+      file.parsed.content,
+      _lineCommentColumns(file.parsed.unit),
+      projectRelativePosixPath(file.path, projectRoot),
+      findings,
+    );
     return findings;
   }
 
-  // Regex: matches `// ignore:` or `// ignore_for_file:` anywhere in a line.
+  /// 0-based line index -> 0-based column of each real `//` line comment
+  /// (doc comments and string contents are not comment tokens of this kind).
+  static Map<int, int> _lineCommentColumns(CompilationUnit unit) {
+    final columns = <int, int>{};
+    Token token = unit.beginToken;
+    while (true) {
+      Token? comment = token.precedingComments;
+      while (comment != null) {
+        if (comment.type == TokenType.SINGLE_LINE_COMMENT &&
+            !comment.lexeme.startsWith('///')) {
+          final location = unit.lineInfo.getLocation(comment.offset);
+          columns[location.lineNumber - 1] = location.columnNumber - 1;
+        }
+        comment = comment.next;
+      }
+      if (token.type == TokenType.EOF) break;
+      token = token.next!;
+    }
+    return columns;
+  }
+
+  // Regex: matches `// ignore:` or `// ignore_for_file:` at the start of a comment.
   // Group 1: 'ignore' or 'ignore_for_file'
   // Group 2: everything after the colon (may be empty)
   static final RegExp _directiveRegex = RegExp(
-    r'//\s*(ignore(?:_for_file)?)\s*:(.*)',
+    r'^//\s*(ignore(?:_for_file)?)\s*:(.*)',
   );
 
   // Regex: matches a lint-name list at the start of a string.
   // Lint names: [a-z][a-z0-9_]*, comma-separated with optional whitespace.
+  // `type=lint` is the analyzer's diagnostic-type selector, one list entry.
+  static const String _name = r'[a-z][a-z0-9_]*(?:=[a-z][a-z0-9_]*)?';
   static final RegExp _lintNamesRegex = RegExp(
-    r'^[a-z][a-z0-9_]*(?:\s*,\s*[a-z][a-z0-9_]*)*',
+    '^$_name(?:\\s*,\\s*$_name)*',
     caseSensitive: false,
   );
 
-  void _scanFile(String content, String relativePath, List<Finding> findings) {
+  void _scanFile(
+    String content,
+    Map<int, int> commentColumns,
+    String relativePath,
+    List<Finding> findings,
+  ) {
     final lines = content.split('\n');
 
-    // Occurrence counter for stable fingerprints:
-    // maps 'directiveKind:normalizedLints' → how many times seen so far.
-    final occurrenceCount = <String, int>{};
+    // Content-based anchors; the counter only separates true duplicates.
+    final anchors = AnchorCounter();
 
     for (var i = 0; i < lines.length; i++) {
       final lineText = lines[i];
+      final commentColumn = commentColumns[i];
+      if (commentColumn == null || commentColumn > lineText.length) continue;
 
-      final match = _directiveRegex.firstMatch(lineText);
+      final match = _directiveRegex.firstMatch(
+        lineText.substring(commentColumn),
+      );
       if (match == null) continue;
 
       final directiveKind = match.group(1)!; // 'ignore' or 'ignore_for_file'
@@ -126,17 +162,18 @@ class SlopUnjustifiedIgnoreRule implements Rule {
 
       // Neither condition met — emit a Finding.
       final lineNumber = i + 1; // 1-based
-      final col = lineText.indexOf('//') + 1; // 1-based
+      final col = commentColumn + 1; // 1-based
 
       final normalizedLints = _normalizeLintNames(afterColon);
-      final anchorKey = '$directiveKind:$normalizedLints';
-      final idx = occurrenceCount[anchorKey] ?? 0;
-      occurrenceCount[anchorKey] = idx + 1;
+      final anchor = anchors.next(
+        '$directiveKind:$normalizedLints',
+        directiveKind == 'ignore' ? _silencedCode(lines, i, commentColumn) : '',
+      );
 
       final fingerprint = computeFingerprint(
         ruleId: ruleId,
         relativePath: relativePath,
-        semanticAnchor: '$anchorKey:$idx',
+        semanticAnchor: anchor,
       );
 
       findings.add(
@@ -157,6 +194,21 @@ class SlopUnjustifiedIgnoreRule implements Rule {
         ),
       );
     }
+  }
+
+  /// Returns the whitespace-normalised code that the `// ignore:` directive on
+  /// line [index] silences: the code before the comment on the same line, or
+  /// else the next line that is neither blank nor a comment.
+  static String _silencedCode(List<String> lines, int index, int column) {
+    String norm(String s) => s.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final own = norm(lines[index].substring(0, column));
+    if (own.isNotEmpty) return own;
+    for (var j = index + 1; j < lines.length; j++) {
+      final next = norm(lines[j]);
+      if (next.isEmpty || next.startsWith('//')) continue;
+      return next;
+    }
+    return '';
   }
 
   /// Returns `true` when [afterColon] (the text after `// ignore:`) contains

@@ -1,0 +1,10 @@
+name: reserved_annotations_fixture
+description: "Test fixture for intent annotations in unused-public-exports."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  meta: ^1.18.0

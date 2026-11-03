@@ -15,15 +15,26 @@ import 'reporter.dart';
 /// JSON block (`<script type="application/json">`) and rendered client-side
 /// via inline JavaScript.
 ///
-/// Layout: a terminal-styled masthead (inline brand mark, no external image),
-/// a scrollable findings column on the left, and a sticky side panel on the
-/// right that keeps the severity summary, the toolchain facts, and the
-/// always-visible Fix-Prompt in view without scrolling to the page foot.
+/// Look: the getloam.dev brand (dark canvas, ink, green accent, soil). The
+/// masthead carries the brand mark and the wordmark as inline SVG outlines, so
+/// the brand renders exactly without any font file. Text uses system font
+/// stacks that prefer the brand fonts when they are installed locally — no
+/// font is embedded and none is fetched (keeps the report small and works
+/// under the website's `font-src 'self'` CSP, where `data:` fonts would be
+/// blocked).
+///
+/// Layout (responsive, 375 px up to ultrawide):
+/// - narrow: one column — overview, findings, Fix-Prompt;
+/// - from 960 px: the overview spans the top, findings left, a sticky
+///   Fix-Prompt column right;
+/// - from 1600 px: three columns — sticky overview (Health-Score, counts by
+///   severity and rule, toolchain), findings, sticky Fix-Prompt; finding cards
+///   flow into several columns on very wide screens to keep lines readable.
 ///
 /// Browsable by Rule ID, Severity, and file. Each Finding shows file, line,
-/// and message as code-context. Findings are individually selectable; the
-/// selection feeds a deterministic Fix-Prompt (versioniertes Template,
-/// `prompt@ver`) that can be copied to the clipboard via an inline button.
+/// and message as code-context plus the rule's remedy. Findings are
+/// individually selectable; the selection feeds a deterministic Fix-Prompt
+/// (versioned template, `prompt@ver`) that can be copied to the clipboard.
 ///
 /// Issue 07 extensions (additive):
 /// - Per-finding selection checkboxes (AC1).
@@ -33,15 +44,13 @@ import 'reporter.dart';
 ///   [fix_prompt_template.dart] (AC3); same selection ⇒ byte-identical prompt.
 /// - Per-finding: ruleId, file:line, message, fix-hint in prompt (AC4).
 /// - Copy-to-Clipboard button (AC5).
-/// - No logic/thresholds/LLM-calls added (Invariante 4 / D9) (AC6).
+/// - No logic/thresholds/LLM-calls added (pure renderer, ADR 0001 / D9) (AC6).
 ///
 /// Issue 08 extensions (sidecar wiring, additive):
 /// - Accepts an optional [HealthReport] sidecar. When present, renders a
-///   Health-Score + Grade badge in the HTML header (additive — does NOT replace
-///   any existing section). Without the sidecar the HTML stays valid and
-///   byte-identical to a sidecar-less run.
+///   Health-Score + Grade block in the overview. Without the sidecar the HTML
+///   stays valid and the block is simply absent.
 /// - [ReportPayload] is NOT modified; the [Reporter] interface is NOT changed.
-///   The sidecar is an optional named constructor parameter, not a payload field.
 ///
 /// Vocabulary in the score block: "Health-Score", "Grade", "Hotspot" — no
 /// anti-vocabulary ("Smell", "Bad code", "Dashboard", "GUI").
@@ -50,25 +59,18 @@ import 'reporter.dart';
 /// - When [ReportPayload.recommendations] is non-empty, renders its own
 ///   "Preventive recommendations" section (curated, versioned via
 ///   [kGuidanceVersion]) between the findings layout and the footer.
-///   Absent (empty string) when [ReportPayload.recommendations] is empty.
 ///
-/// Invariant 4 (pure renderer): no I/O, no exit-code logic, no thresholds.
+/// pure renderer, ADR 0001: no I/O, no exit-code logic, no thresholds.
 /// Invariant 5 (reproducible): no timestamps, no absolute paths in content;
 /// same input always produces a byte-identical string.
 class HtmlReporter implements Reporter {
   /// Creates a [HtmlReporter].
   ///
   /// [healthSidecar] is an optional [HealthReport] that, when provided,
-  /// causes [render] to embed a Health-Score + Grade badge in the HTML header.
-  /// Omitting it (or passing `null`) leaves the HTML fully valid — the badge
-  /// section is simply absent. The [ReportPayload] and [Reporter] interface
-  /// are NOT affected by this parameter.
+  /// causes [render] to embed a Health-Score + Grade block in the overview.
   const HtmlReporter({this.healthSidecar});
 
   /// Optional Health-Score sidecar.
-  ///
-  /// When non-null, [render] inserts a score/grade badge in the HTML header.
-  /// No other output is modified. [ReportPayload] is never touched.
   final HealthReport? healthSidecar;
 
   @override
@@ -77,19 +79,23 @@ class HtmlReporter implements Reporter {
         .map((f) => _buildFindingMap(f, payload.projectRoot))
         .toList();
 
-    final jsonData = const JsonEncoder.withIndent('  ').convert({
-      'tool': 'loam',
-      'toolVersion': payload.toolVersion,
-      'ruleset': payload.rulesetVersion,
-      'findings': relFindings,
-    });
+    final jsonData = _scriptSafe(
+      const JsonEncoder.withIndent('  ').convert({
+        'tool': 'loam',
+        'toolVersion': payload.toolVersion,
+        'ruleset': payload.rulesetVersion,
+        'findings': relFindings,
+      }),
+    );
 
     // Fix-hints map: embed as JSON so the JS can look them up without
     // hard-coding them. Built from the same source as the Dart assembler
     // (kFixHints + kGenericFixHint) — single source of truth, deterministic.
-    final fixHintsJson = const JsonEncoder.withIndent(
-      '  ',
-    ).convert({...kFixHints, '__generic__': kGenericFixHint});
+    final fixHintsJson = _scriptSafe(
+      const JsonEncoder.withIndent(
+        '  ',
+      ).convert({...kFixHints, '__generic__': kGenericFixHint}),
+    );
 
     // Count by severity for the summary panel.
     final counts = <Severity, int>{
@@ -110,13 +116,20 @@ class HtmlReporter implements Reporter {
     final suppressedNote = payload.suppressedCount > 0
         ? '<p class="card-meta">${payload.suppressedCount} suppressed</p>'
         : '';
+    final auditNote = payload.suppressionAudit
+        .toSummaryLines()
+        .map((l) => '<p class="card-meta">${_esc(l)}</p>')
+        .join();
     final stats = payload.stats;
     final scopeRows = stats == null
         ? ''
-        : '<dt>files</dt><dd>${stats.filesAnalyzed} '
-              '(${stats.libFilesAnalyzed} under lib/)</dd>'
-              '<dt>lines</dt><dd>${stats.linesAnalyzed}</dd>'
-              '<dt>rules</dt><dd>${stats.rulesRun.join(', ')}</dd>';
+        : '<div><dt>files</dt><dd>${stats.filesAnalyzed} '
+              '(${stats.libFilesAnalyzed} under lib/)</dd></div>'
+              '<div><dt>lines</dt><dd>${stats.linesAnalyzed}</dd></div>'
+              '<div><dt>rules</dt><dd><details class="kv-rules" '
+              'data-testid="report-rules-run"><summary>${stats.rulesRun.length} '
+              'rule${stats.rulesRun.length == 1 ? '' : 's'} run</summary>'
+              '<p>${stats.rulesRun.map(_esc).join(', ')}</p></details></dd></div>';
 
     // Severity bar: flex weights are deterministic (counts only); a zero-finding
     // run shows a single "clean" segment instead of an empty rail.
@@ -127,10 +140,19 @@ class HtmlReporter implements Reporter {
               '<span class="seg seg-info" style="flex:$infos"></span>';
 
     final title = 'loam.dev HTML-Report';
+    final target = _targetName(payload.projectRoot);
+    final heroTitle = target.isEmpty ? 'Scan report' : _esc(target);
+    final ruleCount = payload.findings.map((f) => f.ruleId).toSet().length;
+    final heroLead = total == 0
+        ? '0 findings &mdash; this project is clean.'
+        : '$total finding${total == 1 ? '' : 's'} from '
+              '$ruleCount rule${ruleCount == 1 ? '' : 's'}. Select the ones '
+              'you want fixed and hand the Fix-Prompt to your AI coding agent.';
 
-    // Health-Score badge block — only rendered when the sidecar is present.
-    // Uses allowed vocabulary only: "Health-Score", "Grade", "Hotspot".
+    // Health-Score block — only rendered when the sidecar is present.
+    // Uses allowed vocabulary only: "Health-Score", "Grade".
     final healthBadge = _buildHealthBadge(healthSidecar);
+    final rulesCard = _buildRulesCard(payload.findings);
 
     // Preventive-recommendations section — only rendered when non-empty
     // (issue 04). Own section, addressed to the AI agent consuming the report.
@@ -143,46 +165,67 @@ class HtmlReporter implements Reporter {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
 <title>$title</title>
 <style>
 ${_css()}
 </style>
 </head>
 <body>
+<a class="skip-link" href="#findings-container" data-testid="report-skip-link">Skip to findings</a>
 <div class="app">
-  <header class="topbar">
-    <a class="brand" href="https://getloam.dev" target="_blank" rel="noopener" aria-label="loam.dev website">
-      ${_logoSvg()}
-      <div class="brand-text">
-        <span class="wordmark">loam<span class="tld">.dev</span></span>
-        <span class="tagline">codebase intelligence &middot; anti-AI-slop</span>
-      </div>
-    </a>
-    <div class="cmdline" aria-hidden="true">
-      <span class="cmd-prompt"></span>loam scan <span class="flag">--format html</span>
-    </div>
-    <div class="topbar-right">
-      <a class="sponsor-link" href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" title="Support loam.dev development">&#10084; Sponsor</a>
-      <div class="chips">
-        <span class="chip">loam ${payload.toolVersion}</span>
-        <span class="chip chip-ruleset">${payload.rulesetVersion}</span>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <a class="brand" href="https://getloam.dev" target="_blank" rel="noopener" aria-label="loam.dev website" data-testid="report-brand">
+        ${_markSvg('brand-mark')}
+        ${_wordmarkSvg()}
+      </a>
+      <span class="masthead-kind" aria-hidden="true">HTML report</span>
+      <div class="masthead-right">
+        <a class="sponsor-link" href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" title="Support loam.dev development" data-testid="report-sponsor"><span aria-hidden="true">&#10084;</span> Sponsor</a>
+        <div class="chips">
+          <span class="chip">loam ${payload.toolVersion}</span>
+          <span class="chip chip-ruleset">${payload.rulesetVersion}</span>
+        </div>
       </div>
     </div>
   </header>
-$healthBadge
+
+  <section class="hero" aria-labelledby="report-title" data-testid="report-hero">
+    <p class="label"><span class="cmd">loam scan --format html</span></p>
+    <h1 class="hero-title" id="report-title">$heroTitle</h1>
+    <p class="hero-lead">$heroLead</p>
+  </section>
 
   <div class="layout">
-    <main class="main">
-      <div class="toolbar" role="group" aria-label="Filter findings">
+    <aside class="overview" aria-label="Overview" data-testid="report-overview">
+$healthBadge
+      <section class="card summary-card" aria-labelledby="summary-title">
+        <h2 class="card-title" id="summary-title">Summary</h2>
+        <p class="total"><b>$total</b> finding${total == 1 ? '' : 's'}</p>
+        $suppressedNote
+        $auditNote
+        <div class="sev-bar" aria-hidden="true">$sevBar</div>
+        <ul class="sev-legend">
+          <li><span class="dot dot-error" aria-hidden="true"></span> error <b>$errors</b></li>
+          <li><span class="dot dot-warning" aria-hidden="true"></span> warning <b>$warnings</b></li>
+          <li><span class="dot dot-info" aria-hidden="true"></span> info <b>$infos</b></li>
+        </ul>
+      </section>
+$rulesCard
+    </aside>
+
+    <main class="main" id="main">
+      <div class="toolbar" role="group" aria-label="Filter findings" data-testid="report-toolbar">
         <label class="field">Group by
-          <select id="groupBy" aria-label="Group by">
+          <select id="groupBy" aria-label="Group by" data-testid="report-group-by">
             <option value="rule">Rule</option>
             <option value="severity">Severity</option>
             <option value="file">File</option>
           </select>
         </label>
         <label class="field">Severity
-          <select id="filterSeverity" aria-label="Filter by severity">
+          <select id="filterSeverity" aria-label="Filter by severity" data-testid="report-filter-severity">
             <option value="">All</option>
             <option value="error">error</option>
             <option value="warning">warning</option>
@@ -190,67 +233,58 @@ $healthBadge
           </select>
         </label>
         <label class="field search-field">Search
-          <input type="search" id="searchInput" placeholder="file, rule or message&hellip;" aria-label="Search findings">
+          <input type="search" id="searchInput" placeholder="file, rule or message&hellip;" aria-label="Search findings" data-testid="report-search">
         </label>
-        <span class="showing" id="showing-count"></span>
-        <span class="toolbar-spacer"></span>
-        <button id="selectAllBtn" class="btn" type="button">Select all</button>
-        <button id="clearSelBtn" class="btn" type="button">Clear</button>
+        <span class="showing" id="showing-count" role="status"></span>
+        <span class="toolbar-actions">
+          <button id="selectAllBtn" class="btn" type="button" data-testid="report-select-all">Select all</button>
+          <button id="clearSelBtn" class="btn" type="button" data-testid="report-clear-selection">Clear</button>
+          <a class="btn jump-link" href="#fix-prompt-section" data-testid="report-jump-prompt">Fix-Prompt <span aria-hidden="true">&darr;</span></a>
+        </span>
       </div>
-      <div id="findings-container"></div>
+      <div id="findings-container" data-testid="report-findings" tabindex="-1"></div>
     </main>
 
-    <aside class="sidebar">
-      <section class="card summary-card">
-        <h2 class="card-title">Summary</h2>
-        <p class="total">$total finding${total == 1 ? '' : 's'}</p>
-        $suppressedNote
-        <div class="sev-bar">$sevBar</div>
-        <ul class="sev-legend">
-          <li><span class="dot dot-error"></span> error <b>$errors</b></li>
-          <li><span class="dot dot-warning"></span> warning <b>$warnings</b></li>
-          <li><span class="dot dot-info"></span> info <b>$infos</b></li>
-        </ul>
-      </section>
-
-      <section class="card tooling-card">
-        <h2 class="card-title">Toolchain</h2>
-        <dl class="kv">
-          <dt>tool</dt><dd>loam ${payload.toolVersion}</dd>
-          <dt>ruleset</dt><dd>${payload.rulesetVersion}</dd>
-          $scopeRows
-          <dt>report</dt><dd>self-contained &middot; offline</dd>
-        </dl>
+    <aside class="sidebar" aria-label="Fix-Prompt and toolchain">
+      <section class="card prompt-card" id="fix-prompt-section" aria-label="Fix-Prompt" data-testid="report-fix-prompt">
+        <div class="prompt-head">
+          <h2 class="card-title">Fix-Prompt</h2>
+          <span class="chip chip-prompt">$kPromptVersion</span>
+        </div>
+        <p class="prompt-count" id="fix-prompt-count">No findings selected</p>
+        <textarea id="fix-prompt-output" readonly aria-label="Generated Fix-Prompt" data-testid="report-fix-prompt-output" placeholder="Select one or more findings to assemble a deterministic, copy-ready Fix-Prompt for your AI agent."></textarea>
+        <div class="prompt-actions">
+          <button id="copyPromptBtn" class="btn btn-primary" type="button" data-testid="report-copy-prompt" disabled>Copy to clipboard</button>
+          <span id="copy-feedback" role="status" aria-live="polite"></span>
+        </div>
         <ol class="howto">
           <li>Filter &amp; select the findings you want to act on</li>
           <li>Copy the assembled, versioned Fix-Prompt</li>
           <li>Paste it into your AI coding agent</li>
         </ol>
       </section>
-
-      <section class="card prompt-card" id="fix-prompt-section" aria-label="Fix-Prompt">
-        <div class="prompt-head">
-          <h2 class="card-title">Fix-Prompt</h2>
-          <span class="chip chip-prompt">$kPromptVersion</span>
-        </div>
-        <p class="card-meta" id="fix-prompt-count">No findings selected</p>
-        <textarea id="fix-prompt-output" readonly aria-label="Generated Fix-Prompt" placeholder="Select one or more findings to assemble a deterministic, copy-ready Fix-Prompt for your AI agent."></textarea>
-        <div class="prompt-actions">
-          <button id="copyPromptBtn" class="btn btn-primary" type="button" disabled>Copy to clipboard</button>
-          <span id="copy-feedback" aria-live="polite"></span>
-        </div>
+      <section class="card tooling-card" aria-labelledby="toolchain-title">
+        <h2 class="card-title" id="toolchain-title">Toolchain</h2>
+        <dl class="kv">
+          <div><dt>tool</dt><dd>loam ${payload.toolVersion}</dd></div>
+          <div><dt>ruleset</dt><dd>${payload.rulesetVersion}</dd></div>
+          $scopeRows
+          <div><dt>report</dt><dd>self-contained &middot; offline</dd></div>
+        </dl>
       </section>
     </aside>
   </div>
 $recommendationsSection
   <footer class="appfoot">
-    <span class="foot-tag">Generated by <a href="https://getloam.dev" target="_blank" rel="noopener">loam.dev</a> &middot; codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</span>
-    <nav class="foot-links" aria-label="loam.dev links">
-      <a href="https://getloam.dev" target="_blank" rel="noopener">Website</a>
-      <a href="https://getloam.dev/rules" target="_blank" rel="noopener">Rules</a>
-      <a href="https://github.com/silvio-l/loam" target="_blank" rel="noopener">&#9733; GitHub</a>
-      <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener">&#10084; Sponsor</a>
-    </nav>
+    <div class="appfoot-inner">
+      <span class="foot-tag">${_markSvg('foot-mark')}<span>Generated by <a href="https://getloam.dev" target="_blank" rel="noopener">loam.dev</a> &middot; codebase intelligence &amp; anti-AI-slop for Dart &amp; Flutter</span></span>
+      <nav class="foot-links" aria-label="loam.dev links">
+        <a href="https://getloam.dev" target="_blank" rel="noopener" data-testid="report-foot-website">Website</a>
+        <a href="https://getloam.dev/rules" target="_blank" rel="noopener" data-testid="report-foot-rules">Rules</a>
+        <a href="https://github.com/silvio-l/loam" target="_blank" rel="noopener" data-testid="report-foot-github"><span aria-hidden="true">&#9733;</span> GitHub</a>
+        <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" data-testid="report-foot-sponsor"><span aria-hidden="true">&#10084;</span> Sponsor</a>
+      </nav>
+    </div>
   </footer>
 </div>
 <script type="application/json" id="loam-data">
@@ -260,7 +294,7 @@ $jsonData
 $fixHintsJson
 </script>
 <script type="text/x-loam-template" id="loam-fix-prompt-template">
-${fillPromptTarget(kFixPromptTemplate, _targetName(payload.projectRoot))}</script>
+${fillPromptTarget(kFixPromptTemplate, target)}</script>
 <script>
 ${_js()}
 </script>
@@ -268,26 +302,53 @@ ${_js()}
 </html>''';
   }
 
-  /// Builds the Health-Score badge HTML block.
+  /// Builds the Health-Score block.
   ///
-  /// Returns an empty string when [sidecar] is null (no badge; HTML stays
-  /// valid). The badge uses allowed vocabulary only: "Health-Score", "Grade".
-  /// Anti-vocabulary ("Smell", "Bad code", "Dashboard", "GUI") is never used.
+  /// Returns an empty string when [sidecar] is null (no block; HTML stays
+  /// valid). Uses allowed vocabulary only: "Health-Score", "Grade".
   String _buildHealthBadge(HealthReport? sidecar) {
     if (sidecar == null) return '';
     final grade = sidecar.grade;
     final score = sidecar.score;
     final gradeCssClass = _gradeClass(grade);
-    final breakdown =
-        'Findings: ${sidecar.findingsContribution} / 100 · '
-        'Complexity: ${sidecar.complexityContribution} / 100';
-    return '''  <div class="health-badge-bar" aria-label="Health-Score">
-    <div class="health-badge" title="$breakdown">
-      <span class="health-label">Health-Score</span>
-      <span class="health-score">$score<span class="health-max"> / 100</span></span>
-      <span class="health-grade $gradeCssClass" aria-label="Grade $grade">$grade</span>
-    </div>
-  </div>''';
+    return '''      <section class="health-badge-bar" role="group" aria-label="Health-Score" data-testid="report-health-badge">
+        <h2 class="card-title">Health-Score</h2>
+        <div class="health-badge">
+          <span class="health-score">$score<span class="health-max"> / 100</span></span>
+          <span class="health-grade $gradeCssClass" role="img" aria-label="Grade $grade">$grade</span>
+        </div>
+        <dl class="health-parts">
+          <div><dt>Findings</dt><dd>${sidecar.findingsContribution} / 100</dd></div>
+          <div><dt>Complexity</dt><dd>${sidecar.complexityContribution} / 100</dd></div>
+        </dl>
+      </section>''';
+  }
+
+  /// Builds the "By rule" card: finding counts per rule, most findings first
+  /// (ties by rule id), so the order is deterministic. Empty when clean.
+  String _buildRulesCard(List<Finding> findings) {
+    if (findings.isEmpty) return '';
+    final byRule = <String, int>{};
+    for (final f in findings) {
+      byRule[f.ruleId] = (byRule[f.ruleId] ?? 0) + 1;
+    }
+    final entries = byRule.entries.toList()
+      ..sort((a, b) {
+        final c = b.value.compareTo(a.value);
+        return c != 0 ? c : a.key.compareTo(b.key);
+      });
+    final max = entries.first.value;
+    final rows = entries.map((e) {
+      final pct = (e.value * 100) ~/ max;
+      return '<li><span class="rule-name">${_esc(e.key)}</span>'
+          '<b>${e.value}</b>'
+          '<span class="rule-bar" aria-hidden="true">'
+          '<span style="width:$pct%"></span></span></li>';
+    }).join();
+    return '''      <section class="card rules-card" aria-labelledby="rules-title" data-testid="report-rule-counts">
+        <h2 class="card-title" id="rules-title">By rule</h2>
+        <ul class="rule-counts">$rows</ul>
+      </section>''';
   }
 
   /// Maps a grade letter to a CSS class for colour coding.
@@ -331,6 +392,11 @@ ${_js()}
   </section>''';
   }
 
+  /// Makes JSON safe inside a `<script type="application/json">` block: finding
+  /// messages quote analysed source, so a literal `</script>` would otherwise
+  /// end the block early and inject markup. `\u003c` is decoded by `JSON.parse`.
+  String _scriptSafe(String json) => json.replaceAll('<', r'\u003c');
+
   /// Minimal HTML-escaping for text embedded outside the JSON data blocks
   /// (the recommendations section is server-rendered, not client-rendered).
   String _esc(String s) => s
@@ -348,6 +414,10 @@ ${_js()}
       'column': f.column,
       'message': f.message,
       'fingerprint': f.fingerprint,
+      // Concrete next action shown under the message; null when the rule
+      // has none. Display only — the Fix-Prompt keeps using the versioned
+      // fix hints (prompt@ver).
+      'remedy': f.remedy,
     };
   }
 
@@ -374,355 +444,381 @@ ${_js()}
     return forward.startsWith('/') ? forward.substring(1) : forward;
   }
 
-  /// Inline brand mark — the simplest loam.dev logo (soil strata + sprout),
-  /// embedded as inline SVG so the page stays self-contained. No `xmlns`
-  /// attribute on purpose: HTML5 parses inline SVG without it, and any
-  /// `http://...` namespace URI would break the "no external URL" guarantee.
-  String _logoSvg() =>
-      r'''<svg class="logo" viewBox="150 301 405 405" width="36" height="36" role="img" aria-label="loam.dev">
-<g fill="#564F47"><g transform="translate(0,1024) scale(0.1,-0.1)">
-<path d="M2455 5175 c-49 -17 -90 -61 -104 -112 -6 -21 -11 -79 -11 -128 0 -102 22 -162 73 -199 28 -21 36 -21 1108 -24 1206 -3 1115 -8 1166 70 25 37 28 52 31 145 6 155 -30 227 -126 252 -23 7 -419 10 -1067 10 -853 0 -1037 -3 -1070 -14z"/>
-<path d="M2431 4623 c-18 -9 -45 -34 -60 -57 -24 -37 -26 -46 -26 -160 0 -103 3 -126 20 -155 26 -44 62 -70 111 -81 22 -5 491 -10 1066 -10 1133 0 1078 -3 1133 62 36 42 48 100 43 209 -3 84 -7 102 -30 136 -52 78 32 73 -1160 73 -968 0 -1066 -2 -1097 -17z"/>
-<path d="M2434 4080 c-62 -31 -86 -82 -92 -194 -7 -143 21 -210 102 -247 39 -18 90 -19 1086 -19 996 0 1047 1 1086 19 82 37 108 103 102 251 -4 115 -25 157 -92 189 -42 21 -51 21 -1097 21 -1037 0 -1055 0 -1095 -20z"/>
-</g></g>
-<g fill="#88C840"><g transform="translate(0,1024) scale(0.1,-0.1)">
-<path d="M2356 6761 c-14 -16 -15 -29 -7 -103 13 -117 36 -198 82 -297 117 -251 326 -410 599 -456 193 -32 216 -37 262 -57 58 -25 123 -93 137 -144 6 -23 11 -135 11 -264 0 -162 3 -229 12 -238 7 -7 40 -12 78 -12 38 0 71 5 78 12 9 9 12 76 12 238 0 124 5 241 10 261 15 54 80 122 142 149 29 12 109 31 178 41 214 33 325 76 450 176 174 139 282 343 310 590 7 63 6 82 -6 101 -14 21 -19 22 -182 22 -284 0 -413 -23 -563 -101 -190 -99 -347 -299 -397 -506 -9 -41 -22 -73 -29 -73 -7 0 -17 19 -23 43 -54 216 -169 383 -341 496 -162 106 -316 141 -632 141 -147 0 -166 -2 -181 -19z"/>
-</g></g>
-</svg>''';
+  /// Brand mark (sprout over three soil layers) as inline SVG — the same paths
+  /// as the website's `BrandMark`, decorative (the surrounding link or text
+  /// names it). No `xmlns` attribute on purpose: HTML5 parses inline SVG
+  /// without it, and any `http://...` namespace URI would break the
+  /// "no external URL" guarantee.
+  String _markSvg(String cls) =>
+      '<svg class="$cls" viewBox="150 301 405 405" aria-hidden="true" focusable="false">'
+      '<g transform="translate(0,1024) scale(0.1,-0.1)">'
+      r'''<path fill="#564F47" d="M3623 5595 c0 -38 2 -53 4 -32 2 20 2 52 0 70 -2 17 -4 1 -4 -38z"/>
+<path fill="#564F47" d="M3623 5325 c0 -38 2 -53 4 -32 2 20 2 52 0 70 -2 17 -4 1 -4 -38z"/>
+<path fill="#564F47" d="M2455 5175 c-49 -17 -90 -61 -104 -112 -6 -21 -11 -79 -11 -128 0 -102 22 -162 73 -199 28 -21 36 -21 1108 -24 1206 -3 1115 -8 1166 70 25 37 28 52 31 145 6 155 -30 227 -126 252 -23 7 -419 10 -1067 10 -853 0 -1037 -3 -1070 -14z"/>
+<path fill="#564F47" d="M2431 4623 c-18 -9 -45 -34 -60 -57 -24 -37 -26 -46 -26 -160 0 -103 3 -126 20 -155 26 -44 62 -70 111 -81 22 -5 491 -10 1066 -10 1133 0 1078 -3 1133 62 36 42 48 100 43 209 -3 84 -7 102 -30 136 -52 78 32 73 -1160 73 -968 0 -1066 -2 -1097 -17z"/>
+<path fill="#564F47" d="M2434 4080 c-62 -31 -86 -82 -92 -194 -7 -143 21 -210 102 -247 39 -18 90 -19 1086 -19 996 0 1047 1 1086 19 82 37 108 103 102 251 -4 115 -25 157 -92 189 -42 21 -51 21 -1097 21 -1037 0 -1055 0 -1095 -20z"/>
+<path fill="#88C840" d="M2356 6761 c-14 -16 -15 -29 -7 -103 13 -117 36 -198 82 -297 117 -251 326 -410 599 -456 193 -32 216 -37 262 -57 58 -25 123 -93 137 -144 6 -23 11 -135 11 -264 0 -162 3 -229 12 -238 7 -7 40 -12 78 -12 38 0 71 5 78 12 9 9 12 76 12 238 0 124 5 241 10 261 15 54 80 122 142 149 29 12 109 31 178 41 214 33 325 76 450 176 174 139 282 343 310 590 7 63 6 82 -6 101 -14 21 -19 22 -182 22 -284 0 -413 -23 -563 -101 -190 -99 -347 -299 -397 -506 -9 -41 -22 -73 -29 -73 -7 0 -17 19 -23 43 -54 216 -169 383 -341 496 -162 106 -316 141 -632 141 -147 0 -166 -2 -181 -19z"/>
+</g></svg>''';
+
+  /// Wordmark `loam` (ink) + `.dev` (green) as font-free outlines of Spline
+  /// Sans Mono SemiBold — the same glyphs as the website's `wordmark.svg`,
+  /// coordinates rounded to whole units (invisible at UI sizes, ~3 KB).
+  String _wordmarkSvg() =>
+      r'''<svg class="wordmark" viewBox="100 350 9460 1610" aria-hidden="true" focusable="false"><path fill="#ECEAE3" d="M770 1943Q653 1943 571 1910Q489 1877 447 1806Q405 1735 405 1623V702Q405 663 426 638Q446 612 483 606H115V368H679L676 1538Q676 1638 711 1670Q746 1702 842 1702Q904 1702 970 1691Q1036 1681 1091 1661V1896Q1025 1917 938 1930Q851 1943 770 1943ZM1796 1942Q1648 1942 1538 1875Q1428 1809 1367 1683Q1306 1557 1306 1380Q1306 1203 1370 1076Q1435 950 1548 882Q1661 814 1805 814Q1956 814 2065 883Q2175 951 2235 1077Q2294 1203 2294 1375Q2294 1557 2229 1684Q2163 1810 2051 1876Q1938 1942 1796 1942ZM1801 1711Q1893 1711 1954 1634Q2016 1557 2016 1376Q2016 1200 1955 1122Q1894 1045 1799 1045Q1706 1045 1645 1122Q1585 1198 1585 1373Q1585 1553 1648 1632Q1711 1711 1801 1711ZM2862 1939Q2712 1939 2625 1855Q2538 1771 2538 1627Q2538 1504 2614 1429Q2690 1354 2857 1320Q2910 1310 2966 1302Q3021 1294 3077 1288Q3133 1281 3185 1277V1210Q3185 1113 3145 1073Q3106 1032 3013 1032Q2922 1032 2874 1073Q2825 1114 2829 1216H2572Q2561 1093 2612 1002Q2662 912 2766 864Q2870 815 3018 815Q3232 815 3343 916Q3454 1018 3454 1216V1927H3184L3185 1677Q3169 1758 3124 1817Q3078 1876 3011 1907Q2944 1939 2862 1939ZM2963 1746Q3010 1746 3059 1726Q3107 1705 3142 1672Q3177 1639 3185 1600V1415Q3164 1419 3133 1424Q3101 1429 3070 1434Q3039 1440 3017 1445Q2914 1468 2867 1505Q2820 1543 2820 1611Q2820 1675 2859 1710Q2898 1746 2963 1746ZM3661 1927V835H3874L3893 1151L3883 1132Q3896 984 3966 898Q4035 813 4142 813Q4199 813 4238 840Q4278 868 4299 931Q4319 994 4313 1100L4310 1162V1927H4105V1172Q4105 1107 4087 1078Q4070 1048 4031 1048Q3987 1048 3951 1080Q3915 1111 3895 1185V1927ZM4518 1927V1172Q4518 1111 4501 1079Q4483 1048 4441 1048Q4394 1048 4360 1081Q4325 1114 4310 1185L4272 1226L4303 1149Q4315 994 4386 904Q4457 813 4574 813Q4661 813 4706 880Q4752 948 4752 1091V1927Z"/><path fill="#88C840" d="M5400 1947Q5322 1947 5267 1891Q5212 1834 5212 1741Q5212 1649 5267 1593Q5322 1536 5400 1536Q5479 1536 5533 1593Q5588 1649 5588 1741Q5588 1834 5533 1891Q5479 1947 5400 1947ZM6504 1940Q6387 1940 6296 1872Q6205 1805 6154 1679Q6102 1553 6102 1378Q6102 1205 6159 1079Q6217 952 6316 884Q6414 815 6536 815Q6609 815 6663 843Q6717 871 6752 923Q6787 974 6803 1044L6853 1112L6795 1190Q6784 1142 6758 1110Q6732 1078 6698 1061Q6663 1044 6624 1044Q6516 1044 6447 1131Q6378 1217 6378 1378Q6378 1486 6405 1561Q6433 1636 6485 1675Q6536 1714 6608 1714Q6648 1714 6686 1695Q6725 1676 6754 1640Q6782 1605 6792 1556L6803 1612L6792 1669Q6775 1749 6735 1810Q6696 1871 6637 1905Q6579 1940 6504 1940ZM6795 1927 6792 1578V368H7065V1927ZM7836 1942Q7680 1942 7566 1877Q7452 1811 7390 1686Q7328 1560 7328 1381Q7328 1198 7391 1071Q7454 945 7566 879Q7678 814 7824 814Q8040 814 8159 946Q8278 1078 8278 1321Q8278 1351 8277 1376Q8275 1401 8273 1432H7599Q7604 1535 7633 1599Q7662 1663 7712 1693Q7763 1722 7833 1722Q7901 1722 7944 1691Q7987 1659 8001 1590H8262Q8253 1698 8196 1778Q8140 1857 8047 1899Q7955 1942 7836 1942ZM7595 1355Q7603 1303 7634 1284Q7666 1265 7717 1265H8007Q8006 1151 7962 1093Q7919 1035 7821 1035Q7707 1035 7650 1115Q7594 1195 7595 1355ZM8841 1927 8461 836H8764L8928 1432L8989 1670H9012L9073 1431L9237 836H9539L9160 1927Z"/></svg>''';
 
   /// Inline CSS — no external resources.
   String _css() => r'''
 :root {
   --bg: #101014;
-  --panel: #16161c;
-  --panel-2: #1c1c22;
   --ink: #ECEAE3;
-  --dim: #8D8A7E;
-  --line: #26262e;
   --green: #88C840;
   --soil: #564F47;
-  --error: #ff6b6b;
-  --warning: #ffc24b;
-  --info: #5cc8ff;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --dim: #8D8A7E;
+  --panel: #15171c;
+  --panel-2: #1a1c22;
+  --line: #23252b;
+  --line-strong: #33363d;
+  --green-a12: rgba(136,200,64,.12);
+  --green-a30: rgba(136,200,64,.3);
+  --green-a55: rgba(136,200,64,.55);
+  --soil-a30: rgba(86,79,71,.3);
+  --error: #E0785F;
+  --warning: #E6B450;
+  --info: #8DB4D9;
+  /* System font stacks that prefer the brand fonts when installed locally.
+     Nothing is embedded or fetched (see HtmlReporter doc comment). */
+  --font-text: "Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --t-title: clamp(2rem, 1.3rem + 3vw, 4.5rem);
+  --t-lead: clamp(1rem, .95rem + .3vw, 1.25rem);
+  --t-body: .975rem;
+  --t-small: .875rem;
+  --t-label: .72rem;
+  --t-code: .84rem;
+  --track-label: .14em;
+  --gutter: clamp(1rem, .4rem + 2.6vw, 4rem);
+  --gap: clamp(1rem, .6rem + 1.2vw, 2rem);
+  --page-max: 3200px;
+  --radius: 14px;
+  --radius-sm: 8px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { scrollbar-color: #2a2a32 transparent; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; scrollbar-color: var(--line-strong) transparent; scroll-padding-top: 1rem; }
 body {
-  font-family: var(--mono);
-  color: var(--ink);
-  line-height: 1.5;
-  background:
-    radial-gradient(900px 400px at 12% -8%, rgba(136,200,64,0.07), transparent 60%),
-    radial-gradient(700px 360px at 100% 0%, rgba(86,79,71,0.18), transparent 55%),
-    var(--bg);
-  background-attachment: fixed;
-  -webkit-font-smoothing: antialiased;
+  min-height: 100vh; background: var(--bg); color: var(--ink);
+  font-family: var(--font-text); font-size: var(--t-body); line-height: 1.6;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
-::selection { background: rgba(136,200,64,0.28); }
-
-@keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+::selection { background: var(--green); color: var(--bg); }
+code, kbd, pre, textarea { font-family: var(--font-mono); }
+svg { display: block; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 3px; }
+.skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--bg); color: var(--green); border: 1px solid var(--green);
+  padding: .5rem .8rem; font: 500 .85rem var(--font-mono); text-decoration: none;
+}
+.skip-link:focus { left: .75rem; top: .75rem; }
+#findings-container:focus { outline: none; }
 
 /* ---- masthead ---------------------------------------------------------- */
-.topbar {
-  display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
-  padding: 1.1rem 1.75rem;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(28,28,34,0.6), rgba(16,16,20,0));
-  animation: rise .45s ease both;
+.masthead { border-bottom: 1px solid var(--line); }
+.masthead-inner, .hero, .layout, .recommendations-bar, .appfoot-inner {
+  width: min(100% - 2 * var(--gutter), var(--page-max)); margin-inline: auto;
 }
-.brand { display: flex; align-items: center; gap: 0.8rem; text-decoration: none; color: inherit; }
-.brand:hover .wordmark { color: var(--green); }
-.brand:hover .logo { filter: drop-shadow(0 1px 7px rgba(136,200,64,0.45)); }
-.logo { filter: drop-shadow(0 1px 4px rgba(136,200,64,0.25)); flex-shrink: 0; }
-.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
-.wordmark { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
-.wordmark .tld { color: var(--green); }
-.tagline { font-size: 0.7rem; color: var(--dim); letter-spacing: 0.02em; }
-.cmdline {
-  font-size: 0.82rem; color: var(--dim);
-  background: #0d0d11; border: 1px solid var(--line); border-radius: 7px;
-  padding: 0.35rem 0.7rem; white-space: nowrap;
+.masthead-inner {
+  min-height: 4.25rem; padding-block: .7rem;
+  display: flex; align-items: center; flex-wrap: wrap; gap: .5rem clamp(.8rem, 2.4vw, 2rem);
 }
-.cmd-prompt::before { content: "$ "; color: var(--green); }
-.cmdline .flag { color: var(--ink); }
-.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: .55rem; min-height: 2.75rem; text-decoration: none; }
+.brand-mark { width: 1.9rem; height: auto; flex: none; }
+.wordmark { height: 1.05rem; width: auto; }
+.brand:hover .wordmark, .brand:focus-visible .wordmark { opacity: .85; }
+.masthead-kind {
+  font: 500 var(--t-label) / 1 var(--font-mono); letter-spacing: var(--track-label);
+  text-transform: uppercase; color: var(--dim); padding-left: clamp(.8rem, 2.4vw, 2rem);
+  border-left: 1px solid var(--line-strong);
+}
+.masthead-right { margin-left: auto; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.chips { display: flex; gap: .5rem; flex-wrap: wrap; }
+.chip, .sponsor-link {
+  font: 500 .68rem / 1 var(--font-mono); letter-spacing: .06em; white-space: nowrap;
+  border: 1px solid var(--line-strong); border-radius: 999px; padding: .5rem .8rem; color: var(--dim);
+}
+.chip-ruleset, .chip-prompt { color: var(--green); border-color: var(--green-a30); background: rgba(136,200,64,.05); }
 .sponsor-link {
-  display: inline-flex; align-items: center; gap: 0.35rem;
-  font-size: 0.74rem; text-decoration: none; white-space: nowrap;
-  color: var(--green);
-  background: rgba(136,200,64,0.08);
-  border: 1px solid rgba(136,200,64,0.32);
-  border-radius: 999px; padding: 0.26rem 0.72rem;
-  transition: background .15s ease, border-color .15s ease, transform .08s ease;
+  text-decoration: none; color: var(--green); border-color: var(--green-a30); background: rgba(136,200,64,.05);
+  transition: background-color .18s, border-color .18s;
 }
-.sponsor-link:hover { background: rgba(136,200,64,0.18); border-color: rgba(136,200,64,0.55); }
-.sponsor-link:active { transform: translateY(1px); }
-.chips { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.chip {
-  font-size: 0.72rem; color: var(--dim);
-  background: var(--panel-2); border: 1px solid var(--line);
-  border-radius: 999px; padding: 0.2rem 0.65rem; white-space: nowrap;
+.sponsor-link:hover { background: var(--green-a12); border-color: var(--green-a55); }
+
+/* ---- hero -------------------------------------------------------------- */
+.hero { padding-block: clamp(1.75rem, 1rem + 3vw, 4rem) clamp(1.5rem, 1rem + 1.5vw, 2.5rem); }
+.label {
+  display: inline-flex; align-items: center; gap: .6rem;
+  font: 500 var(--t-label) / 1.2 var(--font-mono); letter-spacing: var(--track-label);
+  text-transform: uppercase; color: var(--green);
 }
-.chip-ruleset { color: var(--green); border-color: rgba(136,200,64,0.3); }
+.label::before { content: ""; width: 1.6rem; height: 1px; background: currentColor; }
+.cmd { text-transform: none; letter-spacing: .02em; }
+.hero-title {
+  margin-top: .9rem; font-size: var(--t-title); font-weight: 650; line-height: 1.04;
+  letter-spacing: -.035em; overflow-wrap: anywhere;
+}
+.hero-lead { margin-top: 1rem; max-width: 62ch; font-size: var(--t-lead); color: var(--dim); line-height: 1.55; }
 
 /* ---- layout ------------------------------------------------------------ */
 .layout {
-  max-width: 1440px; margin: 0 auto; padding: 1.5rem 1.75rem 3rem;
-  display: grid; grid-template-columns: minmax(0,1fr) clamp(320px, 30vw, 400px);
-  gap: 1.5rem; align-items: start;
+  display: grid; gap: var(--gap); align-items: start; padding-bottom: 3rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "overview" "main" "aside";
 }
-.main { min-width: 0; }
+.overview { grid-area: overview; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
+.main { grid-area: main; min-width: 0; }
+.sidebar { grid-area: aside; min-width: 0; display: grid; gap: 1rem; align-content: start; }
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 32vw, 420px);
+    grid-template-areas: "overview overview" "main aside";
+  }
+  .sidebar { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+  .toolbar { position: sticky; top: .75rem; z-index: 5; }
+  .toolbar .jump-link { display: none; }
+}
+@media (min-width: 1600px) {
+  .layout {
+    grid-template-columns: clamp(280px, 16vw, 380px) minmax(0, 1fr) clamp(360px, 21vw, 500px);
+    grid-template-areas: "overview main aside";
+  }
+  .overview {
+    grid-template-columns: minmax(0, 1fr);
+    position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto;
+  }
+}
 
-/* ---- toolbar ----------------------------------------------------------- */
-.toolbar {
-  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  padding: 0.7rem 1rem; margin-bottom: 1rem;
-  position: sticky; top: 0.75rem; z-index: 5;
-  box-shadow: 0 8px 24px -18px rgba(0,0,0,0.9);
+/* ---- cards ------------------------------------------------------------- */
+.card, .health-badge-bar {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 1.15rem 1.25rem; min-width: 0;
 }
-.field { display: flex; align-items: center; gap: 0.45rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); }
-select {
-  font-family: var(--mono);
-  background: var(--panel-2); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 6px;
-  padding: 0.25rem 0.5rem; font-size: 0.8rem; cursor: pointer;
+.card-title {
+  font: 500 var(--t-label) / 1.2 var(--font-mono); letter-spacing: var(--track-label);
+  text-transform: uppercase; color: var(--dim); margin-bottom: .8rem;
 }
-select:focus-visible, .btn:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
-.search-field { text-transform: none; letter-spacing: 0; }
-input[type="search"] {
-  font-family: var(--mono); font-size: 0.8rem;
-  background: var(--panel-2); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 6px;
-  padding: 0.25rem 0.55rem; min-width: 13rem;
-}
-input[type="search"]::placeholder { color: #565248; }
-.showing { font-size: 0.76rem; color: var(--dim); font-variant-numeric: tabular-nums; }
-.toolbar-spacer { flex: 1; }
-
-.btn {
-  font-family: var(--mono); font-size: 0.76rem;
-  background: var(--panel-2); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 6px;
-  padding: 0.35rem 0.8rem; cursor: pointer;
-  transition: border-color .15s ease, background .15s ease, transform .05s ease;
-}
-.btn:hover { border-color: #3c3c48; background: #23232c; }
-.btn:active { transform: translateY(1px); }
-
-/* ---- findings ---------------------------------------------------------- */
-.group { margin-bottom: 1.4rem; animation: rise .4s ease both; }
-.group-header {
-  display: flex; align-items: center; gap: 0.5rem;
-  font-size: 0.82rem; font-weight: 600;
-  padding: 0.4rem 0.2rem; margin-bottom: 0.5rem;
-  border-bottom: 1px solid var(--line); cursor: pointer; user-select: none;
-}
-.group-header .count { color: var(--dim); font-weight: 400; }
-.group-header .toggle { margin-left: auto; color: #555; font-size: 0.7rem; transition: transform .15s ease; }
-.group-header.collapsed .toggle { transform: rotate(-90deg); }
-.group-body.collapsed { display: none; }
-
-.finding {
-  display: flex; align-items: flex-start; gap: 0.7rem;
-  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line);
-  border-radius: 8px; padding: 0.6rem 0.85rem; margin-bottom: 0.45rem;
-  font-size: 0.84rem; cursor: pointer;
-  transition: border-color .15s ease, background .15s ease, transform .08s ease;
-}
-.finding:hover { background: #1a1a21; border-left-color: var(--soil); }
-.finding.sev-error { border-left-color: var(--error); }
-.finding.sev-warning { border-left-color: var(--warning); }
-.finding.sev-info { border-left-color: var(--info); }
-.finding.selected { border-color: rgba(136,200,64,0.55); border-left-color: var(--green); background: #161d12; }
-.finding-check { margin-top: 0.15rem; flex-shrink: 0; accent-color: var(--green); width: 1rem; height: 1rem; cursor: pointer; }
-.finding-body { flex: 1; min-width: 0; }
-.finding-top { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.loc { font-family: var(--mono); color: var(--green); font-size: 0.8rem; word-break: break-all; }
-.rule-id { font-size: 0.7rem; color: var(--dim); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0.05rem 0.4rem; text-decoration: none; transition: color .15s ease, border-color .15s ease; }
-a.rule-id:hover { color: var(--green); border-color: rgba(136,200,64,0.45); }
-a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
-/* Finding messages quote file paths and identifiers, i.e. long tokens with no
-   break opportunity. Without this they push the whole document into horizontal
-   scroll on narrow viewports instead of wrapping inside the finding card. */
-.msg { margin-top: 0.3rem; color: var(--ink); overflow-wrap: anywhere; }
-.badge {
-  display: inline-block; border-radius: 4px; padding: 0.05rem 0.4rem;
-  font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-}
-.badge-error { background: rgba(255,107,107,0.16); color: var(--error); }
-.badge-warning { background: rgba(255,194,75,0.16); color: var(--warning); }
-.badge-info { background: rgba(92,200,255,0.16); color: var(--info); }
-
-.empty { text-align: center; padding: 3rem 1rem; color: var(--dim); }
-.empty-mark { font-size: 2rem; color: var(--green); margin-bottom: 0.5rem; }
-
-/* ---- sidebar ----------------------------------------------------------- */
-.sidebar {
-  position: sticky; top: 0.75rem; align-self: start;
-  display: flex; flex-direction: column; gap: 1rem;
-  max-height: calc(100vh - 1.5rem); overflow-y: auto;
-  padding-right: 2px;
-}
-.card {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 11px;
-  padding: 1rem 1.1rem; animation: rise .45s ease both;
-}
-.summary-card { animation-delay: .05s; }
-.tooling-card { animation-delay: .1s; }
-.prompt-card { animation-delay: .15s; }
-.card-title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--dim); font-weight: 600; margin-bottom: 0.7rem; }
-
-.total { font-size: 1.15rem; font-weight: 600; color: var(--ink); }
-.sev-bar { display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: #0d0d11; border: 1px solid var(--line); margin: 0.7rem 0 0.85rem; }
+.card-meta { font-size: var(--t-small); color: var(--dim); margin-bottom: .6rem; }
+.total { font-size: 1.05rem; color: var(--dim); }
+.total b { font-size: 2rem; font-weight: 650; color: var(--ink); letter-spacing: -.02em; margin-right: .2rem; font-variant-numeric: tabular-nums; }
+.sev-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--bg); margin: .8rem 0 .9rem; }
 .seg { display: block; min-width: 0; }
 .seg-error { background: var(--error); }
 .seg-warning { background: var(--warning); }
 .seg-info { background: var(--info); }
 .seg-clean { background: var(--green); }
-.sev-legend { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.8rem; }
-.sev-legend li { display: flex; align-items: center; gap: 0.55rem; color: var(--dim); }
-.sev-legend b { margin-left: auto; color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
-.dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; flex-shrink: 0; }
+.sev-legend { list-style: none; display: grid; gap: .4rem; font: 400 var(--t-small) var(--font-mono); }
+.sev-legend li { display: flex; align-items: center; gap: .6rem; color: var(--dim); }
+.sev-legend b { margin-left: auto; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.dot { width: .6rem; height: .6rem; border-radius: 50%; flex: none; }
 .dot-error { background: var(--error); }
 .dot-warning { background: var(--warning); }
 .dot-info { background: var(--info); }
 
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 0.8rem; font-size: 0.8rem; margin-bottom: 0.9rem; }
-.kv dt { color: var(--dim); }
-.kv dd { color: var(--ink); text-align: right; word-break: break-all; }
-.howto { list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 0.45rem; }
-.howto li { position: relative; padding-left: 1.7rem; font-size: 0.78rem; color: var(--dim); }
-.howto li::before {
-  counter-increment: step; content: counter(step);
-  position: absolute; left: 0; top: -1px;
-  width: 1.2rem; height: 1.2rem; border-radius: 50%;
-  background: var(--panel-2); border: 1px solid var(--line);
-  color: var(--green); font-size: 0.68rem; font-weight: 700;
-  display: grid; place-items: center;
+.rule-counts { list-style: none; display: grid; gap: .65rem; }
+.rule-counts li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .3rem .8rem; align-items: baseline; }
+.rule-name { font: 400 .8rem / 1.35 var(--font-mono); color: var(--ink); overflow-wrap: anywhere; }
+.rule-counts b { font: 500 .8rem var(--font-mono); color: var(--dim); font-variant-numeric: tabular-nums; }
+.rule-bar { grid-column: 1 / -1; height: 3px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.rule-bar span { display: block; height: 100%; background: var(--soil); }
+
+.kv { display: grid; gap: .55rem; }
+.kv div { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .8rem; }
+.kv dt { font: 400 .78rem / 1.5 var(--font-mono); color: var(--dim); }
+.kv dd { font: 400 .78rem / 1.5 var(--font-mono); color: var(--ink); overflow-wrap: anywhere; }
+.kv-rules summary { cursor: pointer; color: var(--ink); }
+.kv-rules summary:hover { color: var(--green); }
+.kv-rules p { margin-top: .4rem; color: var(--dim); }
+.overview { align-items: start; }
+
+/* ---- health-score ------------------------------------------------------ */
+.health-badge { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.health-score { font-size: clamp(2.6rem, 2rem + 1.5vw, 3.6rem); font-weight: 650; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.health-max { font-size: 1rem; color: var(--dim); font-weight: 400; letter-spacing: 0; }
+.health-grade {
+  font: 600 1.6rem / 1 var(--font-mono);
+  width: 3.2rem; height: 3.2rem; border-radius: 12px;
+  display: grid; place-items: center; border: 1px solid currentColor; flex: none;
 }
+.grade-a { color: var(--green); background: var(--green-a12); }
+.grade-b { color: #B5D46A; background: rgba(181,212,106,.12); }
+.grade-c { color: var(--warning); background: rgba(230,180,80,.12); }
+.grade-d { color: #E8955A; background: rgba(232,149,90,.12); }
+.grade-f { color: var(--error); background: rgba(224,120,95,.12); }
+.health-parts { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; margin-top: .9rem; font: 400 .78rem var(--font-mono); }
+.health-parts div { display: flex; gap: .4rem; }
+.health-parts dt { color: var(--dim); }
+
+/* ---- toolbar ----------------------------------------------------------- */
+.toolbar {
+  display: flex; align-items: center; gap: .75rem 1rem; flex-wrap: wrap;
+  background: rgba(21,23,28,.96); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: .75rem 1rem; margin-bottom: 1.25rem;
+}
+.field {
+  display: flex; align-items: center; gap: .5rem;
+  font: 500 var(--t-label) / 1 var(--font-mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--dim);
+}
+.search-field { flex: 1 1 14rem; min-width: 0; }
+select, input[type="search"] {
+  font: 400 .85rem var(--font-mono); color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  padding: .5rem .6rem; min-height: 2.5rem;
+}
+select { cursor: pointer; }
+input[type="search"] { width: 100%; min-width: 0; text-transform: none; letter-spacing: 0; }
+input[type="search"]::placeholder { color: var(--dim); }
+.showing { font: 400 .8rem var(--font-mono); color: var(--dim); font-variant-numeric: tabular-nums; }
+.toolbar-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-left: auto; }
+.btn {
+  font: 500 .8rem / 1 var(--font-mono); color: var(--ink); text-decoration: none;
+  background: transparent; border: 1px solid var(--line-strong); border-radius: 999px;
+  padding: .65rem 1rem; min-height: 2.5rem; cursor: pointer; display: inline-flex; align-items: center; gap: .35rem;
+  transition: border-color .18s, background-color .18s, color .18s;
+}
+.btn:hover { border-color: var(--green-a55); color: var(--green); }
+.btn-primary { background: var(--green); color: var(--bg); border-color: var(--green); font-weight: 600; }
+.btn-primary:hover { background: #9AD455; color: var(--bg); border-color: #9AD455; }
+.btn-primary:disabled { background: transparent; color: var(--dim); border-color: var(--line-strong); cursor: not-allowed; }
+
+/* ---- findings ---------------------------------------------------------- */
+.group { margin-bottom: 1.75rem; }
+.group-header {
+  display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  padding: .55rem .25rem .7rem; margin-bottom: .75rem;
+  border-bottom: 1px solid var(--line); cursor: pointer; user-select: none;
+}
+.group-header:hover .group-name { color: var(--green); }
+.group-name { font: 500 .95rem / 1.3 var(--font-mono); color: var(--ink); overflow-wrap: anywhere; min-width: 0; transition: color .18s; }
+.group-header .count {
+  font: 500 .72rem / 1 var(--font-mono); color: var(--dim);
+  border: 1px solid var(--line-strong); border-radius: 999px; padding: .3rem .55rem;
+}
+.group-header .toggle { margin-left: auto; color: var(--dim); font-size: .75rem; transition: transform .18s; }
+.group-header.collapsed .toggle { transform: rotate(-90deg); }
+.group-body { display: grid; gap: .6rem; align-items: start; grid-template-columns: repeat(auto-fill, minmax(min(100%, 40rem), 1fr)); }
+.group-body.collapsed { display: none; }
+.remedy-label {
+  font: 500 var(--t-label) / 1 var(--font-mono); letter-spacing: var(--track-label);
+  text-transform: uppercase; color: var(--green); margin-right: .5rem;
+}
+
+.finding {
+  display: flex; align-items: flex-start; gap: .8rem; min-width: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: inset 3px 0 0 var(--line-strong);
+  padding: .9rem 1rem .9rem 1.1rem; cursor: pointer;
+  transition: border-color .18s, background-color .18s, box-shadow .18s;
+}
+.finding:hover { background: var(--panel-2); border-color: var(--line-strong); }
+.finding.sev-error { box-shadow: inset 3px 0 0 var(--error); }
+.finding.sev-warning { box-shadow: inset 3px 0 0 var(--warning); }
+.finding.sev-info { box-shadow: inset 3px 0 0 var(--info); }
+.finding.selected { border-color: var(--green-a55); background: #161c13; box-shadow: inset 3px 0 0 var(--green); }
+.finding-check { margin-top: .2rem; flex: none; accent-color: var(--green); width: 1.1rem; height: 1.1rem; cursor: pointer; }
+.finding-body { flex: 1; min-width: 0; }
+.finding-top { display: flex; align-items: center; gap: .45rem .6rem; flex-wrap: wrap; }
+.loc { font: 500 var(--t-code) / 1.4 var(--font-mono); color: var(--ink); overflow-wrap: anywhere; min-width: 0; }
+.rule-id {
+  font: 400 .72rem / 1 var(--font-mono); color: var(--dim); text-decoration: none;
+  border: 1px solid var(--line-strong); border-radius: 999px; padding: .3rem .55rem;
+  overflow-wrap: anywhere; transition: color .18s, border-color .18s;
+}
+a.rule-id:hover { color: var(--green); border-color: var(--green-a55); }
+a.rule-id::after { content: " \2197"; }
+/* Finding messages quote file paths and identifiers, i.e. long tokens with no
+   break opportunity; wrap them inside the card instead of overflowing. */
+.msg { margin-top: .45rem; color: var(--ink); max-width: 80ch; overflow-wrap: anywhere; }
+.remedy { margin-top: .4rem; font-size: var(--t-small); color: var(--dim); max-width: 80ch; overflow-wrap: anywhere; }
+.badge {
+  display: inline-block; border-radius: 999px; padding: .3rem .55rem;
+  font: 600 .66rem / 1 var(--font-mono); text-transform: uppercase; letter-spacing: .1em;
+}
+.badge-error { background: rgba(224,120,95,.14); color: var(--error); }
+.badge-warning { background: rgba(230,180,80,.13); color: var(--warning); }
+.badge-info { background: rgba(141,180,217,.14); color: var(--info); }
+
+.empty { text-align: center; padding: 3.5rem 1rem; color: var(--dim); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
+.empty-mark { font-size: 2rem; color: var(--green); margin-bottom: .5rem; }
 
 /* ---- fix-prompt -------------------------------------------------------- */
-.prompt-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.3rem; }
-.prompt-head .card-title { margin-bottom: 0; }
-.chip-prompt { color: var(--green); border-color: rgba(136,200,64,0.3); margin-left: auto; }
-.card-meta { font-size: 0.76rem; color: var(--dim); margin-bottom: 0.6rem; }
+.prompt-card { border-color: var(--green-a30); }
+.prompt-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; }
+.prompt-head .card-title { margin-bottom: 0; color: var(--green); }
+.prompt-head .chip { margin-left: auto; }
+.prompt-count { font: 500 .85rem var(--font-mono); color: var(--ink); margin-bottom: .7rem; }
 #fix-prompt-output {
-  width: 100%; min-height: 12rem; max-height: 42vh; resize: vertical;
-  font-family: var(--mono); font-size: 0.76rem; line-height: 1.55;
-  background: #0c0c10; color: #cfcdc4;
-  border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.8rem;
+  width: 100%; min-height: 13rem; max-height: 46vh; resize: vertical;
+  font: 400 .78rem / 1.6 var(--font-mono); color: #D6D3CA;
+  background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: .8rem .9rem;
 }
-#fix-prompt-output::placeholder { color: #565248; }
-.prompt-actions { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.6rem; }
-.btn-primary {
-  background: linear-gradient(180deg, #9ddc50, #79b536);
-  color: #0a1604; border-color: #6da32f; font-weight: 700;
+#fix-prompt-output::placeholder { color: var(--dim); }
+.prompt-actions { display: flex; align-items: center; gap: .8rem; margin-top: .8rem; flex-wrap: wrap; }
+#copy-feedback { font: 500 .8rem var(--font-mono); color: var(--green); }
+.howto { list-style: none; counter-reset: step; display: grid; gap: .55rem; margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.howto li { position: relative; padding-left: 2rem; font-size: var(--t-small); color: var(--dim); }
+.howto li::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; left: 0; top: .1rem; width: 1.35rem; height: 1.35rem; border-radius: 50%;
+  border: 1px solid var(--green-a30); color: var(--green); font: 600 .7rem / 1 var(--font-mono);
+  display: grid; place-items: center;
 }
-.btn-primary:hover { background: linear-gradient(180deg, #a8e85c, #84c23d); border-color: #7cb436; }
-.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; filter: saturate(0.4); }
-#copy-feedback { font-size: 0.78rem; color: var(--green); }
+.sidebar::-webkit-scrollbar, .overview::-webkit-scrollbar, #fix-prompt-output::-webkit-scrollbar { width: 8px; height: 8px; }
+.sidebar::-webkit-scrollbar-thumb, .overview::-webkit-scrollbar-thumb, #fix-prompt-output::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
 
-/* ---- scrollbars (webkit) ---------------------------------------------- */
-.sidebar::-webkit-scrollbar, #fix-prompt-output::-webkit-scrollbar { width: 8px; height: 8px; }
-.sidebar::-webkit-scrollbar-thumb, #fix-prompt-output::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 4px; }
+/* ---- preventive recommendations --------------------------------------- */
+.recommendations-bar { margin-bottom: 3rem; }
+.rec-list { list-style: none; display: grid; gap: .7rem; margin-top: .9rem; }
+.rec-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .8rem; }
+.rec-rule {
+  font: 400 .74rem / 1 var(--font-mono); color: var(--green);
+  border: 1px solid var(--green-a30); border-radius: 999px; padding: .3rem .55rem; flex: none;
+}
+.rec-guidance { color: var(--ink); flex: 1 1 20rem; max-width: 80ch; }
 
 /* ---- footer ------------------------------------------------------------ */
-.appfoot {
-  max-width: 1440px; margin: 0 auto;
-  border-top: 1px solid var(--line);
-  padding: 1.3rem 1.75rem 2.2rem;
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem 1.5rem; flex-wrap: wrap;
-  font-size: 0.76rem; color: var(--dim);
+.appfoot { border-top: 1px solid var(--line); background: linear-gradient(180deg, transparent, var(--soil-a30)); }
+.appfoot-inner {
+  padding-block: 2rem 2.5rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem 2rem; flex-wrap: wrap;
+  font-size: var(--t-small); color: var(--dim);
 }
-.appfoot a { color: var(--dim); text-decoration: none; border-bottom: 1px solid transparent; transition: color .15s ease, border-color .15s ease; }
-.appfoot a:hover { color: var(--green); border-bottom-color: rgba(136,200,64,0.4); }
-.foot-tag a { color: var(--ink); }
-.foot-links { display: flex; gap: 1.2rem; flex-wrap: wrap; }
+.foot-tag { display: flex; align-items: center; gap: .8rem; }
+.foot-mark { width: 1.6rem; height: auto; flex: none; }
+.appfoot a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: .3em; transition: color .18s, text-decoration-color .18s; }
+.appfoot a:hover { color: var(--green); text-decoration-color: var(--green); }
+.foot-links { display: flex; gap: .4rem 1.4rem; flex-wrap: wrap; }
+.foot-links a { padding-block: .35rem; }
 
-/* ---- health-score badge ------------------------------------------------ */
-.health-badge-bar {
-  max-width: 1440px; margin: 0 auto;
-  padding: 0.6rem 1.75rem 0;
-  animation: rise .4s ease both;
+/* ---- small screens ----------------------------------------------------- */
+@media (max-width: 620px) {
+  .masthead-kind, .chip-ruleset { display: none; }
+  .toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; padding: .85rem; }
+  .field { flex-direction: column; align-items: stretch; gap: .4rem; }
+  .search-field, .showing, .toolbar-actions { grid-column: 1 / -1; }
+  .toolbar-actions { margin-left: 0; gap: .4rem; }
+  .toolbar-actions .btn { padding-inline: .75rem; }
+  .finding { padding: .85rem .85rem .85rem 1rem; }
 }
-.health-badge {
-  display: inline-flex; align-items: center; gap: 0.75rem;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  padding: 0.55rem 1rem;
-}
-.health-label {
-  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
-  color: var(--dim); font-weight: 600;
-}
-.health-score {
-  font-size: 1.25rem; font-weight: 700; color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.health-max { font-size: 0.82rem; color: var(--dim); font-weight: 400; }
-.health-grade {
-  font-size: 1.1rem; font-weight: 700;
-  width: 2rem; height: 2rem; border-radius: 6px;
-  display: grid; place-items: center;
-  border: 1px solid currentColor;
-}
-.grade-a { color: #88C840; background: rgba(136,200,64,0.12); }
-.grade-b { color: #60c060; background: rgba(96,192,96,0.12); }
-.grade-c { color: var(--warning); background: rgba(255,194,75,0.12); }
-.grade-d { color: #ff9944; background: rgba(255,153,68,0.12); }
-.grade-f { color: var(--error); background: rgba(255,107,107,0.12); }
 
-/* ---- preventive-recommendations section -------------------------------- */
-.recommendations-bar { max-width: 1440px; margin: 1.5rem auto 0; padding: 0 1.75rem; }
-.recommendations-card { animation: none; }
-.rec-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.7rem; }
-.rec-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.6rem; font-size: 0.84rem; }
-.rec-rule {
-  font-size: 0.7rem; color: var(--green); background: var(--panel-2);
-  border: 1px solid rgba(136,200,64,0.3); border-radius: 4px;
-  padding: 0.05rem 0.4rem; flex-shrink: 0;
-}
-.rec-guidance { color: var(--ink); flex: 1 1 20rem; }
-
-/* ---- responsive -------------------------------------------------------- */
-/* The masthead carries decoration and provenance, never content, so it must not
-   cost the report more than one extra row as the viewport shrinks. Each step
-   below drops the least useful item so that the sponsor pill and the version
-   chips keep sharing a row instead of unravelling into stacked lines. Nothing
-   is pinned with flex-wrap: nowrap on purpose -- every pill is white-space:
-   nowrap and cannot shrink, so forbidding the wrap would trade the extra row
-   for horizontal page overflow. */
-@media (max-width: 1000px) {
-  /* 227px wide and purely decorative (the element is aria-hidden). Dropping it
-     first keeps the brand and the badge group on one row down to ~740px. */
-  .cmdline { display: none; }
-}
-@media (max-width: 920px) {
-  .layout { grid-template-columns: 1fr; }
-  .sidebar { position: static; max-height: none; overflow: visible; }
-  .toolbar { position: static; }
-}
-@media (max-width: 740px) {
-  /* Two rows from here down. Left-align the badge group under the brand so the
-     second row reads as deliberate instead of ragged-right. */
-  .topbar { gap: 0.6rem 1rem; padding: 0.95rem 1.25rem; }
-  .topbar-right { margin-left: 0; }
-}
-@media (max-width: 460px) {
-  /* Last to go: the tagline (the document title already says it) and the
-     ruleset chip (repeated verbatim in the Toolchain card). What remains fits
-     beside the brand again. */
-  .topbar { padding: 0.85rem 1rem; }
-  .tagline { display: none; }
-  .chip-ruleset { display: none; }
-  /* The 13rem floor is wider than the whole toolbar row below ~360px and was
-     pushing the document into horizontal scroll. Releasing it lets the field
-     shrink (and wrap) with the rest of the toolbar instead. */
-  input[type="search"] { min-width: 0; }
+/* ---- motion: only when the user has not asked for less ---------------- */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .hero, .overview > section, .sidebar .card { animation: rise .5s cubic-bezier(.2,.8,.2,1) both; }
+  .overview > section:nth-child(2) { animation-delay: .05s; }
+  .overview > section:nth-child(3) { animation-delay: .1s; }
+  .sidebar .card { animation-delay: .12s; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .topbar, .card, .group { animation: none; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 ''';
 
@@ -782,6 +878,12 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
     return fixHints[ruleId] || fixHints['__generic__'] || '';
   }
 
+  // Remedy shown in the list: the finding's own concrete next action.
+  function remedyHtml(f) {
+    if (!f.remedy) return '';
+    return '<p class="remedy"><span class="remedy-label">Fix</span>' + escHtml(f.remedy) + '</p>';
+  }
+
   // Mirror of Dart assembleFixPrompt: same algorithm, same output format.
   function assemblePrompt(selFindings) {
     if (selFindings.length === 0) {
@@ -805,7 +907,7 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
       copyBtn.disabled = true;
       return;
     }
-    fixCount.textContent = n + ' finding' + (n === 1 ? '' : 's') + ' selected';
+    fixCount.textContent = n + ' of ' + findings.length + ' finding' + (findings.length === 1 ? '' : 's') + ' selected';
     fixOutput.value = assemblePrompt(sel);
     copyBtn.disabled = false;
   }
@@ -845,8 +947,8 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
     });
 
     if (visible.length === 0) {
-      container.innerHTML = '<div class="empty"><div class="empty-mark">&#10003;</div>'
-        + '<p>' + (findings.length === 0 ? 'No findings &mdash; this project is clean.' : 'No findings match the current filter.') + '</p></div>';
+      container.innerHTML = '<div class="empty"><div class="empty-mark" aria-hidden="true">&#10003;</div>'
+        + '<p>' + (findings.length === 0 ? '0 findings &mdash; this project is clean.' : 'No findings match the current filter.') + '</p></div>';
       updatePrompt();
       return;
     }
@@ -855,9 +957,9 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
     order.forEach(function(k) {
       var gFindings = groups[k];
       var id = 'grp-' + encodeURIComponent(k).replace(/'/g, '%27');
-      html += '<div class="group"><div class="group-header" onclick="toggleGroup(this, \'' + escHtml(id) + '\')">'
-           + '<span class="group-name">' + escHtml(k) + '</span> <span class="count">(' + gFindings.length + ')</span>'
-           + '<span class="toggle">&#9660;</span></div>'
+      html += '<section class="group"><div class="group-header" role="button" tabindex="0" aria-expanded="true" aria-controls="' + escHtml(id) + '" data-testid="report-group-toggle">'
+           + '<span class="group-name">' + escHtml(k) + '</span> <span class="count">' + gFindings.length + '</span>'
+           + '<span class="toggle" aria-hidden="true">&#9660;</span></div>'
            + '<div class="group-body" id="' + escHtml(id) + '">';
       gFindings.forEach(function(f) {
         var loc = f.filePath + ':' + f.line + (f.column ? ':' + f.column : '');
@@ -865,21 +967,35 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
         var chkId = 'chk-' + fp;
         var chkd = selected[f.fingerprint] ? ' checked' : '';
         var selCls = selected[f.fingerprint] ? ' selected' : '';
-        html += '<div class="finding sev-' + escHtml(f.severity) + selCls + '" id="fd-' + fp + '" data-fp="' + fp + '">'
-             + '<input type="checkbox" class="finding-check" id="' + chkId + '" data-fp="' + fp + '"' + chkd + ' aria-label="Select finding ' + escHtml(loc) + '">'
+        html += '<article class="finding sev-' + escHtml(f.severity) + selCls + '" id="fd-' + fp + '" data-fp="' + fp + '">'
+             + '<input type="checkbox" class="finding-check" id="' + chkId + '" data-testid="report-finding-check" data-fp="' + fp + '"' + chkd + ' aria-label="Select finding ' + escHtml(loc) + '">'
              + '<div class="finding-body">'
              + '<div class="finding-top">'
              + '<span class="badge badge-' + escHtml(f.severity) + '">' + escHtml(f.severity) + '</span>'
-             + '<span class="loc">' + escHtml(loc) + '</span>'
-             + '<a class="rule-id" href="https://getloam.dev/rules#' + encodeURIComponent(f.ruleId) + '" target="_blank" rel="noopener" title="Open rule reference on getloam.dev">' + escHtml(f.ruleId) + '</a>'
+             + '<code class="loc">' + escHtml(loc) + '</code>'
+             + '<a class="rule-id" href="https://getloam.dev/rules#' + encodeURIComponent(f.ruleId) + '" target="_blank" rel="noopener" data-testid="report-rule-link" title="Open rule reference on getloam.dev">' + escHtml(f.ruleId) + '</a>'
              + '</div>'
-             + '<div class="msg">' + escHtml(f.message) + '</div>'
+             + '<p class="msg">' + escHtml(f.message) + '</p>'
+             + remedyHtml(f)
              + '</div>'
-             + '</div>';
+             + '</article>';
       });
-      html += '</div></div>';
+      html += '</div></section>';
     });
     container.innerHTML = html;
+
+    // Group headers collapse on click, Enter and Space. Listeners instead of
+    // inline handlers: the website's CSP blocks inline event handlers.
+    container.querySelectorAll('.group-header').forEach(function(head) {
+      var target = head.getAttribute('aria-controls');
+      head.addEventListener('click', function() { toggleGroup(head, target); });
+      head.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          toggleGroup(head, target);
+        }
+      });
+    });
 
     // Checkbox change → selection.
     container.querySelectorAll('.finding-check').forEach(function(chk) {
@@ -904,7 +1020,10 @@ a.rule-id::after { content: " \2197"; opacity: 0.5; font-size: 0.65rem; }
   window.toggleGroup = function(headerEl, id) {
     var el = document.getElementById(id);
     if (el) el.classList.toggle('collapsed');
-    if (headerEl) headerEl.classList.toggle('collapsed');
+    if (headerEl) {
+      headerEl.classList.toggle('collapsed');
+      headerEl.setAttribute('aria-expanded', headerEl.classList.contains('collapsed') ? 'false' : 'true');
+    }
   };
 
   if (selectAllBtn) {

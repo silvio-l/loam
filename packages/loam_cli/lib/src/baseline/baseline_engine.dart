@@ -42,6 +42,7 @@ class BaselineException implements Exception {
 /// {
 ///   "schemaVersion": 1,
 ///   "rulesetVersion": "ruleset@abc123",
+///   "fingerprintScheme": 2,
 ///   "findings": [
 ///     {
 ///       "fingerprint": "abc123def456abcd",
@@ -81,7 +82,56 @@ class BaselineEngine {
   /// [rulesetVersion] is written verbatim; derive it via
   /// [AnalysisRunner.rulesetVersion] to stay in sync with the active rule set.
   void write(List<Finding> findings, String rulesetVersion) {
-    final sorted = List<Finding>.from(findings)
+    _writeEntries(
+      [
+        for (final f in findings)
+          BaselineFinding(
+            fingerprint: f.fingerprint,
+            ruleId: f.ruleId,
+            filePath: f.filePath,
+            line: f.line,
+            message: f.message,
+          ),
+      ],
+      rulesetVersion: rulesetVersion,
+      fingerprintScheme: currentFingerprintScheme,
+    );
+  }
+
+  /// Removes the [stale] entries from [baseline] and rewrites `baseline.json`;
+  /// returns how many entries were removed.
+  ///
+  /// Only removes — nothing new is taken in. Ruleset version and fingerprint
+  /// scheme stay as they were, so a legacy baseline is still treated as legacy
+  /// (its remaining entries keep their old fingerprints) and the gate keeps
+  /// reporting a ruleset drift until `--update`. [stale] must be entries of
+  /// [baseline] (as in [BaselineDiff.fixedFindings]); the file is left
+  /// untouched when there is nothing to remove.
+  int prune(Baseline baseline, List<BaselineFinding> stale) {
+    final drop = Set<BaselineFinding>.identity()..addAll(stale);
+    final remaining = [
+      for (final f in baseline.findings)
+        if (!drop.contains(f)) f,
+    ];
+    final removed = baseline.findings.length - remaining.length;
+    if (removed == 0) return 0;
+    _writeEntries(
+      remaining,
+      rulesetVersion: baseline.rulesetVersion,
+      fingerprintScheme: baseline.fingerprintScheme,
+    );
+    return removed;
+  }
+
+  /// Serialises [entries] (sorted filePath → line → fingerprint) and replaces
+  /// `baseline.json` atomically: written to a sibling temp file first, then
+  /// renamed, so an interrupted run never leaves a truncated baseline.
+  void _writeEntries(
+    List<BaselineFinding> entries, {
+    required String rulesetVersion,
+    required int fingerprintScheme,
+  }) {
+    final sorted = List<BaselineFinding>.from(entries)
       ..sort((a, b) {
         final pathCmp = a.filePath.compareTo(b.filePath);
         if (pathCmp != 0) return pathCmp;
@@ -93,6 +143,7 @@ class BaselineEngine {
     final json = <String, Object>{
       'schemaVersion': _kSchemaVersion,
       'rulesetVersion': rulesetVersion,
+      'fingerprintScheme': fingerprintScheme,
       'findings': sorted
           .map(
             (f) => <String, Object>{
@@ -109,7 +160,21 @@ class BaselineEngine {
     // Pretty-print with 2-space indentation so each finding occupies ~one line
     // in git diffs, which improves reviewability.
     final encoder = JsonEncoder.withIndent('  ');
-    File(baselinePath).writeAsStringSync('${encoder.convert(json)}\n');
+    final tmp = File('$baselinePath.$pid.tmp');
+    try {
+      tmp.writeAsStringSync('${encoder.convert(json)}\n', flush: true);
+      tmp.renameSync(baselinePath);
+    } catch (_) {
+      // Never leave a stray temp file behind (it could be committed by
+      // accident); the existing baseline.json is untouched at this point.
+      try {
+        if (tmp.existsSync()) tmp.deleteSync();
+        // loam-ignore: slop-empty-catch – cleanup is best effort; the original write error is rethrown below.
+      } on FileSystemException {
+        // Best effort.
+      }
+      rethrow;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -124,6 +189,15 @@ class BaselineEngine {
   /// - `fixedFindings` = baseline ∖ current  (improvements; never fail)
   ///
   /// A pure line-shift is transparent: the fingerprint stays the same → kept.
+  ///
+  /// **Transition for legacy baselines** ([Baseline.isLegacyScheme]): their
+  /// fingerprints for index-anchored rules cannot be recomputed, so after the
+  /// exact fingerprint pass the remaining baseline entries are paired with the
+  /// remaining current findings by `(ruleId, filePath, message)`, in line
+  /// order. A paired finding counts as kept, so the update does not turn the
+  /// gate red. Surplus current findings stay new, surplus baseline entries
+  /// stay fixed. Rewriting the baseline (`loam baseline --update`) drops the
+  /// transition.
   BaselineDiff diff(List<Finding> current, Baseline baseline) {
     final baselineFingerprints = {
       for (final f in baseline.findings) f.fingerprint: f,
@@ -145,6 +219,39 @@ class BaselineEngine {
       if (!currentFingerprints.contains(bf.fingerprint)) {
         fixedFindings.add(bf);
       }
+    }
+
+    if (baseline.isLegacyScheme &&
+        newFindings.isNotEmpty &&
+        fixedFindings.isNotEmpty) {
+      String key(String ruleId, String filePath, String message) =>
+          '$ruleId\x00$filePath\x00$message';
+      final pool = <String, List<BaselineFinding>>{};
+      for (final bf in fixedFindings) {
+        pool
+            .putIfAbsent(key(bf.ruleId, bf.filePath, bf.message), () => [])
+            .add(bf);
+      }
+      final stillNew = <Finding>[];
+      for (final f in newFindings) {
+        final candidates = pool[key(f.ruleId, f.filePath, f.message)];
+        if (candidates != null && candidates.isNotEmpty) {
+          candidates.removeAt(0);
+          keptFindings.add(f);
+        } else {
+          stillNew.add(f);
+        }
+      }
+      newFindings
+        ..clear()
+        ..addAll(stillNew);
+      fixedFindings
+        ..clear()
+        ..addAll(pool.values.expand((l) => l));
+      fixedFindings.sort((a, b) {
+        final p = a.filePath.compareTo(b.filePath);
+        return p != 0 ? p : a.line.compareTo(b.line);
+      });
     }
 
     return BaselineDiff(
@@ -227,6 +334,10 @@ class BaselineEngine {
     return Baseline(
       schemaVersion: json['schemaVersion'] as int,
       rulesetVersion: json['rulesetVersion'] as String,
+      fingerprintScheme: switch (json['fingerprintScheme']) {
+        final int v => v,
+        _ => 1,
+      },
       findings: findings,
     );
   }

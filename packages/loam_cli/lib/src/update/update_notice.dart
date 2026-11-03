@@ -2,8 +2,8 @@ import 'package:pub_semver/pub_semver.dart';
 
 /// Holds the versions required to render an update notice.
 ///
-/// Created by [UpdateChecker.check] when a newer stable version is available
-/// on pub.dev. Consumed by [formatUpdateNotice] to produce the stderr line.
+/// Created by the auto-update coordinator when a newer stable version is
+/// known from the last background check and loam may not install it itself. Consumed by [formatUpdateNotice] to produce the stderr line.
 class UpdateNotice {
   /// The version of the currently installed [loam] binary.
   final Version currentVersion;

@@ -8,6 +8,9 @@ import 'package:loam/src/rules/import_graph.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fixture_packages.dart';
+import '../support/shared_store.dart';
+
 // ---------------------------------------------------------------------------
 // Fixture path
 // ---------------------------------------------------------------------------
@@ -21,11 +24,14 @@ String get _fixturePath => p.normalize(
 // ---------------------------------------------------------------------------
 
 void main() {
+  useSharedAnalyzerStore();
+
   late ProjectLoadResult loadResult;
   late ImportGraph graph;
 
   setUpAll(() async {
     final loader = ProjectLoader();
+    await ensureFixtureResolved(_fixturePath);
     loadResult = await loader.load(_fixturePath);
     // The fixture must load without errors (part files and generated files are
     // expected to be excluded by the loader — they appear in errors or are

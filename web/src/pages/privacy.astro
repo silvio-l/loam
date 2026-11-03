@@ -5,138 +5,127 @@ import Layout from '../layouts/Layout.astro';
 <Layout
   lang="en"
   title="Privacy Policy — loam.dev"
-  description="Privacy policy for loam.dev: self-hosted fonts, no cookies, cookiefree Matomo analytics. Data flows: Cloudflare access logs and a GitHub API call on the home page only."
+  description="Privacy policy for loam.dev: self-hosted fonts, no cookies, cookiefree Matomo analytics. Data flows: Cloudflare access logs and a GitHub API call on every page."
   path="/privacy"
 >
-  <div class="prose-page">
-    <h1>Privacy Policy</h1>
+  <div class="wrap docs docs--legal" data-testid="privacy-layout">
+    <header class="legal-head">
+      <h1 class="h1">Privacy Policy</h1>
+      <nav class="legal-toc" aria-label="Sections" data-testid="privacy-toc">
+        <ol>
+          <li><a href="#controller" data-testid="privacy-toc-controller">Controller</a></li>
+          <li><a href="#hosting-and-infrastructure" data-testid="privacy-toc-hosting-and-infrastructure">Hosting &amp; Infrastructure</a></li>
+          <li><a href="#fonts" data-testid="privacy-toc-fonts">Fonts</a></li>
+          <li><a href="#github-api-call" data-testid="privacy-toc-github-api-call">GitHub API Call (Star Badge)</a></li>
+          <li><a href="#cookies-and-tracking" data-testid="privacy-toc-cookies-and-tracking">Cookies &amp; Tracking</a></li>
+          <li><a href="#web-analytics-matomo-cookiefree" data-testid="privacy-toc-web-analytics-matomo-cookiefree">Web Analytics (Matomo, cookiefree)</a></li>
+          <li><a href="#your-rights" data-testid="privacy-toc-your-rights">Your Rights</a></li>
+          <li><a href="#changes-to-this-policy" data-testid="privacy-toc-changes-to-this-policy">Changes to This Policy</a></li>
+        </ol>
+      </nav>
+    </header>
+    <div class="prose-page prose-page--legal">
 
-    <section>
-      <h2>Controller</h2>
-      <p>
-        Silvio Lindstedt<br>
-        <a href="mailto:silvio-lindstedt@outlook.com">silvio-lindstedt@outlook.com</a>
-      </p>
-      <p>No postal address is required here — this is a non-commercial open-source project to which §5 DDG does not apply.</p>
-    </section>
+      <section>
+        <h2 id="controller">Controller</h2>
+        <p>
+          Silvio Lindstedt<br>
+          <a href="mailto:silvio-lindstedt@outlook.com" data-testid="privacy-link-email-controller">silvio-lindstedt@outlook.com</a>
+        </p>
+        <p>No postal address is required here — this is a non-commercial open-source project to which §5 DDG does not apply.</p>
+      </section>
 
-    <section>
-      <h2>Hosting &amp; Infrastructure</h2>
-      <p>
-        This website is hosted on <strong>Cloudflare Pages</strong> (Cloudflare, Inc., 101 Townsend St., San Francisco, CA 94107, USA).
-        Cloudflare automatically records standard server access logs (IP address, browser, page requested, timestamp) for every request.
-        These logs are processed by Cloudflare in its role as a data processor and are subject to
-        <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer">Cloudflare's Privacy Policy</a>.
-        The legal basis is Art. 6(1)(f) GDPR — legitimate interest in operating a secure, functional website.
-      </p>
-      <p>
-        Cloudflare may transfer data to the United States. Standard Contractual Clauses (SCCs) are in place.
-      </p>
-    </section>
+      <section>
+        <h2 id="hosting-and-infrastructure">Hosting &amp; Infrastructure</h2>
+        <p>
+          This website is hosted on <strong>Cloudflare Pages</strong> (Cloudflare, Inc., 101 Townsend St., San Francisco, CA 94107, USA).
+          Cloudflare automatically records standard server access logs (IP address, browser, page requested, timestamp) for every request.
+          These logs are processed by Cloudflare in its role as a data processor and are subject to <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener noreferrer" data-testid="privacy-link-cloudflare">Cloudflare's Privacy Policy</a>.
+          The legal basis is Art. 6(1)(f) GDPR — legitimate interest in operating a secure, functional website.
+        </p>
+        <p>
+          Cloudflare may transfer data to the United States. Standard Contractual Clauses (SCCs) are in place.
+        </p>
+      </section>
 
-    <section>
-      <h2>Fonts</h2>
-      <p>
-        This website uses <strong>Spline Sans Mono</strong>, served <strong>self-hosted</strong> from this domain via
-        <code>@fontsource/spline-sans-mono</code>.
-        No request is made to the Google Fonts CDN or any other third-party font service.
-        Your IP address is never sent to Google for font loading.
-      </p>
-    </section>
+      <section>
+        <h2 id="fonts">Fonts</h2>
+        <p>
+          This website uses the typefaces <strong>Bricolage Grotesque</strong> and <strong>Spline Sans Mono</strong> (both under the SIL Open Font License 1.1), served <strong>self-hosted</strong> from this domain via
+          the Fontsource packages <code>@fontsource-variable/bricolage-grotesque</code> and <code>@fontsource/spline-sans-mono</code>.
+          No request is made to the Google Fonts CDN or any other third-party font service.
+          Your IP address is never sent to Google for font loading.
+        </p>
+      </section>
 
-    <section>
-      <h2>GitHub API Call (Home Page Only)</h2>
-      <p>
-        The home page makes a <strong>direct client-side fetch</strong> to the public
-        <a href="https://docs.github.com/en/rest" rel="noopener noreferrer">GitHub REST API</a>
-        (<code>api.github.com</code>) to display the current star count for the loam.dev repository.
-        This call is made by your browser and transmits your IP address to GitHub (GitHub, Inc., a Microsoft subsidiary, San Francisco, CA, USA —
-        a third country under GDPR).
-        <strong>This call occurs only on the home page.</strong> No other page contacts GitHub.
-        The legal basis is Art. 6(1)(f) GDPR — legitimate interest in showing a live community signal.
-        Third-country transfer: GitHub processes data in the United States; an adequacy decision exists for EU–US Data Privacy Framework participants.
-        GitHub's privacy policy: <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub Privacy Statement</a>.
-      </p>
-    </section>
+      <section>
+        <h2 id="github-api-call">GitHub API Call (Star Badge)</h2>
+        <p>
+          Every page (the star badge sits in the site header) makes a <strong>direct client-side fetch</strong> to the public <a href="https://docs.github.com/en/rest" rel="noopener noreferrer" data-testid="privacy-link-github-api">GitHub REST API</a> (<code>api.github.com</code>) to display the current star count for the loam.dev repository.
+          This call is made by your browser and transmits your IP address to GitHub (GitHub, Inc., a Microsoft subsidiary, San Francisco, CA, USA —
+          a third country under GDPR). <strong>This call occurs on every page of the site.</strong>
+          The legal basis is Art. 6(1)(f) GDPR — legitimate interest in showing a live community signal.
+          Third-country transfer: GitHub processes data in the United States; an adequacy decision exists for EU–US Data Privacy Framework participants.
+          GitHub's privacy policy: <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer" data-testid="privacy-link-github-privacy">GitHub Privacy Statement</a>.
+        </p>
+      </section>
 
-    <section>
-      <h2>Cookies &amp; Tracking</h2>
-      <p>
-        This website sets <strong>no cookies</strong> and integrates <strong>no advertising services</strong>.
-        No consent banner is needed.
-      </p>
-    </section>
+      <section>
+        <h2 id="cookies-and-tracking">Cookies &amp; Tracking</h2>
+        <p>
+          This website sets <strong>no cookies</strong> and integrates <strong>no advertising services</strong>.
+          No consent banner is needed.
+        </p>
+      </section>
 
-    <section>
-      <h2>Web Analytics (Matomo, cookiefree)</h2>
-      <p>
-        This website uses the self-hosted, cookiefree web analytics software Matomo
-        (endpoint: <strong>matomo.silvio-und-maik.de</strong>) to produce aggregated,
-        statistical evaluations of how the site is used. The analysis is data-economical
-        and runs entirely first-party on a server operated by the author. On each page
-        access, the following technical characteristics are recorded: an
-        <strong>anonymised IP address</strong> (truncated to 2 bytes before storage),
-        <strong>browser type and version</strong>, the <strong>operating system</strong>
-        reported by the browser, the <strong>device type</strong> (desktop, tablet or
-        smartphone), the <strong>screen resolution</strong> (via JavaScript), the
-        configured <strong>browser language</strong>, the <strong>country of origin and
-        region</strong> (geometrically derived from the IP address), the
-        <strong>referrer</strong> (the page from which this website was accessed), and
-        the <strong>subpages visited</strong> with time spent and time of visit. In
-        addition, anonymous technical performance metrics of the page are recorded
-        (the <strong>Core Web Vitals</strong>: loading time of the largest content
-        element, visual layout stability and response time to interactions); these
-        measurements are purely technical and carry no personal reference.
-      </p>
-      <p>
-        No cookies are set and no information is stored on or read from your device;
-        because tracking is cookieless and IP-anonymised, no consent — and therefore no
-        cookie banner — is required under § 25 TDDDG.
-        There is no profiling, no cross-device tracking, and no sharing with
-        third parties. The data is used exclusively for aggregated statistics and cannot
-        be linked to individuals. Legal basis: Art. 6(1)(f) GDPR (legitimate interest in
-        needs-driven development of this website). You may object to this processing at
-        any time (Art. 21 GDPR) — tick the opt-out option in the field below.
-      </p>
-      <div id=”matomo-opt-out”></div>
-      <script is:inline src=”https://matomo.silvio-und-maik.de/index.php?module=CoreAdminHome&action=optOutJS&divId=matomo-opt-out&language=en&showIntro=1”></script>
-    </section>
+      <section>
+        <h2 id="web-analytics-matomo-cookiefree">Web Analytics (Matomo, cookiefree)</h2>
+        <p>
+          This website uses the self-hosted, cookiefree web analytics software Matomo
+          (endpoint: <strong>matomo.silvio-und-maik.de</strong>) to produce aggregated,
+          statistical evaluations of how the site is used. The analysis is data-economical
+          and runs entirely first-party on a server operated by the author. On each page
+          access, the following technical characteristics are recorded: an <strong>anonymised IP address</strong> (truncated to 2 bytes before storage), <strong>browser type and version</strong>, the <strong>operating system</strong> reported by the browser, the <strong>device type</strong> (desktop, tablet or
+          smartphone), the <strong>screen resolution</strong> (via JavaScript), the
+          configured <strong>browser language</strong>, the <strong>country of origin and
+          region</strong> (geographically derived from the IP address), the <strong>referrer</strong> (the page from which this website was accessed), and
+          the <strong>subpages visited</strong> with time spent and time of visit. In
+          addition, anonymous technical performance metrics of the page are recorded
+          (the <strong>Core Web Vitals</strong>: loading time of the largest content
+          element, visual layout stability and response time to interactions); these
+          measurements are purely technical and carry no personal reference.
+        </p>
+        <p>
+          No cookies are set and no information is stored on or read from your device;
+          because tracking is cookieless and IP-anonymised, no consent — and therefore no
+          cookie banner — is required under § 25 TDDDG.
+          There is no profiling, no cross-device tracking, and no sharing with
+          third parties. The data is used exclusively for aggregated statistics and cannot
+          be linked to individuals. Legal basis: Art. 6(1)(f) GDPR (legitimate interest in
+          needs-driven development of this website). You may object to this processing at
+          any time (Art. 21 GDPR) — tick the opt-out option in the field below.
+        </p>
+        <div id="matomo-opt-out"></div>
+        <script is:inline src="https://matomo.silvio-und-maik.de/index.php?module=CoreAdminHome&action=optOutJS&divId=matomo-opt-out&language=en&showIntro=1"></script>
+      </section>
 
-    <section>
-      <h2>Your Rights</h2>
-      <p>
-        Under the GDPR you have the right to access, rectification, erasure, restriction of processing,
-        data portability, and the right to object. To exercise these rights, contact
-        <a href="mailto:silvio-lindstedt@outlook.com">silvio-lindstedt@outlook.com</a>.
-        You also have the right to lodge a complaint with a supervisory authority.
-      </p>
-    </section>
+      <section>
+        <h2 id="your-rights">Your Rights</h2>
+        <p>
+          Under the GDPR you have the right to access, rectification, erasure, restriction of processing,
+          data portability, and the right to object. To exercise these rights, contact <a href="mailto:silvio-lindstedt@outlook.com" data-testid="privacy-link-email-contact">silvio-lindstedt@outlook.com</a>.
+          You also have the right to lodge a complaint with a supervisory authority.
+        </p>
+      </section>
 
-    <section>
-      <h2>Changes to This Policy</h2>
-      <p>
-        This policy is versioned in the public repository at
-        <a href="https://github.com/silvio-l/loam" rel="noopener noreferrer">github.com/silvio-l/loam</a>.
-        Material changes will be noted in the repository changelog.
-      </p>
-    </section>
+      <section>
+        <h2 id="changes-to-this-policy">Changes to This Policy</h2>
+        <p>
+          This policy is versioned in the public repository at <a href="https://github.com/silvio-l/loam" rel="noopener noreferrer" data-testid="privacy-link-repo">github.com/silvio-l/loam</a>.
+          Material changes will be noted in the repository changelog.
+        </p>
+      </section>
+    </div>
   </div>
 </Layout>
 
-<style is:global>
-  /* Privacy-specific overrides: tighter column and spacing for a legal document. */
-  .prose-page {
-    max-width: 68ch;
-    padding-bottom: 4rem;
-  }
-  .prose-page h1 {
-    font-size: clamp(1.5rem, 4vw, 2.2rem);
-    margin-bottom: 2rem;
-  }
-  .prose-page h2 {
-    margin: 2rem 0 .6rem;
-  }
-  .prose-page section:first-of-type {
-    border-top: none;
-  }
-</style>

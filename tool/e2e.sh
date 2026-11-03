@@ -98,7 +98,7 @@ expect_exit "health on clean   → exit 0" 0 -- "$BIN" health -p "$CLEAN"
 # gate — baseline/ratchet (default) and --absolute modes + full lifecycle
 # ---------------------------------------------------------------------------
 phase "gate"
-expect_out "gate w/o baseline → exit 1 + steering" 1 "baseline.json is missing" -- "$BIN" gate -p "$CLEAN"
+expect_out "gate w/o baseline → exit 66 + steering" 66 "baseline.json is missing" -- "$BIN" gate -p "$CLEAN"
 expect_exit "gate --absolute on clean (greenfield) → exit 0" 0 -- "$BIN" gate --absolute -p "$CLEAN"
 expect_exit "gate --absolute on findings → exit 1"           1 -- "$BIN" gate --absolute -p "$FIX"
 

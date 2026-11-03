@@ -1,303 +1,207 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import DemoReport from '../components/DemoReport.astro';
+import '../styles/how.css';
 ---
 
 <Layout
   lang="en"
   title="How it works — loam.dev"
-  description="A plain-language walkthrough of how loam.dev analyses your Dart/Flutter codebase: Loader, Rules, Findings, Baseline, Gate, and Report — and why semantic analysis beats regex."
+  description="How loam.dev analyses a Dart/Flutter project: resolve it like the compiler, run the rules across every library, fingerprint each Finding, compare against your baseline — and fail CI only on what is new."
   path="/how-it-works"
 >
-  <div class="prose-page">
-    <h1>How it works</h1>
+  <span id="status" class="sr-only" role="status" aria-live="polite"></span>
 
-    <p class="lead">
-      loam.dev reads your Dart/Flutter project semantically and across the whole
-      codebase — not file by file — and turns it into a deterministic pass/fail
-      decision in CI. A baseline tolerates the code you already have, so only
-      newly introduced problems block the build. It does this in a six-stage
-      pipeline, without guessing, without regex shortcuts, without false positives
-      from generated code.
-    </p>
+  <header class="scene page-head how-head" aria-labelledby="how-title" data-testid="how-head">
+    <div class="wrap page-head__grid intro">
+      <p class="label">How it works</p>
+      <h1 id="how-title" class="display">How it works<span class="accent">.</span></h1>
+      <p class="lead page-head__lead">loam.dev loads your whole Dart/Flutter project the way the compiler sees it, runs
+      its rules across every library at once, and turns the result into a clear pass or
+      fail for CI. A baseline accepts the code you already have, so only problems added
+      after that can block a merge. Six stages, no guessing, no text matching.</p>
+    </div>
+  </header>
 
-    <!-- Pipeline -->
-    <section>
-      <h2>The pipeline</h2>
-
-      <div class="pipeline">
-        <div class="step">
-          <span class="step-num">01</span>
-          <div class="step-body">
-            <strong>Loader</strong>
-            <p>
-              The <code>ProjectLoader</code> feeds your entire project into
-              Dart's own <code>AnalysisContextCollection</code>.
-              Every file is parsed and fully resolved into a typed
-              element model — the same model the Dart SDK uses internally.
-              This is the foundation that makes everything downstream semantic,
-              not syntactic.
-            </p>
-          </div>
-        </div>
-
-        <div class="step">
-          <span class="step-num">02</span>
-          <div class="step-body">
-            <strong>Rules</strong>
-            <p>
-              A set of <strong>Rules</strong> runs over the resolved model.
-              Each Rule is a self-contained analysis unit behind a shared
-              interface; adding a new capability never changes the pipeline —
-              only the rule list. Rules are either deterministic
-              (pure AST/element-model, reproducible offline) or LLM-backed
-              (planned, always verdict-cached before hitting CI).
-            </p>
-          </div>
-        </div>
-
-        <div class="step">
-          <span class="step-num">03</span>
-          <div class="step-body">
-            <strong>Findings</strong>
-            <p>
-              Each Rule emits <strong>Findings</strong> — structured results of
-              the form <code>&#123; ruleId, severity, location, message, fingerprint &#125;</code>.
-              Every Finding carries a stable <strong>Fingerprint</strong>
-              (a position-independent hash) that survives reformats and
-              line-number shifts. This is the key that makes baseline diffing exact.
-            </p>
-          </div>
-        </div>
-
-        <div class="step">
-          <span class="step-num">04</span>
-          <div class="step-body">
-            <strong>Baseline</strong>
-            <p>
-              The <strong>Baseline</strong> is a frozen snapshot of accepted
-              Findings stored in <code>baseline.json</code>. When you onboard an
-              existing project, you run a full audit, clean up what you can, and
-              then freeze the rest with <code>loam baseline --write</code>.
-              From that point on the Gate only cares about <em>new</em> Findings
-              — not the ones you already know about.
-            </p>
-          </div>
-        </div>
-
-        <div class="step">
-          <span class="step-num">05</span>
-          <div class="step-body">
-            <strong>Gate</strong>
-            <p>
-              The <strong>Gate</strong> is the CI decision point: it compares
-              the current Findings against the Baseline and returns a structured
-              exit code. Zero regressions → exit 0. New Finding → exit 1.
-              No surprises at merge time.
-            </p>
-          </div>
-        </div>
-
-        <div class="step">
-          <span class="step-num">06</span>
-          <div class="step-body">
-            <strong>Report</strong>
-            <p>
-              The <strong>Reporter</strong> formats results for humans or
-              machines: <code>human</code> for terminal output,
-              <code>json</code> / <code>sarif</code> / <code>markdown</code>
-              for agent pipelines, and <code>html</code> for an interactive
-              self-contained report file with a built-in fix-prompt builder.
-              A run with findings also appends curated, agent-addressed
-              <strong>preventive recommendations</strong> — one per fired
-              rule class, deterministic, no LLM call — that the agent is
-              asked to propose to you for your persistent instructions.
-            </p>
-          </div>
-        </div>
+  <!-- Pipeline: sticky stage index (desktop) beside the six stages. -->
+  <section class="scene how-pipe" aria-labelledby="pipe-title" data-testid="how-pipeline">
+    <div class="wrap how-pipe__grid">
+      <div class="how-pipe__aside">
+        <p class="label">Six stages</p>
+        <h2 id="pipe-title" class="h2">The pipeline</h2>
+        <nav class="how-pipe__index" aria-label="Pipeline stages">
+          <ol>
+            <li><a href="#stage-loader" data-testid="how-stage-link-loader"><span>01</span>Loader</a></li>
+            <li><a href="#stage-rules" data-testid="how-stage-link-rules"><span>02</span>Rules</a></li>
+            <li><a href="#stage-findings" data-testid="how-stage-link-findings"><span>03</span>Findings</a></li>
+            <li><a href="#stage-baseline" data-testid="how-stage-link-baseline"><span>04</span>Baseline</a></li>
+            <li><a href="#stage-gate" data-testid="how-stage-link-gate"><span>05</span>Gate</a></li>
+            <li><a href="#stage-report" data-testid="how-stage-link-report"><span>06</span>Report</a></li>
+          </ol>
+        </nav>
       </div>
-    </section>
+      <ol class="stages">
+          <li class="stage rv" id="stage-loader" aria-labelledby="stage-loader-title">
+            <span class="stage__num" aria-hidden="true">01</span>
+            <h3 id="stage-loader-title" class="h3 stage__name">Loader</h3>
+            <p class="stage__text">The <code>ProjectLoader</code> hands your entire project to Dart’s own <code>AnalysisContextCollection</code>. Every file is parsed and resolved into
+              a typed element model — the same one the Dart SDK works with. So the rules
+              know which declaration a name points to, not just which text matches.</p>
+          </li>
 
-    <DemoReport lang="en" />
+          <li class="stage rv" id="stage-rules" aria-labelledby="stage-rules-title">
+            <span class="stage__num" aria-hidden="true">02</span>
+            <h3 id="stage-rules-title" class="h3 stage__name">Rules</h3>
+            <p class="stage__text">Each <strong>Rule</strong> is a self-contained unit behind one shared
+              interface and runs over the resolved project. A new capability is a new rule;
+              the pipeline itself never changes. All live rules are deterministic: offline,
+              free and reproducible. A planned, optional LLM-assisted rule will only reach
+              CI through a verdict cache.</p>
+          </li>
 
-    <!-- loam scan vs loam gate -->
-    <section>
-      <h2>loam scan vs. loam gate</h2>
+          <li class="stage rv" id="stage-findings" aria-labelledby="stage-findings-title">
+            <span class="stage__num" aria-hidden="true">03</span>
+            <h3 id="stage-findings-title" class="h3 stage__name">Findings</h3>
+            <p class="stage__text">Every rule reports <strong>Findings</strong> of the form <code>&#123; ruleId, severity, location, message, fingerprint &#125;</code>.
+              The <strong>Fingerprint</strong> is a stable hash that survives reformatting
+              and shifted line numbers, so the same problem stays the same Finding. Each
+              Finding also names what kind of problem it is and what to do about it —
+              written so an AI agent can act on it without guessing.</p>
+          </li>
 
-      <p>
-        Two commands, two purposes. Knowing which to reach for keeps your
-        workflow clean.
-      </p>
+          <li class="stage rv" id="stage-baseline" aria-labelledby="stage-baseline-title">
+            <span class="stage__num" aria-hidden="true">04</span>
+            <h3 id="stage-baseline-title" class="h3 stage__name">Baseline</h3>
+            <p class="stage__text">The <strong>Baseline</strong> holds the Findings you accept, in <code>baseline.json</code>. To bring an existing project in, run a full audit,
+              fix what matters and freeze the rest with <code>loam baseline --write</code>.
+              From then on the Gate only cares about <em>new</em> Findings — not the ones
+              you already know.</p>
+          </li>
 
+          <li class="stage rv" id="stage-gate" aria-labelledby="stage-gate-title">
+            <span class="stage__num" aria-hidden="true">05</span>
+            <h3 id="stage-gate-title" class="h3 stage__name">Gate</h3>
+            <p class="stage__text">The <strong>Gate</strong> is the decision for CI: it compares the current
+              Findings with the Baseline and answers with an exit code. Nothing new: exit 0.
+              A new Finding: exit 1. Rule profiles decide what may block — <code>core</code> rules by default, <code>strict</code> ones when you opt in.</p>
+          </li>
+
+          <li class="stage rv" id="stage-report" aria-labelledby="stage-report-title">
+            <span class="stage__num" aria-hidden="true">06</span>
+            <h3 id="stage-report-title" class="h3 stage__name">Report</h3>
+            <p class="stage__text">The <strong>Reporter</strong> writes for whoever reads it: <code>human</code> in the terminal, <code>json</code> / <code>sarif</code> / <code>markdown</code> for CI and tools, <code>agent</code> for a compact, capped list of Findings, and <code>html</code> for a self-contained report in which
+              you select Findings and copy a ready-made fix-prompt. After a run with
+              Findings, loam.dev adds one <strong>preventive recommendation</strong> per rule
+              class that fired — deterministic, no LLM call — for your agent to propose for
+              its standing instructions.</p>
+          </li>
+      </ol>
+    </div>
+  </section>
+
+  <DemoReport lang="en" />
+
+  <!-- loam scan vs loam gate -->
+  <section class="scene how-compare" aria-labelledby="compare-title" data-testid="how-compare">
+    <div class="wrap">
+      <div class="how-compare__head">
+        <p class="label">Two commands</p>
+        <h2 id="compare-title" class="h2">loam scan vs. loam gate</h2>
+        <p class="lead">Two commands, two jobs. Pick the one that fits the moment.</p>
+      </div>
       <div class="compare">
-        <div class="compare-block">
-          <h3><code>loam scan</code></h3>
-          <p class="compare-tag">Full audit · baseline-independent</p>
-          <p>
-            Runs every active Rule over the entire project and shows
-            <em>all</em> Findings regardless of what the Baseline says.
-            Use this when you first bring loam.dev into an existing repo —
-            see the full picture, clean up what you can, then freeze the rest
-            with <code>loam baseline --write</code>.
-          </p>
-        </div>
+        <article class="compare__item compare__item--scan rv" aria-labelledby="compare-scan">
+          <p class="label compare__tag">Full audit · ignores the baseline</p>
+          <h3 id="compare-scan" class="h3"><code>loam scan</code></h3>
+          <p class="body-copy">Runs every active Rule over the whole project and shows <em>all</em> Findings,
+            whatever the Baseline says. Use it when you bring loam.dev into an existing
+            repo: see the full picture, fix what matters, then freeze the rest with <code>loam baseline --write</code>.</p>
+        </article>
 
-        <div class="compare-block">
-          <h3><code>loam gate</code></h3>
-          <p class="compare-tag">CI ratchet · Baseline-aware</p>
-          <p>
-            The everyday CI command. By default it runs in
-            <strong>Ratchet mode</strong>: only Findings that are
-            <em>new</em> (not in the Baseline) fail the build. The score can
-            only improve over time — your codebase ratchets forward, never
-            backward. For greenfield projects or pipelines that require zero
-            findings, pass <code>--absolute</code> to enforce a hard threshold
-            instead.
-          </p>
-        </div>
+        <article class="compare__item compare__item--gate rv" aria-labelledby="compare-gate">
+          <p class="label compare__tag">CI gate · ratchet by default</p>
+          <h3 id="compare-gate" class="h3"><code>loam gate</code></h3>
+          <p class="body-copy">The everyday command for CI. In <strong>ratchet mode</strong>, the default, only
+            Findings that are <em>not</em> in the Baseline fail the build — the code can only
+            get better over time. For new projects or pipelines that allow no Findings at
+            all, <code>--absolute</code> ignores the Baseline and applies a fixed threshold
+            instead.</p>
+        </article>
       </div>
+      <p class="body-copy how-compare__flow">A typical start: <code>loam scan</code> → fix what matters → <code>loam baseline --write</code> → <code>loam gate</code> in CI from then on.
+        While you code, <code>loam watch</code> repeats the full audit after every saved
+        change and shows what is new or resolved.</p>
+    </div>
+  </section>
 
-      <p>
-        Typical onboarding sequence: <code>loam scan</code> → fix what
-        matters → <code>loam baseline --write</code> → <code>loam gate</code>
-        in CI from then on.
-      </p>
-    </section>
+  <!-- Semantics over syntax -->
+  <section class="scene how-sem" aria-labelledby="sem-title" data-testid="how-semantics">
+    <div class="wrap how-sem__grid">
+      <div class="how-sem__head">
+        <p class="label">Design decision</p>
+        <h2 id="sem-title" class="h2">Semantics over syntax<span class="accent">.</span></h2>
+        <p class="lead">A central design decision in loam.dev is what the analysis runs <em>on</em>.</p>
+      </div>
+      <div class="how-sem__body body-copy">
+  <p>
+    <code>dart analyze</code> is good at what it checks: type errors, missing
+    imports, lint rules — mostly one declaration or file at a time. It doesn’t follow the <em>graph</em> of references across your whole project: which public members are
+    used anywhere at all, which libraries import each other in a circle, which helper
+    exists twice under different names.
+  </p>
 
-    <!-- Semantics over syntax -->
-    <section>
-      <h2>Semantics over syntax</h2>
+  <p>
+    Text matching can’t answer those questions reliably. A regex can’t tell a
+    declaration from a reference, a local variable from a public export, or generated
+    code from code you wrote.
+  </p>
 
-      <p>
-        The most important architectural decision in loam.dev is what the
-        analysis runs <em>on</em>.
-      </p>
+  <p>
+    loam.dev works on the <strong>resolved element model</strong>: every symbol is a
+    typed element with one identity, and every reference points to exactly that element.
+    The rules work on that model, not on raw text. In practice:
+  </p>
 
-      <p>
-        <code>dart analyze</code> reports type errors, missing imports, and
-        style lint violations — all things that can be caught at the
-        declaration level. What it does not do is reason about the
-        <em>graph</em> of references across your entire project: which public
-        API members are actually reachable from outside their own library, which
-        class boundaries are being crossed, which helpers exist in two copies
-        that happen to look the same.
-      </p>
+  <ul class="how-sem__list">
+    <li>A name that merely looks like another one is never mistaken for it.</li>
+    <li>Generated files and code-generator inputs are recognised automatically.</li>
+    <li>Renaming a class changes nothing — what counts is whether it is referenced, not
+    what it is called.</li>
+    <li>References across libraries and packages are followed correctly.</li>
+  </ul>
 
-      <p>
-        Catching those things with regex or string matching is brittle.
-        A regex that looks for an identifier name has no way to distinguish a
-        definition from a reference, a local variable from a public export, or
-        a generated file from hand-written code.
-      </p>
+  <p>
+    That is what “semantics over syntax” means: the rules see your code the way the
+    compiler does, not the way a text editor does.
+  </p>
+      </div>
+    </div>
+  </section>
 
-      <p>
-        loam.dev uses the <strong>resolved element model</strong>: every symbol
-        is a typed element with a canonical identity, every reference is a
-        resolved pointer. Rules operate on that model, not on raw text.
-        This means:
-      </p>
-
-      <ul>
-        <li>No false positives from coincidentally similar names.</li>
-        <li>Generated files are excluded automatically (the same way the SDK
-        knows about them).</li>
-        <li>Renaming a class is invisible to the rule — what matters is whether
-        the element is referenced, not what it is called.</li>
-        <li>Cross-library and cross-package references are tracked correctly.</li>
-      </ul>
-
-      <p>
-        This is what "semantics over syntax" means in practice: the Rules see
-        your code the way the compiler sees it, not the way a text editor does.
-      </p>
-    </section>
-
-    <!-- Developer Guide link -->
-    <section>
-      <h2>Going deeper</h2>
-
-      <p>
-        The <a href="/developer-guide/">Developer Guide</a>
-        covers the full CLI reference, output formats, configuration, and
-        worked examples — including the complete baseline onboarding sequence
-        and how to integrate <code>loam gate</code> into GitHub Actions.
-      </p>
-    </section>
-  </div>
+  <!-- Next step -->
+  <section class="scene how-try" aria-labelledby="try-title" data-testid="how-try">
+    <div class="wrap how-try__grid">
+      <div>
+        <p class="label">Get started</p>
+        <h2 id="try-title" class="h2">Try it on your project</h2>
+      </div>
+      <div class="how-try__cmds">
+        <div class="cmd">
+          <span class="cmd__p" aria-hidden="true">$</span>
+          <code class="cmd__t" id="how-cmd-pub">dart pub global activate loam</code>
+          <button class="cmd__copy" type="button" data-copy-target="how-cmd-pub" data-track="how" data-testid="how-copy-pub" data-done="copied" data-failed="copy failed" aria-label="Copy install command">copy</button>
+        </div>
+        <div class="cmd cmd--secondary">
+          <span class="cmd__p" aria-hidden="true">$</span>
+          <code class="cmd__t"><span id="how-cmd-scan">loam scan</span><span class="muted">  # in your project</span></code>
+          <button class="cmd__copy" type="button" data-copy-target="how-cmd-scan" data-track="how" data-testid="how-copy-scan" data-done="copied" data-failed="copy failed" aria-label="Copy scan command">copy</button>
+        </div>
+        <p class="body-copy how-try__text">The <a class="link" href="/developer-guide/" data-testid="how-link-guide">Developer Guide</a> covers the full CLI reference,
+        output formats, configuration and worked examples — including the complete
+        onboarding sequence and how to run <code>loam gate</code> in CI. Every rule, with
+        examples, is on the <a class="link" href="/rules/" data-testid="how-link-rules">rules page</a>.</p>
+      </div>
+    </div>
+  </section>
 </Layout>
 
-<style is:global>
-  /* Pipeline steps */
-  .pipeline {
-    display: flex;
-    flex-direction: column;
-    gap: 1.4rem;
-    margin: 1.2rem 0 .8rem;
-  }
-  .step {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-  .step-num {
-    flex-shrink: 0;
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .72rem;
-    font-weight: 600;
-    letter-spacing: .06em;
-    color: var(--green);
-    border: 1px solid rgba(136,200,64,.28);
-    border-radius: 50%;
-    background: rgba(136,200,64,.05);
-    margin-top: .1rem;
-  }
-  .step-body {
-    flex: 1;
-  }
-  .step-body strong {
-    display: block;
-    color: var(--ink);
-    font-size: .92rem;
-    margin-bottom: .3rem;
-  }
-  .step-body p {
-    margin-bottom: 0;
-  }
-
-  /* scan vs gate compare */
-  .compare {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin: 1rem 0 1.2rem;
-  }
-  @media (max-width: 560px) {
-    .compare { grid-template-columns: 1fr; }
-  }
-  .compare-block {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 1.1rem 1.2rem 1rem;
-  }
-  .compare-block h3 code {
-    font-size: .92rem;
-    background: none;
-    padding: 0;
-    color: var(--ink);
-  }
-  .compare-tag {
-    font-size: .72rem !important;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--green) !important;
-    margin: .1rem 0 .7rem !important;
-  }
-  .compare-block p:last-child {
-    margin-bottom: 0;
-  }
-</style>

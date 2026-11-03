@@ -47,6 +47,13 @@ export default defineConfig({
   // canonical-/hreflang-Tags (Layout.astro) und die Sitemap-<loc>/<xhtml:link>-
   // Einträge exakt dieselbe URL-Form tragen (kein Trailing-Slash-Mismatch mehr).
   trailingSlash: 'always',
+  // Processed <script>s must ship as files from 'self', never inlined: an
+  // inline module would need its own sha256 in the hash-pinned CSP
+  // (public/_headers). Astro inlines scripts below Vite's assetsInlineLimit,
+  // so the limit is 0. (Images are unaffected: none are imported via Vite.)
+  vite: {
+    build: { assetsInlineLimit: 0 },
+  },
   integrations: [
     sitemap({
       i18n: {

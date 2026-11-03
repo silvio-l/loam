@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:loam/src/config/config_loader.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 /// Discovery + layering behaviour of [ConfigLoader.load].
 ///
@@ -15,6 +16,8 @@ import 'package:test/test.dart';
 /// discovery is repo-relative and reproducible — a config above the repo (e.g.
 /// in `$HOME`) is never picked up.
 void main() {
+  useSharedAnalyzerStore();
+
   late Directory repo;
 
   /// Creates `<repo>/.git` so [repo] is recognised as the discovery boundary.
@@ -89,6 +92,35 @@ void main() {
     expect(config.includeA11y, isFalse);
   });
 
+  test(
+    'intended-pattern lists are united, boilerplate flag is overridden',
+    () async {
+      writeYaml(
+        repo,
+        'code_duplicates:\n'
+        '  boilerplate: false\n'
+        '  boilerplate_methods: [build, toXml]\n'
+        'unused_public_exports:\n'
+        '  annotations: [Keep, Api]\n',
+      );
+      final pkg = Directory(p.join(repo.path, 'app'));
+      writeYaml(
+        pkg,
+        'code_duplicates:\n'
+        '  boilerplate: true\n'
+        '  boilerplate_methods: [toXml, render]\n'
+        'unused_public_exports:\n'
+        '  annotations: [Api, Other]\n',
+      );
+
+      final config = await ConfigLoader.load(pkg.path);
+
+      expect(config.boilerplateMethods, ['build', 'toXml', 'render']);
+      expect(config.reservedAnnotations, ['Keep', 'Api', 'Other']);
+      expect(config.skipBoilerplate, isTrue, reason: 'nearer layer wins');
+    },
+  );
+
   // ---------------------------------------------------------------------------
   // Override precedence: the nearer scalar wins over the farther one.
   // ---------------------------------------------------------------------------
@@ -157,6 +189,25 @@ void main() {
       isTrue,
       reason: 'parent not walked without .git',
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // required_version / auto_update: scalar override, omitted -> inherited.
+  // ---------------------------------------------------------------------------
+  test('required_version and auto_update inherit over two levels', () async {
+    writeYaml(repo, 'required_version: "1.2.3"\nauto_update: false\n');
+    final mid = Directory(p.join(repo.path, 'packages'));
+    writeYaml(mid, 'a11y: false\n'); // omits both: inherited
+    final pkg = Directory(p.join(mid.path, 'cli'))..createSync();
+
+    final inherited = await ConfigLoader.load(pkg.path);
+    expect(inherited.requiredVersion.toString(), '1.2.3');
+    expect(inherited.autoUpdate, isFalse);
+
+    writeYaml(pkg, 'required_version: "2.0.0"\nauto_update: true\n');
+    final overridden = await ConfigLoader.load(pkg.path);
+    expect(overridden.requiredVersion.toString(), '2.0.0');
+    expect(overridden.autoUpdate, isTrue);
   });
 
   // ---------------------------------------------------------------------------

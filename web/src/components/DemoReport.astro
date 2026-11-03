@@ -27,133 +27,100 @@ const copy = {
       'from a small, deliberately messy demo project. It is live, not a ' +
       'screenshot: filter by rule or severity, pick the Findings you care ' +
       'about, and copy the assembled, versioned fix-prompt for your agent.',
-    open: 'Open full screen ↗',
+    open: 'Open in new tab',
+    label: 'Live demo',
+    title: 'Interactive loam.dev demo report',
   },
   de: {
-    heading: 'Ein echter Report',
+    heading: 'Sieh dir einen echten Report an',
     body:
       'Das ist exakt der <code>html</code>-Report, den loam.dev schreibt — ' +
       'erzeugt aus einem kleinen, bewusst unordentlichen Demo-Projekt. Live, ' +
       'kein Screenshot: nach Rule oder Severity filtern, die relevanten ' +
       'Findings auswählen und den fertigen, versionierten Fix-Prompt für ' +
       'deinen Agenten kopieren.',
-    open: 'Vollbild öffnen ↗',
+    open: 'In neuem Tab öffnen',
+    label: 'Live-Demo',
+    title: 'Interaktiver loam.dev-Demo-Report',
   },
 }[lang];
 ---
 
-<section class="demo-report">
-  <h2>{copy.heading}</h2>
-  <p set:html={copy.body} />
-
-  <figure class="report-frame">
-    <div class="frame-bar">
-      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-      <span class="frame-title">loam-report.html — shopcart</span>
-      <a class="frame-open" href="/demo-report" target="_blank" rel="noopener" id="demo-report-open">
-        {copy.open}
-      </a>
+<section class="scene demo-report" aria-labelledby="demo-report-title" data-testid="how-demo-report">
+  <div class="wrap">
+    <div class="demo-report__head">
+      <p class="label">{copy.label}</p>
+      <h2 id="demo-report-title" class="h2">{copy.heading}</h2>
+      <p class="body-copy demo-report__body" set:html={copy.body} />
     </div>
-    <iframe
-      class="report-embed"
-      src="/demo-report"
-      title="Interactive loam.dev demo report"
-      loading="lazy"
-    ></iframe>
-  </figure>
+
+    <figure class="report-frame rv">
+      <div class="frame-bar">
+        <span class="term__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="frame-title">loam-report.html — shopcart</span>
+        <a class="btn btn--ghost btn--sm frame-open" href="/demo-report" target="_blank" rel="noopener" id="demo-report-open" data-testid="demo-report-open">
+          {copy.open}<span class="ext" aria-hidden="true">↗</span>
+        </a>
+      </div>
+      <iframe
+        class="report-embed"
+        src="/demo-report"
+        title={copy.title}
+        loading="lazy"
+      ></iframe>
+    </figure>
+  </div>
 </section>
 
 <style>
-  /* The embedded document is a full application layout, not a snippet: its own
-     stylesheet flips to a single stacked column below 920px, which pushes the
-     summary/tooling/fix-prompt sidebar roughly 1000px underneath the findings
-     list. Inside the 72ch prose column the figure is only ~615px wide, so the
-     embed was permanently stuck in that stacked mode — ~2100px of content
-     crammed into a 620px box, with the fix-prompt card (what the paragraph above
-     promises) about 2.5 frame-heights out of sight. Breaking the figure out of
-     the prose column to >=920px restores the report's intended two-column
-     layout and drops its content height to ~880px. max(100%, …) keeps the
-     figure flush with the text column on viewports too narrow to break out of,
-     so it never ends up inset relative to the prose. */
+  /* Full-width scene: the frame spans the page column (up to --page-max), so
+     the embedded report keeps its own two-column layout (it stacks below
+     920px) on every desktop width, from 1440 up to ultrawide. */
+  .demo-report__head { display: grid; gap: var(--s-4); max-width: 62rem; margin-bottom: var(--s-7); }
+  .demo-report__body { color: var(--dim); max-width: var(--measure); }
   .report-frame {
-    width: max(100%, min(1160px, calc(100vw - 2.5rem)));
-    margin: 2rem 0 0 50%;
-    transform: translateX(-50%);
-    border: 1px solid var(--line);
-    border-radius: 12px;
+    margin: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
     overflow: hidden;
     background: var(--panel);
-    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 40px 120px rgba(0, 0, 0, .55);
   }
   .frame-bar {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.6rem 0.85rem;
-    background: linear-gradient(180deg, #15171c, #101216);
+    gap: .6rem;
+    padding: .55rem .6rem .55rem 1rem;
+    background: linear-gradient(180deg, #16181d, #111216);
     border-bottom: 1px solid var(--line);
   }
-  .dots {
-    display: inline-flex;
-    gap: 0.4rem;
-    flex: none;
-  }
-  .dots i {
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    background: #34373e;
-  }
   .frame-title {
-    font: 500 0.8rem var(--font);
+    font: 500 .78rem var(--font-mono);
     color: var(--dim);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .frame-open {
-    margin-left: auto;
-    flex: none;
-    font: 600 0.76rem var(--font);
-    color: var(--green);
-    text-decoration: none;
-    border: 1px solid rgba(136, 200, 64, 0.4);
-    border-radius: 7px;
-    padding: 0.3rem 0.62rem;
-    transition: background 0.18s, border-color 0.18s;
-  }
-  .frame-open:hover, .frame-open:focus-visible {
-    background: rgba(136, 200, 64, 0.12);
-    border-color: rgba(136, 200, 64, 0.7);
-  }
-  /* Viewport-relative so the frame keeps some page around it instead of filling
-     the screen (the report scrolls internally, so a full-height frame would trap
-     the wheel), with px bounds so it stays usable on very short and very tall
-     windows. The plain px height above each clamp() is the fallback for engines
-     without svh — without it the declaration is dropped whole and the iframe
-     collapses to its 150px intrinsic default. */
+  .frame-open { margin-left: auto; flex: none; }
+  /* Viewport-relative so the frame keeps some page around it (the report
+     scrolls internally, so a full-height frame would trap the wheel); the
+     plain px height is the fallback for engines without svh. */
   .report-embed {
     display: block;
     width: 100%;
     height: 660px;
-    height: clamp(460px, 72svh, 740px);
+    height: clamp(460px, 78svh, 920px);
     border: 0;
     background: #0c0d10;
   }
-  /* Below the report's own 920px breakpoint it stacks again and gets very tall;
-     a taller frame would only lengthen the scroll trap, so keep it compact. */
   @media (max-width: 920px) {
     .report-embed {
       height: 560px;
       height: clamp(420px, 68svh, 600px);
     }
   }
-  /* At this width the ellipsised filename is down to a few characters next to
-     the full-screen link — drop it rather than show a stub. */
   @media (max-width: 460px) {
-    .frame-title {
-      display: none;
-    }
+    .frame-title { display: none; }
   }
 </style>
 

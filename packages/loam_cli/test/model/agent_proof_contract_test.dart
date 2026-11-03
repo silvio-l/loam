@@ -7,6 +7,9 @@ import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fixture_packages.dart';
+import '../support/shared_store.dart';
+
 /// The agent-proof message contract (hard, deterministic, 0-token).
 ///
 /// Every finding loam emits is consumed by AI agents as well as humans. A
@@ -22,6 +25,8 @@ import 'package:test/test.dart';
 /// live rule and asserts the contract holds. A new rule that forgets to set
 /// kind/remedy fails here — the contract cannot silently regress.
 void main() {
+  useSharedAnalyzerStore();
+
   String fixture(String name) =>
       p.normalize(p.join(Directory.current.path, 'test', 'fixtures', name));
 
@@ -38,7 +43,9 @@ void main() {
     var total = 0;
 
     for (final name in fixtures) {
-      final findings = await runner.run(fixture(name));
+      final findings = await runner.run(
+        await ensureFixtureResolved(fixture(name)),
+      );
       for (final f in findings) {
         total++;
         seenRules.add(f.ruleId);

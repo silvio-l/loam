@@ -5,37 +5,48 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
+// `tool/docs-attest.sh` is a repo-maintainer Bash script (it needs bash, grep,
+// sed, git); it is not product logic. Windows has no such toolchain by
+// default, so these checks run on macOS/Linux only (the gate host).
+final String? _noBashOnWindows = Platform.isWindows
+    ? 'tool/docs-attest.sh is a Bash repo tool; not run on Windows'
+    : null;
+
 /// Public-Docs-QS im Gate: die deterministischen Struktur-Invarianten der
-/// Root-README (Pflicht-Marker aus docs/readme-spec.md, Bild-/Link-Existenz,
+/// Root-README (Pflicht-Marker aus internal-notes, Bild-/Link-Existenz,
 /// Anti-Vokabular) laufen bei jedem `dart test` mit — 0 Token, scheitert bei Drift.
 ///
 /// Die bewusste Push-Attestierung (`attest` + pre-push-Hook) sitzt bewusst NICHT
 /// hier — Testläufe sollen nicht an einem fehlenden Push-ack scheitern.
 void main() {
-  test('public docs structure holds (tool/docs-attest.sh check)', () {
-    // `dart test` läuft aus packages/loam_cli/ -> Repo-Wurzel ist zwei hoch.
-    final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
-    final qa = File('${repoRoot}tool/docs-attest.sh');
-    if (!qa.existsSync()) {
-      // Im veröffentlichten Paket (pub.dev) liegt das Repo-Tool nicht bei —
-      // dann ist dieser Repo-QS-Test gegenstandslos und wird übersprungen.
-      markTestSkipped(
-        'tool/docs-attest.sh nicht vorhanden — Repo-only-Test übersprungen',
-      );
-      return;
-    }
+  test(
+    'public docs structure holds (tool/docs-attest.sh check)',
+    skip: _noBashOnWindows,
+    () {
+      // `dart test` läuft aus packages/loam_cli/ -> Repo-Wurzel ist zwei hoch.
+      final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
+      final qa = File('${repoRoot}tool/docs-attest.sh');
+      if (!qa.existsSync()) {
+        // Im veröffentlichten Paket (pub.dev) liegt das Repo-Tool nicht bei —
+        // dann ist dieser Repo-QS-Test gegenstandslos und wird übersprungen.
+        markTestSkipped(
+          'tool/docs-attest.sh nicht vorhanden — Repo-only-Test übersprungen',
+        );
+        return;
+      }
 
-    final r = Process.runSync('bash', [
-      'tool/docs-attest.sh',
-      'check',
-    ], workingDirectory: repoRoot);
+      final r = Process.runSync('bash', [
+        'tool/docs-attest.sh',
+        'check',
+      ], workingDirectory: repoRoot);
 
-    if (r.exitCode != 0) {
-      fail('Public-Docs-QS check fehlgeschlagen:\n${r.stdout}\n${r.stderr}');
-    }
-  });
+      if (r.exitCode != 0) {
+        fail('Public-Docs-QS check fehlgeschlagen:\n${r.stdout}\n${r.stderr}');
+      }
+    },
+  );
 
-  group('devguide-rules check (bidirektional)', () {
+  group('devguide-rules check (bidirektional)', skip: _noBashOnWindows, () {
     final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
     final qa = File('${repoRoot}tool/docs-attest.sh');
     final guide = File('${repoRoot}docs/developer-guide.md');
@@ -107,156 +118,170 @@ void main() {
     });
   });
 
-  group('pubspec-rules check (description ⊇ live-rules, selbst-erzwingend)', () {
-    final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
-    final qa = File('${repoRoot}tool/docs-attest.sh');
-    final pubspec = File('${repoRoot}packages/loam_cli/pubspec.yaml');
-
-    /// Führt `docs-attest.sh check` mit einer temporären pubspec-Kopie als
-    /// Override (LOAM_PUBSPEC_OVERRIDE) aus — die eingecheckte Datei bleibt
-    /// unangetastet. Optionale Extra-Env (z. B. LOAM_EXTRA_LIVE_RULE).
-    ProcessResult runWithPubspec(
-      String pubspecContents, {
-      Map<String, String> extraEnv = const {},
-    }) {
-      final tmp = File(
-        '${Directory.systemTemp.path}/loam_pubspec_${DateTime.now().microsecondsSinceEpoch}.yaml',
-      );
-      tmp.writeAsStringSync(pubspecContents);
-      try {
-        return Process.runSync(
-          'bash',
-          ['tool/docs-attest.sh', 'check'],
-          workingDirectory: repoRoot,
-          environment: {'LOAM_PUBSPEC_OVERRIDE': tmp.path, ...extraEnv},
-        );
-      } finally {
-        if (tmp.existsSync()) tmp.deleteSync();
-      }
-    }
-
-    test(
-      'fehlendes Stichwort einer Live-Rule in der description erzwingt Rot',
-      () {
-        if (!qa.existsSync() || !pubspec.existsSync()) {
-          markTestSkipped('Repo-only-Test übersprungen (Tool/pubspec fehlt)');
-          return;
-        }
-        // Entferne das "unused"-Stichwort aus der description (temporäre Kopie).
-        final mutated = pubspec.readAsStringSync().replaceAll(
-          'unused public API',
-          'public API',
-        );
-        final r = runWithPubspec(mutated);
-        expect(
-          r.exitCode,
-          isNot(0),
-          reason: 'Fehlendes Stichwort muss den Check rot machen:\n${r.stdout}',
-        );
-        expect('${r.stdout}', contains('pubspec-rules'));
-        expect('${r.stdout}', contains('unused-public-exports'));
-      },
-    );
-
-    test(
-      'Live-Rule ohne Eintrag in der Abbildung erzwingt Rot (Selbst-Erzwingung)',
-      () {
-        if (!qa.existsSync() || !pubspec.existsSync()) {
-          markTestSkipped('Repo-only-Test übersprungen (Tool/pubspec fehlt)');
-          return;
-        }
-        // Injiziere eine zusätzliche Live-Rule ohne Stichwort-Eintrag. Die echte
-        // pubspec wird über die unveränderte Kopie genutzt; nur die Live-Rule-Liste
-        // wird via Env-Seam ergänzt.
-        final r = runWithPubspec(
-          pubspec.readAsStringSync(),
-          extraEnv: const {'LOAM_EXTRA_LIVE_RULE': 'bogus-rule'},
-        );
-        expect(
-          r.exitCode,
-          isNot(0),
-          reason:
-              'Live-Rule ohne Abbildung muss den Check rot machen:\n${r.stdout}',
-        );
-        expect('${r.stdout}', contains('pubspec-rules'));
-        expect('${r.stdout}', contains('bogus-rule'));
-      },
-    );
-  });
-
-  group('demo-report-fresh check (Version + Live-Rules präsent)', () {
-    final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
-    final qa = File('${repoRoot}tool/docs-attest.sh');
-    final report = File('${repoRoot}web/public/demo-report.html');
-
-    /// Führt `docs-attest.sh check` mit einer temporären Kopie des Demo-Reports
-    /// als Override (LOAM_DEMOREPORT_OVERRIDE) aus — die eingecheckte Datei bleibt
-    /// unangetastet. Liefert das Process-Ergebnis zurück.
-    ProcessResult runWithReport(String reportContents) {
-      final tmp = File(
-        '${Directory.systemTemp.path}/loam_demoreport_${DateTime.now().microsecondsSinceEpoch}.html',
-      );
-      tmp.writeAsStringSync(reportContents);
-      try {
-        return Process.runSync(
-          'bash',
-          ['tool/docs-attest.sh', 'check'],
-          workingDirectory: repoRoot,
-          environment: {'LOAM_DEMOREPORT_OVERRIDE': tmp.path},
-        );
-      } finally {
-        if (tmp.existsSync()) tmp.deleteSync();
-      }
-    }
-
-    /// Aktuelle pubspec-Version (für den Versions-Entfernungs-Test).
-    String? pubspecVersion() {
+  group(
+    'pubspec-rules check (description ⊇ live-rules, selbst-erzwingend)',
+    skip: _noBashOnWindows,
+    () {
+      final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
+      final qa = File('${repoRoot}tool/docs-attest.sh');
       final pubspec = File('${repoRoot}packages/loam_cli/pubspec.yaml');
-      if (!pubspec.existsSync()) return null;
-      for (final l in pubspec.readAsLinesSync()) {
-        final m = RegExp(
-          r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+[^\s]*)',
-        ).firstMatch(l);
-        if (m != null) return m.group(1);
-      }
-      return null;
-    }
 
-    test('fehlende Version im Demo-Report erzwingt Rot', () {
-      if (!qa.existsSync() || !report.existsSync()) {
-        markTestSkipped('Repo-only-Test übersprungen (Tool/Demo-Report fehlt)');
-        return;
+      /// Führt `docs-attest.sh check` mit einer temporären pubspec-Kopie als
+      /// Override (LOAM_PUBSPEC_OVERRIDE) aus — die eingecheckte Datei bleibt
+      /// unangetastet. Optionale Extra-Env (z. B. LOAM_EXTRA_LIVE_RULE).
+      ProcessResult runWithPubspec(
+        String pubspecContents, {
+        Map<String, String> extraEnv = const {},
+      }) {
+        final tmp = File(
+          '${Directory.systemTemp.path}/loam_pubspec_${DateTime.now().microsecondsSinceEpoch}.yaml',
+        );
+        tmp.writeAsStringSync(pubspecContents);
+        try {
+          return Process.runSync(
+            'bash',
+            ['tool/docs-attest.sh', 'check'],
+            workingDirectory: repoRoot,
+            environment: {'LOAM_PUBSPEC_OVERRIDE': tmp.path, ...extraEnv},
+          );
+        } finally {
+          if (tmp.existsSync()) tmp.deleteSync();
+        }
       }
-      final ver = pubspecVersion();
-      expect(ver, isNotNull, reason: 'pubspec-Version nicht gefunden');
-      // Entferne jedes Vorkommen der aktuellen Version aus der temporären Kopie.
-      final mutated = report.readAsStringSync().replaceAll(ver!, 'X.Y.Z');
-      final r = runWithReport(mutated);
-      expect(
-        r.exitCode,
-        isNot(0),
-        reason: 'Fehlende Version muss den Check rot machen:\n${r.stdout}',
-      );
-      expect('${r.stdout}', contains('demo-report-fresh'));
-      expect('${r.stdout}', contains(ver));
-    });
 
-    test('fehlende Live-Rule-ID im Demo-Report erzwingt Rot', () {
-      if (!qa.existsSync() || !report.existsSync()) {
-        markTestSkipped('Repo-only-Test übersprungen (Tool/Demo-Report fehlt)');
-        return;
-      }
-      // Entferne jedes Vorkommen einer Live-Rule-ID aus der temporären Kopie.
-      const rid = 'unused-public-exports';
-      final mutated = report.readAsStringSync().replaceAll(rid, 'gone');
-      final r = runWithReport(mutated);
-      expect(
-        r.exitCode,
-        isNot(0),
-        reason: 'Fehlende Live-Rule muss den Check rot machen:\n${r.stdout}',
+      test(
+        'fehlendes Stichwort einer Live-Rule in der description erzwingt Rot',
+        () {
+          if (!qa.existsSync() || !pubspec.existsSync()) {
+            markTestSkipped('Repo-only-Test übersprungen (Tool/pubspec fehlt)');
+            return;
+          }
+          // Entferne das "unused"-Stichwort aus der description (temporäre Kopie).
+          // Am Wort, nicht an einer festen Phrase: die description darf sich
+          // ändern, ohne dass dieser Selbsttest still ins Leere greift.
+          final original = pubspec.readAsStringSync();
+          final mutated = original.replaceAll(RegExp(r'\bunused\b'), 'spare');
+          expect(mutated, isNot(original), reason: 'Mutation muss greifen');
+          final r = runWithPubspec(mutated);
+          expect(
+            r.exitCode,
+            isNot(0),
+            reason:
+                'Fehlendes Stichwort muss den Check rot machen:\n${r.stdout}',
+          );
+          expect('${r.stdout}', contains('pubspec-rules'));
+          expect('${r.stdout}', contains('unused-public-exports'));
+        },
       );
-      expect('${r.stdout}', contains('demo-report-fresh'));
-      expect('${r.stdout}', contains(rid));
-    });
-  });
+
+      test(
+        'Live-Rule ohne Eintrag in der Abbildung erzwingt Rot (Selbst-Erzwingung)',
+        () {
+          if (!qa.existsSync() || !pubspec.existsSync()) {
+            markTestSkipped('Repo-only-Test übersprungen (Tool/pubspec fehlt)');
+            return;
+          }
+          // Injiziere eine zusätzliche Live-Rule ohne Stichwort-Eintrag. Die echte
+          // pubspec wird über die unveränderte Kopie genutzt; nur die Live-Rule-Liste
+          // wird via Env-Seam ergänzt.
+          final r = runWithPubspec(
+            pubspec.readAsStringSync(),
+            extraEnv: const {'LOAM_EXTRA_LIVE_RULE': 'bogus-rule'},
+          );
+          expect(
+            r.exitCode,
+            isNot(0),
+            reason:
+                'Live-Rule ohne Abbildung muss den Check rot machen:\n${r.stdout}',
+          );
+          expect('${r.stdout}', contains('pubspec-rules'));
+          expect('${r.stdout}', contains('bogus-rule'));
+        },
+      );
+    },
+  );
+
+  group(
+    'demo-report-fresh check (Version + Live-Rules präsent)',
+    skip: _noBashOnWindows,
+    () {
+      final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
+      final qa = File('${repoRoot}tool/docs-attest.sh');
+      final report = File('${repoRoot}web/public/demo-report.html');
+
+      /// Führt `docs-attest.sh check` mit einer temporären Kopie des Demo-Reports
+      /// als Override (LOAM_DEMOREPORT_OVERRIDE) aus — die eingecheckte Datei bleibt
+      /// unangetastet. Liefert das Process-Ergebnis zurück.
+      ProcessResult runWithReport(String reportContents) {
+        final tmp = File(
+          '${Directory.systemTemp.path}/loam_demoreport_${DateTime.now().microsecondsSinceEpoch}.html',
+        );
+        tmp.writeAsStringSync(reportContents);
+        try {
+          return Process.runSync(
+            'bash',
+            ['tool/docs-attest.sh', 'check'],
+            workingDirectory: repoRoot,
+            environment: {'LOAM_DEMOREPORT_OVERRIDE': tmp.path},
+          );
+        } finally {
+          if (tmp.existsSync()) tmp.deleteSync();
+        }
+      }
+
+      /// Aktuelle pubspec-Version (für den Versions-Entfernungs-Test).
+      String? pubspecVersion() {
+        final pubspec = File('${repoRoot}packages/loam_cli/pubspec.yaml');
+        if (!pubspec.existsSync()) return null;
+        for (final l in pubspec.readAsLinesSync()) {
+          final m = RegExp(
+            r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+[^\s]*)',
+          ).firstMatch(l);
+          if (m != null) return m.group(1);
+        }
+        return null;
+      }
+
+      test('fehlende Version im Demo-Report erzwingt Rot', () {
+        if (!qa.existsSync() || !report.existsSync()) {
+          markTestSkipped(
+            'Repo-only-Test übersprungen (Tool/Demo-Report fehlt)',
+          );
+          return;
+        }
+        final ver = pubspecVersion();
+        expect(ver, isNotNull, reason: 'pubspec-Version nicht gefunden');
+        // Entferne jedes Vorkommen der aktuellen Version aus der temporären Kopie.
+        final mutated = report.readAsStringSync().replaceAll(ver!, 'X.Y.Z');
+        final r = runWithReport(mutated);
+        expect(
+          r.exitCode,
+          isNot(0),
+          reason: 'Fehlende Version muss den Check rot machen:\n${r.stdout}',
+        );
+        expect('${r.stdout}', contains('demo-report-fresh'));
+        expect('${r.stdout}', contains(ver));
+      });
+
+      test('fehlende Live-Rule-ID im Demo-Report erzwingt Rot', () {
+        if (!qa.existsSync() || !report.existsSync()) {
+          markTestSkipped(
+            'Repo-only-Test übersprungen (Tool/Demo-Report fehlt)',
+          );
+          return;
+        }
+        // Entferne jedes Vorkommen einer Live-Rule-ID aus der temporären Kopie.
+        const rid = 'unused-public-exports';
+        final mutated = report.readAsStringSync().replaceAll(rid, 'gone');
+        final r = runWithReport(mutated);
+        expect(
+          r.exitCode,
+          isNot(0),
+          reason: 'Fehlende Live-Rule muss den Check rot machen:\n${r.stdout}',
+        );
+        expect('${r.stdout}', contains('demo-report-fresh'));
+        expect('${r.stdout}', contains(rid));
+      });
+    },
+  );
 }

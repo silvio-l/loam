@@ -2,6 +2,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import '../model/project_path.dart';
 import 'generated_file.dart';
 
 /// A directed Library→Library graph over the first-party `lib/` libraries of a
@@ -150,7 +151,6 @@ class ImportGraph {
 
   /// Converts an absolute path to a POSIX-relative path from [projectRoot].
   static String _toRelativePosix(String absolutePath, String projectRoot) {
-    final rel = p.relative(absolutePath, from: projectRoot);
-    return rel.replaceAll(r'\', '/');
+    return projectRelativePosixPath(absolutePath, projectRoot);
   }
 }

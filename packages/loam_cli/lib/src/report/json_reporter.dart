@@ -40,8 +40,26 @@ import 'reporter.dart';
 /// omitted entirely (not emitted as empty) when there are no recommendations,
 /// e.g. a clean (0-findings) run.
 ///
-/// Invariant 4 (pure renderer): no I/O, no exit-code logic, no thresholds.
-/// Invariant 5 (reproducible): no timestamps, no absolute paths in content;
+/// When suppression happened or a `// loam-ignore:` directive needs attention,
+/// the envelope has a `suppression` object (omitted otherwise; SARIF carries
+/// the same object under `runs[].properties.suppression`):
+/// ```json
+/// "suppression": {
+///   "evaluatedOn": "YYYY-MM-DD",  // only when a directive has `until=`
+///   "byRule": { "<ruleId>": N },  // findings suppressed per rule, sorted
+///   "notices": [ { "kind": "...", "filePath": "...", "line": N,
+///                  "ruleId": "..."|null, "message": "..." } ]
+/// }
+/// ```
+/// `kind` is one of `unused`, `expired`, `missing-reason`, `missing-rule`,
+/// `invalid-expiry`, `unknown-rule`, `misplaced-expiry`. All keys are additive:
+/// consumers must ignore unknown keys and unknown `kind` values.
+/// `evaluatedOn` is the only clock-derived value; it exists because expiry
+/// makes the result depend on the day (internal-notes, Invariante 5).
+///
+/// pure renderer, ADR 0001: no I/O, no exit-code logic, no thresholds.
+/// Invariant 5 (reproducible): no timestamps (the date-only `suppression.evaluatedOn` is the
+/// one exception), no absolute paths in content;
 /// same input always produces a byte-identical string.
 class JsonReporter implements Reporter {
   /// Creates a [JsonReporter].
@@ -76,6 +94,8 @@ class JsonReporter implements Reporter {
         'info': counts[Severity.info],
         'suppressed': payload.suppressedCount,
       },
+      if (!payload.suppressionAudit.isEmpty)
+        'suppression': payload.suppressionAudit.toJson(),
       if (stats != null)
         'scan': {
           'filesAnalyzed': stats.filesAnalyzed,
@@ -105,7 +125,7 @@ class JsonReporter implements Reporter {
     return {
       'ruleId': f.ruleId,
       'severity': f.severity.name, // 'error', 'warning', 'info'
-      'filePath': _toRelativePath(f.filePath, projectRoot),
+      'filePath': relativeReportPath(f.filePath, projectRoot),
       'line': f.line,
       'column': f.column, // null is serialised as JSON null
       'message': f.message,
@@ -121,16 +141,5 @@ class JsonReporter implements Reporter {
           'url': f.wcagRef!.url,
         },
     };
-  }
-
-  /// Converts [filePath] to a forward-slash-normalised path relative to
-  /// [projectRoot]. Mirrors `SarifReporter._toRelativeUri` (Windows safety).
-  String _toRelativePath(String filePath, String projectRoot) {
-    final rel = p.isAbsolute(filePath)
-        ? p.relative(filePath, from: projectRoot)
-        : filePath;
-    // Normalise to forward slashes (Windows safety) and strip any leading slash.
-    final forward = rel.replaceAll(r'\', '/');
-    return forward.startsWith('/') ? forward.substring(1) : forward;
   }
 }

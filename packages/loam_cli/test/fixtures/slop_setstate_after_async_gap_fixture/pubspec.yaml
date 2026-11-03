@@ -1,0 +1,11 @@
+name: slop_setstate_after_async_gap_fixture
+description: "Test fixture for SlopSetStateAfterAsyncGapRule tests."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    path: ../flutter_stub

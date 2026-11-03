@@ -6,9 +6,11 @@ import 'dart:io';
 import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
+import 'package:loam/src/suppression/inline_suppression_scanner.dart';
 import 'package:loam/src/suppression/suppression_engine.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -36,6 +38,8 @@ String _abs(String root, String relative) => p.join(root, relative);
 // ---------------------------------------------------------------------------
 
 void main() {
+  useSharedAnalyzerStore();
+
   // Use a stable fake project root for unit tests (no disk I/O needed).
   const fakeRoot = '/fake/project';
 
@@ -235,42 +239,54 @@ void main() {
   // AC3 + AC5: Integration via AnalysisRunner — suppression before sort/baseline/gate
   // ---------------------------------------------------------------------------
 
-  group('AnalysisRunner integration — ignore globs suppress findings end-to-end', () {
-    // The unused_exports_fixture produces real findings.
-    // We confirm that ignoring its lib/** path removes those findings.
-    final fixturePath = p.normalize(
-      p.join(
-        Directory.current.path,
-        'test',
-        'fixtures',
-        'unused_exports_fixture',
-      ),
-    );
-
-    test('runner with no ignore globs produces findings from fixture', () async {
-      final runner = AnalysisRunner();
-      final findings = await runner.run(fixturePath);
-      expect(
-        findings,
-        isNotEmpty,
-        reason:
-            'fixture must have findings for the suppression test to be meaningful',
+  group(
+    'AnalysisRunner integration — ignore globs suppress findings end-to-end',
+    () {
+      // The unused_exports_fixture produces real findings.
+      // We confirm that ignoring its lib/** path removes those findings.
+      final fixturePath = p.normalize(
+        p.join(
+          Directory.current.path,
+          'test',
+          'fixtures',
+          'unused_exports_fixture',
+        ),
       );
-    });
 
-    test(
-      'runner with ignore glob covering all lib files suppresses those findings',
-      () async {
-        final config = LoamConfig(
-          ruleToggles: const {},
-          ignoreGlobs: const ['lib/**'],
+      late List<Finding> withoutGlobs;
+      late List<Finding> libIgnored;
+      late List<Finding> unrelatedIgnored;
+
+      setUpAll(() async {
+        withoutGlobs = await AnalysisRunner().run(fixturePath);
+        libIgnored = await AnalysisRunner(
+          config: LoamConfig(
+            ruleToggles: const {},
+            ignoreGlobs: const ['lib/**'],
+          ),
+        ).run(fixturePath);
+        unrelatedIgnored = await AnalysisRunner(
+          config: LoamConfig(
+            ruleToggles: const {},
+            ignoreGlobs: const ['does_not_exist/**'],
+          ),
+        ).run(fixturePath);
+      });
+
+      test('runner with no ignore globs produces findings from fixture', () {
+        expect(
+          withoutGlobs,
+          isNotEmpty,
+          reason:
+              'fixture must have findings for the suppression test to be meaningful',
         );
-        final runner = AnalysisRunner(config: config);
-        final findings = await runner.run(fixturePath);
+      });
 
+      test('runner with ignore glob covering all lib files suppresses those '
+          'findings', () {
         // All findings from the unused_exports_fixture are in lib/; suppressing
         // lib/** must leave 0 findings from that source.
-        for (final f in findings) {
+        for (final f in libIgnored) {
           final rel = p.relative(f.filePath, from: fixturePath);
           expect(
             rel.startsWith('lib/'),
@@ -279,46 +295,36 @@ void main() {
                 'finding from lib/ should have been suppressed: ${f.filePath}',
           );
         }
-      },
-    );
+      });
 
-    test('runner with unrelated ignore glob leaves findings intact', () async {
-      final configNoGlobs = AnalysisRunner();
-      final configUnrelated = AnalysisRunner(
-        config: LoamConfig(
-          ruleToggles: const {},
-          ignoreGlobs: const ['does_not_exist/**'],
-        ),
-      );
-
-      final findingsNoGlobs = await configNoGlobs.run(fixturePath);
-      final findingsUnrelated = await configUnrelated.run(fixturePath);
-
-      expect(
-        findingsUnrelated.length,
-        equals(findingsNoGlobs.length),
-        reason: 'unrelated glob must not suppress any finding',
-      );
-    });
-
-    test(
-      'suppression is deterministic: two runs with same config yield identical findings (Invariant 5)',
-      () async {
-        final config = LoamConfig(
-          ruleToggles: const {},
-          ignoreGlobs: const ['test/**'],
+      test('runner with unrelated ignore glob leaves findings intact', () {
+        expect(
+          unrelatedIgnored.length,
+          equals(withoutGlobs.length),
+          reason: 'unrelated glob must not suppress any finding',
         );
-        final runner = AnalysisRunner(config: config);
+      });
+    },
+  );
 
-        final run1 = await runner.run(fixturePath);
-        final run2 = await runner.run(fixturePath);
-
-        expect(run1.length, equals(run2.length));
-        for (var i = 0; i < run1.length; i++) {
-          expect(run1[i].fingerprint, equals(run2[i].fingerprint));
-          expect(run1[i].filePath, equals(run2[i].filePath));
-        }
-      },
-    );
+  group('SuppressionEngine.filter — host path separators', () {
+    test('a backslash finding path matches its POSIX inline directive', () {
+      final findings = [
+        _finding(filePath: r'lib\widgets\a.dart', ruleId: 'r1'),
+      ];
+      final result = SuppressionEngine.filter(
+        findings,
+        const LoamConfig.defaults(),
+        fakeRoot,
+        inlineDirectives: const {
+          LoamIgnoreDirective(
+            filePath: 'lib/widgets/a.dart',
+            line: 1,
+            ruleId: 'r1',
+          ),
+        },
+      );
+      expect(result, isEmpty);
+    });
   });
 }

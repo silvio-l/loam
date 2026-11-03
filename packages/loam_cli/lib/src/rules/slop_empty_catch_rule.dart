@@ -1,12 +1,12 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
-import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import '../model/anchor.dart';
 import '../model/finding.dart';
 import '../model/fingerprint.dart';
-import 'generated_file.dart';
 import 'rule.dart';
+import 'visit_file.dart';
 
 /// Detects `catch` blocks whose body is empty or contains only comments.
 ///
@@ -19,11 +19,17 @@ import 'rule.dart';
 /// 2. **Comment-only body** — `catch (e) { // TODO }` — comments are not
 ///    statements in the Dart AST, so they do not suppress the finding.
 ///
-/// This extends the built-in `empty_catches` lint (which only catches the
-/// literal-empty variant) to also flag the comment-only variant that AI agents
-/// commonly produce when silencing a catch block with a filler comment.
+/// The official `empty_catches` lint (package:lints core) already covers the
+/// literal `{}`; loam adds the comment-only/TODO body that AI agents commonly
+/// produce, and it runs as part of the project-wide gate with baseline and
+/// ratchet.
 ///
 /// What this rule deliberately does **NOT** catch:
+/// - `catch (_) {}` and `on X catch (_) {}` with a literally empty body — the
+///   wildcard is Dart's explicit "ignored on purpose" marker (the official
+///   `empty_catches` lint treats it the same way). A comment between the
+///   braces, a named parameter (`catch (e) {}`) or `catch (_, st) {}` still
+///   count as findings.
 /// - Bodies that contain a `rethrow` — rethrow propagates the exception.
 /// - Bodies that contain a `throw` — wraps or re-raises the exception.
 /// - Bodies that contain a logging call (e.g. `log(e)`, `logger.log(e)`,
@@ -34,11 +40,12 @@ import 'rule.dart';
 ///   [isGeneratedDartFile] at the start of each file loop.
 ///
 /// **Semantic anchor (fingerprint stability):**
-/// `enclosingMemberName:catch:occurrenceIndex` — where `enclosingMemberName`
-/// is the qualified name of the surrounding function/method, and
-/// `occurrenceIndex` counts prior occurrences of the same member name within
-/// the same file. A pure line shift (adding blank lines or moving the catch
-/// clause) leaves the anchor unchanged (Invariant 5 / fingerprint semantics).
+/// `enclosingMemberName:catch:contentHash:n` — where `enclosingMemberName`
+/// is the qualified name of the surrounding function/method, `contentHash`
+/// covers the catch clause's normalised tokens (`on X catch (e, s) {}`;
+/// comments and formatting ignored) and `n` counts only earlier identical
+/// clauses in the same member. Inserting other catch clauses or code before it,
+/// or re-formatting, leaves the anchor unchanged.
 ///
 /// **Finding contract:**
 /// - `severity`: [Severity.warning]
@@ -52,8 +59,8 @@ import 'rule.dart';
 ///
 /// **Abgrenzung:**
 /// `empty_catches` (dart lint) → only literal `{}`. `slop-empty-catch` →
-/// literal `{}` AND comment-only `{ /* … */ }`.
-class SlopEmptyCatchRule implements Rule {
+/// literal `{}` with a named parameter AND comment-only `{ /* … */ }`.
+class SlopEmptyCatchRule implements FileRule {
   /// The stable rule ID for [SlopEmptyCatchRule].
   ///
   /// Exposed as a static constant so callers can filter findings by rule ID
@@ -75,26 +82,18 @@ class SlopEmptyCatchRule implements Rule {
   RuleCategory get category => RuleCategory.slop;
 
   @override
-  // loam-ignore: code-duplicates – run() body is identical boilerplate across all Rule implementations; a shared mixin would couple unrelated rule files together.
-  List<Finding> run(ProjectLoadResult result) {
-    final findings = <Finding>[];
+  List<Finding> run(ProjectLoadResult result) => runPerFile(this, result);
 
-    for (final file in result.resolved) {
-      // Skip generated files — *.g.dart, *.freezed.dart, *.mocks.dart, gen-l10n.
-      if (isGeneratedDartFile(file.path)) continue;
-
-      final relativePath = p.relative(file.path, from: projectRoot);
-
-      final visitor = _EmptyCatchVisitor(
-        ruleId: ruleId,
-        relativePath: relativePath,
-        findings: findings,
-      );
-      file.result.unit.accept(visitor);
-    }
-
-    return findings;
-  }
+  @override
+  List<Finding> runFile(LoadedFile file) => visitFile(
+    file,
+    projectRoot,
+    (relativePath, findings) => _EmptyCatchVisitor(
+      ruleId: ruleId,
+      relativePath: relativePath,
+      findings: findings,
+    ),
+  );
 }
 
 /// AST visitor that collects empty or comment-only catch clauses.
@@ -109,11 +108,7 @@ class _EmptyCatchVisitor extends RecursiveAstVisitor<void> {
   final String relativePath;
   final List<Finding> findings;
 
-  /// Occurrence counter keyed by `enclosingMemberName:catch`.
-  ///
-  /// Ensures that multiple flagged catch clauses within the same enclosing
-  /// function/method get distinct, deterministic fingerprints.
-  final Map<String, int> _occurrenceCount = {};
+  final AnchorCounter _anchors = AnchorCounter();
 
   @override
   void visitCatchClause(CatchClause node) {
@@ -130,44 +125,28 @@ class _EmptyCatchVisitor extends RecursiveAstVisitor<void> {
     // least one statement, so block.statements.isNotEmpty → not reported.
     if (block.statements.isNotEmpty) return;
 
+    // `catch (_) {}` is the explicit "ignored on purpose" marker. A comment in
+    // the braces turns it back into a finding (comment-only body).
+    if (_isIntentionalIgnore(node)) return;
+
     _addFinding(node);
   }
 
-  /// Returns the qualified name of the enclosing function or method.
-  ///
-  /// Used as part of the semantic anchor for fingerprint stability. Walks the
-  /// parent chain and returns the first [MethodDeclaration] or
-  /// [FunctionDeclaration] name it finds. Returns `'<unknown>'` when no
-  /// enclosing member is found (e.g. initialiser in a top-level variable).
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
-  String _enclosingMemberName(AstNode node) {
-    AstNode? current = node.parent;
-    while (current != null) {
-      if (current is MethodDeclaration) {
-        final className =
-            (current.parent is ClassDeclaration
-                ? (current.parent as ClassDeclaration).namePart.typeName.lexeme
-                : null) ??
-            '';
-        final method = current.name.lexeme;
-        return className.isEmpty ? method : '$className.$method';
-      }
-      if (current is FunctionDeclaration) {
-        return current.name.lexeme;
-      }
-      current = current.parent;
-    }
-    return '<unknown>';
+  /// `true` for `catch (_) {}` / `on X catch (_) {}`: a wildcard exception
+  /// parameter, no stack trace parameter and not a single comment in the body.
+  static bool _isIntentionalIgnore(CatchClause node) {
+    if (node.exceptionParameter?.name.lexeme != '_') return false;
+    if (node.stackTraceParameter != null) return false;
+    return node.body.rightBracket.precedingComments == null;
   }
 
   /// Emits a finding for the given [node] (a catch clause with an empty body).
   void _addFinding(CatchClause node) {
-    final enclosingName = _enclosingMemberName(node);
-    final counterKey = '$enclosingName:catch';
-    final idx = _occurrenceCount[counterKey] ?? 0;
-    _occurrenceCount[counterKey] = idx + 1;
-
-    final anchor = '$enclosingName:catch:$idx';
+    final enclosingName = enclosingMemberName(node);
+    final anchor = _anchors.next(
+      '$enclosingName:catch',
+      normalizedSource(node),
+    );
     final fingerprint = computeFingerprint(
       ruleId: ruleId,
       relativePath: relativePath,
@@ -196,7 +175,8 @@ class _EmptyCatchVisitor extends RecursiveAstVisitor<void> {
         remedy:
             'Handle the exception: log it (`log(e, stackTrace: st)`), rethrow '
             '(`rethrow`), or wrap it in a domain error (`throw DomainError(e)`). '
-            'If swallowing is intentional, suppress with '
+            'If swallowing is intentional, write `catch (_) {}` (the wildcard '
+            'marks it as deliberate) or suppress with '
             '`// loam-ignore: slop-empty-catch – <reason>`.',
       ),
     );

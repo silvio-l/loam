@@ -11,8 +11,11 @@ import 'package:loam/src/rules/slop_empty_catch_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -130,16 +133,34 @@ void main() {
   // AC1: Total finding count across all fixture files
   // ---------------------------------------------------------------------------
 
-  test('AC1: total findings — exactly 2 (one per positive fixture file)', () {
+  test('AC1: total findings — 2 plain positives + 2 wildcard exceptions', () {
     final findings = makeRule().run(loadResult);
     expect(
       findings,
-      hasLength(2),
+      hasLength(4),
       reason:
-          'Expected exactly 2 findings total (empty_catch + comment_only_catch). '
+          'Expected 4 findings (empty_catch, comment_only_catch and the two '
+          'in wildcard_not_silent). '
           'Got: ${findings.map((f) => "${f.filePath}:${f.line} ${f.message}").join("; ")}',
     );
   });
+
+  test('catch (_) {} and on X catch (_) {} are not flagged', () {
+    final hits = makeRule()
+        .run(loadResult)
+        .where((f) => f.filePath.endsWith('wildcard_catch.dart'));
+    expect(hits, isEmpty);
+  });
+
+  test(
+    'wildcard with a comment or a stack trace parameter is still flagged',
+    () {
+      final hits = makeRule()
+          .run(loadResult)
+          .where((f) => f.filePath.endsWith('wildcard_not_silent.dart'));
+      expect(hits, hasLength(2));
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // AC2: Negative — rethrow/throw in catch → no Finding

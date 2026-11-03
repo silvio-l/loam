@@ -9,7 +9,12 @@ import 'package:loam/src/loader/project_loader.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fixture_packages.dart';
+import '../support/shared_store.dart';
+
 void main() {
+  useSharedAnalyzerStore();
+
   // Resolve the fixture path relative to this test file's location.
   // `dart test` runs with CWD = packages/loam_cli/.
   final fixturePath = p.normalize(
@@ -20,6 +25,7 @@ void main() {
 
   setUpAll(() async {
     final loader = ProjectLoader();
+    await ensureFixtureResolved(fixturePath);
     loadResult = await loader.load(fixturePath);
   });
 

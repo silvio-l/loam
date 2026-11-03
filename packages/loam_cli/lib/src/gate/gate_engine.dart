@@ -1,5 +1,6 @@
 import '../baseline/baseline_diff.dart';
 import '../model/finding.dart';
+import '../rules/rule_profile.dart';
 
 /// The gate evaluation mode.
 ///
@@ -25,9 +26,11 @@ class GateResult {
     required this.newCount,
     required this.keptCount,
     required this.fixedCount,
+    this.advisoryCount = 0,
   });
 
-  /// Whether the gate passed (no new findings in ratchet mode).
+  /// Whether the gate passed (no new findings in ratchet mode, and — with
+  /// `strictStale` — no stale baseline entries).
   final bool passed;
 
   /// 0 when [passed], 1 when !passed.
@@ -44,6 +47,11 @@ class GateResult {
   /// Number of findings that were fixed (present in baseline but not in current run).
   /// Always 0 in absolute mode (baseline is not consulted).
   final int fixedCount;
+
+  /// Findings that would have counted as new (ratchet) or present (absolute)
+  /// but belong to a rule outside the active profile. They never change
+  /// [passed]; the CLI shows them as a hint.
+  final int advisoryCount;
 }
 
 /// Evaluates findings and returns a [GateResult] for CI.
@@ -52,8 +60,9 @@ class GateResult {
 ///
 /// **Ratchet mode** (default, Invariant 3):
 ///   - Requires [diff].
-///   - `passed = newFindings.isEmpty`
-///   - kept and fixed findings are always transparent (legacy).
+///   - `passed = newFindings.isEmpty` (and, with `strictStale`, no fixed ones)
+///   - kept and fixed findings are transparent (legacy), unless `strictStale`
+///     is set.
 ///
 /// **Absolute mode** (Slice 04):
 ///   - Requires [findings]; [diff] is ignored / not needed.
@@ -71,6 +80,13 @@ class GateEngine {
   /// - [mode] == [GateMode.absolute]: requires [findings]; [diff] is not
   ///   consulted and may be omitted. [threshold] defaults to **0**.
   ///
+  /// [profile]: only findings of rules that [RuleProfile.blocks] count toward
+  /// the decision; the rest become [GateResult.advisoryCount]. `null` means no
+  /// filtering (every rule blocks).
+  /// [strictStale] (ratchet only): stale baseline entries
+  /// ([BaselineDiff.fixedFindings]) fail the gate as well. Off by default —
+  /// improvements are then transparent.
+  ///
   /// Returns a [GateResult] with [GateResult.passed] / [GateResult.exitCode]
   /// and the breakdown counts. Never throws.
   GateResult evaluate({
@@ -78,21 +94,29 @@ class GateEngine {
     BaselineDiff? diff,
     List<Finding>? findings,
     int threshold = 0,
+    RuleProfile? profile,
+    bool strictStale = false,
   }) {
+    bool blocking(Finding f) => profile == null || profile.blocks(f.ruleId);
     switch (mode) {
       case GateMode.ratchet:
         final d = diff!;
+        final blockingNew = d.newFindings.where(blocking).length;
         return GateResult(
-          passed: d.newFindings.isEmpty,
-          newCount: d.newFindings.length,
+          passed:
+              blockingNew == 0 && !(strictStale && d.fixedFindings.isNotEmpty),
+          newCount: blockingNew,
+          advisoryCount: d.newFindings.length - blockingNew,
           keptCount: d.keptFindings.length,
           fixedCount: d.fixedFindings.length,
         );
       case GateMode.absolute:
-        final total = (findings ?? []).length;
+        final all = findings ?? [];
+        final total = all.where(blocking).length;
         return GateResult(
           passed: total <= threshold,
           newCount: total,
+          advisoryCount: all.length - total,
           keptCount: 0,
           fixedCount: 0,
         );

@@ -10,6 +10,9 @@ import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fixture_packages.dart';
+import '../support/shared_store.dart';
+
 /// Recording [ProgressSink] that captures all events for assertion.
 class _RecordingSink implements ProgressSink {
   final List<_Event> events = [];
@@ -28,6 +31,9 @@ class _RecordingSink implements ProgressSink {
   void endPhase() {
     events.add(_EndPhase());
   }
+
+  @override
+  void notice(String message) {}
 
   // Convenience: count advance events at the given position in events list.
   int advanceCount() =>
@@ -54,6 +60,8 @@ class _EndPhase implements _Event {}
 // Tests -----------------------------------------------------------------------
 
 void main() {
+  useSharedAnalyzerStore();
+
   // Use cross_file_fixture: 5 Dart files (lib/app.dart, lib/greeter.dart,
   // bin/main.dart, test/greeter_test.dart, tool/generate.dart).
   final fixturePath = p.normalize(
@@ -66,6 +74,7 @@ void main() {
 
     setUpAll(() async {
       sink = _RecordingSink();
+      await ensureFixtureResolved(fixturePath);
       loadResult = await const ProjectLoader().load(
         fixturePath,
         progressSink: sink,

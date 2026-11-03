@@ -77,6 +77,17 @@ class TtyProgressRenderer implements ProgressSink {
     _stopwatch.stop();
   }
 
+  @override
+  void notice(String message) {
+    final wasActive = _lineActive;
+    _clearLine();
+    _stderr.writeln(message);
+    if (wasActive) {
+      _lineActive = true;
+      _repaint();
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Rendering helpers
   // ---------------------------------------------------------------------------
@@ -142,4 +153,25 @@ class TtyProgressRenderer implements ProgressSink {
     final s = totalSeconds % 60;
     return '${m}m${s}s';
   }
+}
+
+/// A [ProgressSink] for runs without a progress bar: drops progress events
+/// but prints each [notice] as one line to [stderrSink] (default: stderr).
+class NoticeOnlySink implements ProgressSink {
+  /// Creates a [NoticeOnlySink].
+  NoticeOnlySink({io.IOSink? stderrSink}) : _stderr = stderrSink ?? io.stderr;
+
+  final io.IOSink _stderr;
+
+  @override
+  void startPhase(String label, {int? total}) {}
+
+  @override
+  void advance([int delta = 1]) {}
+
+  @override
+  void endPhase() {}
+
+  @override
+  void notice(String message) => _stderr.writeln(message);
 }

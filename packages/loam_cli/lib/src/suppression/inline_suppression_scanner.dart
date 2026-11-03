@@ -2,6 +2,7 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import 'suppression_audit.dart';
 
 /// A single parsed `// loam-ignore: <ruleId> – <reason>` directive.
 ///
@@ -21,6 +22,7 @@ class LoamIgnoreDirective {
     required this.filePath,
     required this.line,
     required this.ruleId,
+    this.expires,
   });
 
   /// Project-relative POSIX path of the file that contains the directive.
@@ -35,8 +37,38 @@ class LoamIgnoreDirective {
   /// The rule ID extracted from the directive (e.g. `unused-public-exports`).
   final String ruleId;
 
+  /// Last day (inclusive, calendar date, stored as UTC midnight) the directive
+  /// is active, from an optional `until=YYYY-MM-DD` token; `null` = never
+  /// expires.
+  final DateTime? expires;
+
+  /// Whether the directive has expired on the calendar day of [today].
+  ///
+  /// Only the year/month/day fields of [today] are used, **as given**: the
+  /// runner's clock returns `DateTime.now()` (local time), so the machine's
+  /// local calendar day decides; an injected UTC clock decides by its UTC day.
+  bool isExpiredOn(DateTime today) {
+    final e = expires;
+    if (e == null) return false;
+    return DateTime.utc(today.year, today.month, today.day).isAfter(e);
+  }
+
   @override
   String toString() => 'LoamIgnoreDirective($filePath:$line, $ruleId)';
+}
+
+/// Everything [InlineSuppressionScanner.scanWithIssues] found: the usable
+/// [directives] plus [issues] for malformed ones (missing rule/reason,
+/// invalid expiry date).
+class ScannedDirectives {
+  /// Creates a [ScannedDirectives].
+  const ScannedDirectives(this.directives, this.issues);
+
+  /// Valid directives (rule ID + reason present, expiry parsable).
+  final Set<LoamIgnoreDirective> directives;
+
+  /// Notices for directives that were rejected.
+  final List<SuppressionNotice> issues;
 }
 
 /// Scans resolved Dart compilation units for `// loam-ignore: <ruleId> – <reason>`
@@ -66,8 +98,10 @@ class LoamIgnoreDirective {
 /// Concretely:
 /// - Everything after `// loam-ignore:` and up to the first whitespace is the
 ///   rule ID.
+/// - An optional `until=YYYY-MM-DD` token directly after the rule ID makes the
+///   directive expire after that day (`// loam-ignore: rule until=2026-12-31 – why`).
 /// - The rest (trimmed) is the reason. If the reason is empty, the directive
-///   is invalid (Grund-Pflicht).
+///   is invalid (Grund-Pflicht) and reported by the suppression audit.
 ///
 /// ## Matching rules
 ///
@@ -97,13 +131,22 @@ abstract final class InlineSuppressionScanner {
   static Set<LoamIgnoreDirective> scan(
     ProjectLoadResult loadResult,
     String projectRoot,
+  ) => scanWithIssues(loadResult, projectRoot).directives;
+
+  /// Like [scan], but also returns a [SuppressionNotice] for every directive
+  /// that was rejected (no rule ID, no reason, invalid `until=` date) instead
+  /// of dropping it silently.
+  static ScannedDirectives scanWithIssues(
+    ProjectLoadResult loadResult,
+    String projectRoot,
   ) {
     final directives = <LoamIgnoreDirective>{};
+    final issues = <SuppressionNotice>[];
     final root = p.normalize(p.absolute(projectRoot));
 
     for (final file in loadResult.resolved) {
-      final unit = file.result.unit;
-      final lineInfo = file.result.lineInfo;
+      final unit = file.parsed.unit;
+      final lineInfo = file.parsed.lineInfo;
       // Convert to the project-relative POSIX path that Finding.filePath uses.
       final filePath = _toRelativePosix(file.path, root);
 
@@ -117,14 +160,13 @@ abstract final class InlineSuppressionScanner {
           final lexeme = comment.lexeme;
           if (lexeme.startsWith(_prefix)) {
             final location = lineInfo.getLocation(comment.offset);
-            final directive = _parseDirective(
+            final parsed = _parseDirective(
               lexeme: lexeme,
               filePath: filePath,
               line: location.lineNumber,
             );
-            if (directive != null) {
-              directives.add(directive);
-            }
+            if (parsed.directive != null) directives.add(parsed.directive!);
+            if (parsed.issue != null) issues.add(parsed.issue!);
           }
           // CommentToken.next is typed as Token? in the abstract API,
           // but for a CommentToken the next in a comment chain is always
@@ -145,50 +187,117 @@ abstract final class InlineSuppressionScanner {
       }
     }
 
-    return directives;
+    return ScannedDirectives(directives, issues);
   }
 
-  /// Parses a single `// loam-ignore: …` comment [lexeme] into a
-  /// [LoamIgnoreDirective], or returns `null` if the directive is invalid.
+  /// Parses a single `// loam-ignore: …` comment [lexeme].
   ///
-  /// Invalid cases (both silently dropped):
-  /// - The part after `// loam-ignore:` contains no non-whitespace characters
-  ///   → no rule ID.
-  /// - The directive contains a rule ID but no reason text → Grund-Pflicht
-  ///   violated.
-  static LoamIgnoreDirective? _parseDirective({
+  /// Returns the directive when valid, otherwise a [SuppressionNotice] saying
+  /// why it was rejected: no rule ID, no reason (Grund-Pflicht), or an invalid
+  /// `until=` date.
+  static ({LoamIgnoreDirective? directive, SuppressionNotice? issue})
+  _parseDirective({
     required String lexeme,
     required String filePath,
     required int line,
   }) {
+    SuppressionNotice issue(
+      SuppressionNoticeKind kind,
+      String message, [
+      String? ruleId,
+    ]) => SuppressionNotice(
+      kind: kind,
+      filePath: filePath,
+      line: line,
+      ruleId: ruleId,
+      message: message,
+    );
+
     // Strip the prefix and trim leading/trailing whitespace.
-    final rest = lexeme.substring(_prefix.length).trim();
+    var rest = lexeme.substring(_prefix.length).trim();
 
-    if (rest.isEmpty) return null; // no content at all
-
-    // The rule ID is the first whitespace-delimited token.
-    // Everything after it (trimmed) is the reason.
-    final spaceIndex = rest.indexOf(' ');
-
-    final String ruleId;
-    final String reason;
-    if (spaceIndex == -1) {
-      // Only a rule ID, no reason — Grund-Pflicht violated.
-      ruleId = rest;
-      reason = '';
-    } else {
-      ruleId = rest.substring(0, spaceIndex);
-      // Reason: strip common separators (–, -, :) and whitespace.
-      reason = rest
-          .substring(spaceIndex)
-          .replaceAll(RegExp(r'^[\s\-–:]+'), '')
-          .trim();
+    if (rest.isEmpty) {
+      return (
+        directive: null,
+        issue: issue(
+          SuppressionNoticeKind.missingRule,
+          'loam-ignore names no rule ID; write `// loam-ignore: <ruleId> – <reason>`.',
+        ),
+      );
     }
 
-    if (ruleId.isEmpty) return null;
-    if (reason.isEmpty) return null; // Grund-Pflicht: reason is mandatory
+    // The rule ID is the first whitespace-delimited token.
+    final ruleMatch = RegExp(r'^(\S+)\s*').firstMatch(rest)!;
+    final ruleId = ruleMatch.group(1)!;
+    rest = rest.substring(ruleMatch.end);
 
-    return LoamIgnoreDirective(filePath: filePath, line: line, ruleId: ruleId);
+    // Optional expiry token directly after the rule ID.
+    DateTime? expires;
+    final untilMatch = RegExp(r'^until=(\S*)\s*').firstMatch(rest);
+    if (untilMatch != null) {
+      expires = _parseDate(untilMatch.group(1)!);
+      if (expires == null) {
+        return (
+          directive: null,
+          issue: issue(
+            SuppressionNoticeKind.invalidExpiry,
+            'loam-ignore for `$ruleId` has an invalid expiry '
+            '`until=${untilMatch.group(1)}`; use a real date as '
+            '`until=YYYY-MM-DD`. The directive is ignored.',
+            ruleId,
+          ),
+        );
+      }
+      rest = rest.substring(untilMatch.end);
+    }
+
+    // Reason: strip common separators (–, -, :) and whitespace.
+    final reason = rest.replaceAll(RegExp(r'^[\s\-–:]+'), '').trim();
+    if (reason.isEmpty) {
+      return (
+        directive: null,
+        issue: issue(
+          SuppressionNoticeKind.missingReason,
+          'loam-ignore for `$ruleId` has no reason and suppresses nothing; '
+          'add one after the rule ID or remove the directive.',
+          ruleId,
+        ),
+      );
+    }
+
+    // `until=` later in the text is plain reason: the directive stays valid but
+    // never expires — say so instead of ignoring it silently.
+    final misplaced = expires == null && RegExp(r'\buntil=').hasMatch(reason);
+    return (
+      directive: LoamIgnoreDirective(
+        filePath: filePath,
+        line: line,
+        ruleId: ruleId,
+        expires: expires,
+      ),
+      issue: misplaced
+          ? issue(
+              SuppressionNoticeKind.misplacedExpiry,
+              'loam-ignore for `$ruleId` has `until=` inside the reason, so it '
+              'never expires; move it directly after the rule ID '
+              '(`// loam-ignore: $ruleId until=YYYY-MM-DD – <reason>`).',
+              ruleId,
+            )
+          : null,
+    );
+  }
+
+  /// Parses a strict `YYYY-MM-DD` calendar date to UTC midnight, or `null`.
+  static DateTime? _parseDate(String text) {
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(text);
+    if (m == null) return null;
+    final y = int.parse(m.group(1)!);
+    final mo = int.parse(m.group(2)!);
+    final d = int.parse(m.group(3)!);
+    final date = DateTime.utc(y, mo, d);
+    // Reject overflow such as 2026-02-31 (DateTime normalises to March).
+    if (date.year != y || date.month != mo || date.day != d) return null;
+    return date;
   }
 
   /// Converts [absolutePath] to a project-relative POSIX path.

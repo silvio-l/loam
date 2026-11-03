@@ -30,8 +30,10 @@ npm run preview  # gebautes dist/ lokal servieren
 
 | Pfad | Zweck |
 |---|---|
-| `src/layouts/Layout.astro` | Single Source des Chrome: Brand-Tokens, hreflang-Alternates, Versions-Chip, Footer-Links, self-hosted Spline Sans Mono. |
-| `src/pages/index.astro` | Startseite EN (`/`) — Hero, Install, GitHub-Stars-CTA. |
+| `src/layouts/Layout.astro` | Single Source des Chrome: Brand-Tokens, hreflang-Alternates, Versions-Chip, Footer-Links, self-hosted Fonts (Bricolage Grotesque + Spline Sans Mono, beide SIL OFL 1.1), Einbindung von `site.css` und `scripts/site.ts`. |
+| `src/styles/` | Designsystem: `site.css` (Tokens für Typo/Abstände, Basis-Komponenten wie `.btn`, `.cmd`, `.term`, `.prose-page`, Motion-Grundlagen) plus je Seite `home.css`, `how.css`, `rules.css` (EN + DE teilen sich die Datei). |
+| `src/scripts/site.ts` | Einziges Seiten-Skript (extern gebündelt, CSP-konform): Copy-/Share-Buttons, Matomo-Events, Skalierung der Report-Vorschau. |
+| `src/pages/index.astro` | Startseite EN (`/`) — Hero mit Install und GitHub-Stars-CTA, danach Problem → Funde → Ablauf → Belege → FAQ → Einstieg. |
 | `src/pages/how-it-works.astro` | Pipeline-Erklärung EN (`/how-it-works`). |
 | `src/pages/rules.astro` | Rule-Katalog EN (`/rules`). |
 | `src/pages/privacy.astro` | Datenschutzerklärung EN (`/privacy`). |
@@ -43,7 +45,7 @@ npm run preview  # gebautes dist/ lokal servieren
 | `src/pages/de/developer-guide.astro` | Developer & Tool Guide DE (`/de/developer-guide`) — gleicher Inhalt, DE-Hinweis. |
 | `src/content.config.ts` | Content-Layer-Loader: liest `docs/developer-guide.md` direkt aus `../docs` (Single-Source, keine Kopie). |
 | `src/i18n/` | Übersetzungsstrings (`ui.ts`) und Hilfsfunktionen (`utils.ts`, inkl. `hreflangAlternates`). |
-| `src/components/` | Astro-Komponenten (z. B. `LanguageSwitcher.astro`, `GitHubStars.astro`, `RuleCard.astro`, `GuideArticle.astro`). |
+| `src/components/` | Astro-Komponenten (z. B. `LanguageSwitcher.astro`, `GitHubStars.astro`, `RuleCard.astro`, `GuideArticle.astro`, `BrandMark.astro`, `ReportPreview.astro`, `DemoReport.astro`). |
 | `public/` | Statische Assets, die 1:1 unter `/` ausgeliefert werden (Wortmarke, Icon, Favicon, OG-Image, `robots.txt`). |
 | `astro.config.mjs` | `site: https://getloam.dev`, `output: 'static'`, `@astrojs/sitemap` mit i18n-Konfiguration. |
 | `dist/` | Build-Output (gitignored). |
@@ -67,7 +69,7 @@ npm run preview  # gebautes dist/ lokal servieren
   loam.dev, die URL ist getloam.dev.
 - **Brand-Tokens** stammen aus `assets/brand/tokens.json` (Single Source); die Werte sind
   in `src/pages/index.astro` gespiegelt und werden von `tool/docs-attest.sh check` erzwungen.
-- **Kein Anti-Vokabular** (siehe `CONTEXT.md`) in der Web-Quelle — ebenfalls von der QS geprüft.
+- **Kein Anti-Vokabular** (siehe `internal-notes`) in der Web-Quelle — ebenfalls von der QS geprüft.
 
 ## Deployment
 

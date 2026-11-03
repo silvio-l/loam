@@ -1,0 +1,36 @@
+---
+/**
+ * ReportPreview — a large, framed, non-interactive view of the real demo
+ * report (/demo-report, the exact `html` output of loam.dev) for the home page.
+ * The interactive embed lives on /how-it-works (DemoReport.astro); here the
+ * frame is `inert` so wheel and keyboard pass straight through the page, and
+ * one clear link opens the live report in a new tab.
+ *
+ * Scaling: site.ts renders the report at a fixed desktop width and scales it
+ * to the frame (so phones see the real two-column layout, not its stacked
+ * mobile variant). Without JS the iframe simply fills the frame.
+ *
+ * Same extensionless /demo-report path as DemoReport.astro — the _headers rule
+ * that allows same-origin framing is keyed to it (see csp-build.test.ts).
+ */
+import { t } from '../i18n/ui';
+import type { Locale } from '../i18n/utils';
+
+interface Props { lang: Locale; }
+const { lang } = Astro.props;
+const copy = {
+  en: { open: 'Open the live demo report', title: 'Preview of the loam.dev demo report' },
+  de: { open: 'Live-Demo-Report öffnen', title: 'Vorschau des loam.dev-Demo-Reports' },
+}[lang];
+---
+
+<figure class="report-preview rv-tilt" data-testid="home-report-preview">
+  <div class="report-preview__bar">
+    <span class="term__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="report-preview__name">loam-report.html — shopcart</span>
+    <a class="btn btn--primary btn--sm report-preview__open" href="/demo-report" target="_blank" rel="noopener" data-track="report" data-testid="home-report-open">{copy.open}<span class="ext" aria-hidden="true">↗</span><span class="sr-only"> {t(lang, 'a11y.newTab')}</span></a>
+  </div>
+  <div class="report-preview__viewport" data-report-scale="1200">
+    <iframe src="/demo-report" title={copy.title} loading="lazy" tabindex="-1" inert aria-hidden="true"></iframe>
+  </div>
+</figure>

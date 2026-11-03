@@ -7,11 +7,15 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../../bin/loam.dart' as cli;
+import '../support/cli_runner.dart';
+import '../support/shared_store.dart';
 
 /// CLI-level proof for AC3: a malformed/invalid `loam.yaml` run through a
 /// command's `run()`/`_loadConfig` dispatch yields a clean error message and a
 /// non-zero exit code — and NO raw Dart stacktrace surfaces (stacktrace-free).
 void main() {
+  useSharedAnalyzerStore();
+
   late Directory tempDir;
 
   setUp(() {
@@ -93,47 +97,17 @@ rules:
     },
   );
 
-  // ---------------------------------------------------------------------------
-  // Subprocess: stderr carries a clean one-line message and NO raw stacktrace
-  // ---------------------------------------------------------------------------
+  test('malformed loam.yaml → stderr message without stacktrace', () async {
+    File(
+      p.join(tempDir.path, 'loam.yaml'),
+    ).writeAsStringSync('rules: {broken: yaml: here\n');
 
-  test(
-    'scan with malformed loam.yaml → clean stderr message, no stacktrace',
-    () {
-      File(
-        p.join(tempDir.path, 'loam.yaml'),
-      ).writeAsStringSync('rules: {broken: yaml: here\n');
+    final r = await runCli(['scan', '--project-root', tempDir.path]);
 
-      final entrypoint = '${Directory.current.path}/bin/loam.dart';
-      final result = Process.runSync(Platform.executable, [
-        'run',
-        entrypoint,
-        'scan',
-        '--project-root',
-        tempDir.path,
-      ]);
-
-      expect(result.exitCode, isNot(0));
-      final err = result.stderr as String;
-      // Clean, human-readable message present.
-      expect(err.trim(), isNotEmpty);
-      expect(err, contains('config error'));
-      // No raw Dart stacktrace markers.
-      expect(
-        err,
-        isNot(contains('#0 ')),
-        reason: 'stderr must not contain a raw stacktrace frame',
-      );
-      expect(
-        err,
-        isNot(contains('package:yaml')),
-        reason: 'stderr must not leak internal package frames',
-      );
-      expect(
-        err,
-        isNot(contains('Unhandled exception')),
-        reason: 'exception must be caught, not crash the process',
-      );
-    },
-  );
+    expect(r.exitCode, isNot(0));
+    expect(r.stderr.trim(), isNotEmpty);
+    expect(r.stderr, isNot(contains('#0 ')));
+    expect(r.stderr, isNot(contains('package:yaml')));
+    expect(r.stderr, isNot(contains('Unhandled exception')));
+  });
 }

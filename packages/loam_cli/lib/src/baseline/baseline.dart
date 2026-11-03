@@ -1,3 +1,7 @@
+/// Current fingerprint scheme. `2`: anchors consist of scope plus normalised
+/// content, not of running occurrence numbers (issue #3).
+const currentFingerprintScheme = 2;
+
 /// A single entry in the baseline — the authoritative diff key plus readable
 /// non-authoritative context for git diffs and human inspection.
 ///
@@ -35,6 +39,7 @@ class Baseline {
     required this.schemaVersion,
     required this.rulesetVersion,
     required this.findings,
+    this.fingerprintScheme = 1,
   });
 
   /// Schema version for forward-compatibility (currently 1).
@@ -45,6 +50,16 @@ class Baseline {
 
   /// Ruleset identifier derived from the active rule set (e.g. `ruleset@<n>`).
   final String rulesetVersion;
+
+  /// Version of the fingerprint scheme the findings were recorded with.
+  ///
+  /// Absent in baselines written before content-based anchors (issue #3) and
+  /// read as `1`; those fingerprints depended on running occurrence numbers
+  /// and are matched transitionally (see [BaselineEngine.diff]).
+  final int fingerprintScheme;
+
+  /// Whether this baseline predates the current fingerprint scheme.
+  bool get isLegacyScheme => fingerprintScheme < currentFingerprintScheme;
 
   /// Stably sorted findings (same order as [AnalysisRunner] output).
   final List<BaselineFinding> findings;

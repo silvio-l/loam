@@ -1,0 +1,7 @@
+# No tight wall-clock budget per test (test strategy: no stopwatch limits in
+# the suite). Most tests drive the real analyzer in-process (~1 s per CLI run
+# idle, 10 s+ on a loaded machine), so the 30 s default measured machine load
+# instead of behaviour. A test that overran it kept running in the background
+# and broke the next one. The 15 min ceiling only stops a genuine hang, so it
+# cannot block the shared CI runner indefinitely.
+timeout: 15m

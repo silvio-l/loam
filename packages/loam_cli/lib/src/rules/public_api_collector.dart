@@ -1,8 +1,8 @@
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/source/line_info.dart';
-import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import '../model/project_path.dart';
 import 'codegen_input_classifier.dart';
 import 'generated_file.dart';
 
@@ -49,8 +49,10 @@ class PublicApiCandidate {
 /// - Private symbols (name starts with `_`).
 /// - Generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`).
 /// - `main` functions (entrypoints must never be reported as unused).
-/// - Symbols annotated with `@visibleForTesting`, `@pragma`, `@internal`,
-///   or `@visibleForOverriding`.
+/// - Symbols annotated with `@visibleForTesting`, `@pragma` (which includes the
+///   dependency-free marker `@pragma('loam:reserved')`), `@internal`,
+///   `@visibleForOverriding`, `@protected` or any annotation named in
+///   [extraAnnotations].
 /// - Symbols in libraries that re-export them via `export` directives
 ///   (re-exported symbols are part of the public API).
 /// - **Code-gen input members**: public members of classes that are identified
@@ -70,7 +72,12 @@ class PublicApiCandidate {
 /// exactly one candidate regardless of how many fragments the library has.
 class PublicApiCollector {
   /// Creates a [PublicApiCollector].
-  const PublicApiCollector();
+  const PublicApiCollector({this.extraAnnotations = const {}});
+
+  /// Additional annotation names (`@Name` / `@Name(...)`) that mark a
+  /// declaration as deliberately public, on top of the built-in ones
+  /// (`unused_public_exports.annotations` in `loam.yaml`).
+  final Set<String> extraAnnotations;
 
   static const _codegenClassifier = CodegenInputClassifier();
 
@@ -380,6 +387,9 @@ class PublicApiCollector {
 
       final memberName = method.name ?? '';
       if (memberName.isEmpty || memberName.startsWith('_')) continue;
+      // Called by the runtime without a static reference (jsonEncode ->
+      // toJson, string interpolation -> toString, `obj()` on dynamic -> call).
+      if (_dynamicallyInvokedMembers.contains(memberName)) continue;
 
       if (!seenIds.add(method.id)) continue;
 
@@ -496,10 +506,7 @@ class PublicApiCollector {
   ///
   /// The code-gen input class itself remains a top-level candidate (conservative
   /// default: only its *members* are excluded here).
-  static bool _isMemberEligibleEnclosingType(
-    Element element,
-    Set<int> reExported,
-  ) {
+  bool _isMemberEligibleEnclosingType(Element element, Set<int> reExported) {
     final name = element.name ?? '';
     if (name.isEmpty || name.startsWith('_')) return false;
     if (reExported.contains(element.id)) return false;
@@ -508,6 +515,15 @@ class PublicApiCollector {
     if (_codegenClassifier.classify(element).isCodegenInput) return false;
     return true;
   }
+
+  /// Method names the Dart runtime or core libraries invoke dynamically, so a
+  /// missing static call site does not mean the member is unused.
+  static const _dynamicallyInvokedMembers = {
+    'toJson',
+    'toString',
+    'noSuchMethod',
+    'call',
+  };
 
   /// Returns `true` if [executable] carries an explicit `@override` annotation.
   static bool _hasMemberOverrideAnnotation(ExecutableElement executable) {
@@ -590,11 +606,18 @@ class PublicApiCollector {
   ///
   /// `@visibleForOverriding` (package:meta) marks a declaration as intended
   /// for overriding only, not direct use — excluded conservatively.
-  static bool _hasConservativeAnnotation(Element element) {
+  bool _hasConservativeAnnotation(Element element) {
     for (final annotation in element.metadata.annotations) {
       if (annotation.isVisibleForTesting) return true;
       if (annotation.isInternal) return true;
       if (annotation.isVisibleForOverriding) return true;
+      // @protected members are extension points for subclasses; an unused one
+      // is deliberate API, not dead code.
+      if (annotation.isProtected) return true;
+      if (extraAnnotations.isNotEmpty &&
+          extraAnnotations.contains(_annotationName(annotation))) {
+        return true;
+      }
       // @pragma is a dart:core constructor — detect via element type/name.
       final annotationElement = annotation.element;
       if (annotationElement is ConstructorElement &&
@@ -604,6 +627,15 @@ class PublicApiCollector {
       }
     }
     return false;
+  }
+
+  /// The simple name of the annotation: the constant's name for `@name`, the
+  /// class name for `@Name(...)`. `null` when the annotation is unresolved.
+  static String? _annotationName(ElementAnnotation annotation) {
+    final element = annotation.element;
+    if (element is ConstructorElement) return element.enclosingElement.name;
+    if (element is PropertyAccessorElement) return element.name;
+    return element?.name;
   }
 
   /// Collects all element ids that are re-exported via `export` directives in
@@ -651,7 +683,6 @@ class PublicApiCollector {
 
   /// Returns a POSIX path relative to [projectRoot].
   static String _toRelativePosix(String absolutePath, String projectRoot) {
-    final rel = p.relative(absolutePath, from: projectRoot);
-    return rel.replaceAll(r'\', '/');
+    return projectRelativePosixPath(absolutePath, projectRoot);
   }
 }

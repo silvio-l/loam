@@ -5,7 +5,7 @@ import 'package:pub_semver/pub_semver.dart';
 
 /// Interface for fetching the latest published version from pub.dev.
 ///
-/// Implementations are injected into [UpdateChecker] so that the network
+/// Implementations are injected into the update worker so that the network
 /// call can be replaced by a [FakeLatestVersionFetcher] in tests.
 abstract interface class LatestVersionFetcher {
   /// Fetches the latest stable version for the given [packageName].

@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../../bin/loam.dart' as cli;
+import '../support/shared_store.dart';
 
 /// In-process E2E matrix: drives the real CLI entrypoint (`cli.run`) across
 /// every command × format and asserts the **exit-code contract**. This is the
@@ -15,6 +16,8 @@ import '../../bin/loam.dart' as cli;
 /// per-reporter CLI tests and is intentionally not re-asserted here so the
 /// matrix survives message-wording changes.
 void main() {
+  useSharedAnalyzerStore();
+
   final fix = p.normalize(
     p.join(
       Directory.current.path,
@@ -90,8 +93,8 @@ environment:
   });
 
   group('gate', () {
-    test('gate without baseline → exit 1', () async {
-      expect(await cli.run(['gate', '--project-root', clean.path]), 1);
+    test('gate without baseline → exit 66', () async {
+      expect(await cli.run(['gate', '--project-root', clean.path]), 66);
     });
     test('gate --absolute on clean (greenfield) → exit 0', () async {
       expect(
@@ -161,6 +164,30 @@ environment:
     });
   });
 
+  group('slop / a11y with findings → exit 1', () {
+    test('slop on unjustified ignores → exit 1', () async {
+      final f = p.join(
+        Directory.current.path,
+        'test',
+        'fixtures',
+        'slop_unjustified_ignore_fixture',
+      );
+      expect(await cli.run(['slop', '--project-root', f]), 1);
+    });
+    test('a11y on missing image label → exit 1', () async {
+      final f = p.join(
+        Directory.current.path,
+        'test',
+        'fixtures',
+        'a11y_image_label_fixture',
+      );
+      expect(await cli.run(['a11y', '--project-root', f]), 1);
+    });
+    test('a11y on clean project → exit 0', () async {
+      expect(await cli.run(['a11y', '--project-root', clean.path]), 0);
+    });
+  });
+
   group('stub commands → EX_USAGE (64)', () {
     test('fix → exit 64', () async {
       expect(await cli.run(['fix', '--project-root', fix]), 64);
@@ -174,6 +201,13 @@ environment:
   });
 
   group('usage errors → EX_USAGE (64)', () {
+    test('unknown flag → exit 64', () async {
+      expect(await cli.run(['--does-not-exist']), 64);
+    });
+    test('no subcommand and --help → exit 0', () async {
+      expect(await cli.run([]), 0);
+      expect(await cli.run(['--help']), 0);
+    });
     test('unknown --format → exit 64', () async {
       expect(
         await cli.run(['scan', '--format', 'bogus', '--project-root', fix]),

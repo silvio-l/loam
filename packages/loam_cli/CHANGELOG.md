@@ -1,7 +1,343 @@
 # Changelog
 
-## Unreleased
+## 0.1.16
 
+- **The HTML report has the loam.dev look.** `loam scan --format html` now
+  uses the website's brand: dark canvas, brand mark and `loam.dev` wordmark in
+  the header, the project name as the title, and a clear order — Health-Score,
+  counts by severity and by rule, findings with `file:line` in monospace, and
+  the Fix-Prompt. Each finding now shows its remedy. The layout works from
+  375 px phones up to ultrawide screens (sticky overview and Fix-Prompt
+  columns, finding cards side by side on very wide screens) and respects
+  reduced motion. The report stays one offline file and embeds no font: it
+  uses the brand fonts when they are installed and system fonts otherwise.
+- **New rule: `slop-undisposed-resource`.** Reports a field of a Flutter `State`
+  (or of a class with its own `dispose()`) that the class creates itself - a
+  `TextEditingController`, `FocusNode`, `ValueNotifier`, `Timer.periodic` and
+  the like - but that `dispose()` never releases. The field's resolved type
+  must offer `dispose`, `close` or `cancel` (`close`/`cancel` only from the Dart
+  SDK or third-party packages, so `MenuController.close()` does not count);
+  a release in `dispose()`, in a list or loop, with `?.` or in a helper method
+  it calls counts as released. Values from parameters, `widget.x` or lookups
+  are not reported. Part of the `strict` profile (warning); suppressible with
+  `// loam-ignore: slop-undisposed-resource - <reason>` and baseline-able.
+- **New rule `slop-assertion-free-test`** (profile `strict`, severity info):
+  reports a `test(…)`/`testWidgets(…)` whose body never asserts — no
+  `expect`, `expectLater`, `fail`, `verify*`, `check`, `expectAsync*`, `assert`
+  or `throw`, neither in the body nor in a project function it calls (up to three
+  hops). A call of a function-typed parameter or field counts as an assertion,
+  so wrappers like `appTest(name, body)` are fine. Tests with `skip:` are ignored.
+  Own assertion helpers go under `slop_assertion_free_test.assertion_functions`
+  in `loam.yaml`.
+- **Fix: fingerprints no longer depend on line endings.** Content anchors read
+  multi-line string literals with their raw line breaks, so a CRLF checkout
+  (Windows, `core.autocrlf=true`) gave findings around such strings other
+  fingerprints than an LF checkout, and a baseline written on one system
+  reported them as new on the other. Line breaks inside tokens are now read as
+  LF; fingerprints of LF files do not change. The placeholder-comment message
+  quotes block comments with LF breaks too.
+- **`loam gate` marks new findings.** In the human output every finding line
+  carries a baseline column: `new` for findings missing from `baseline.json`,
+  blank for frozen ones, so a red ratchet names its cause. JSON and SARIF stay
+  as they are (SARIF already has `baselineState`).
+- **Fix: fewer false alarms from the three accessibility rules.**
+  `a11y-icon-button-label` no longer reports an `IconButton` inside a
+  `Tooltip(message: …)` or with an `Icon(…, semanticLabel: …)`;
+  `a11y-image-label` no longer reports an image under `Semantics(label: …)`,
+  `Semantics(excludeSemantics: true)` or `ExcludeSemantics`, and now also checks
+  dot-shorthand images (`Image logo = .asset(…)`); `a11y-form-field-label`
+  accepts `InputDecoration(label: Text(…))`. The remedies name these options,
+  and the form-field remedy says `hintText` is only a fallback.
+- **Fix: `unused-public-exports` no longer reports `toJson`, `toString`,
+  `noSuchMethod` and `call`.** Dart's core libraries call these without a
+  static call site (`jsonEncode(x)` runs `x.toJson()`), so a missing reference
+  does not mean they are unused. Members of enums, mixins, extensions and
+  extension types are now recognised as part of their own declaration, like
+  class members.
+- **Fix: `slop-empty-catch` accepts `catch (_) {}`.** The wildcard is Dart's
+  marker for "ignored on purpose" (the official `empty_catches` lint agrees),
+  so `catch (_) {}` and `on X catch (_) {}` with a literally empty body are no
+  longer flagged. `catch (e) {}`, a wildcard with a comment in the body and
+  `catch (_, st) {}` are still reported. The rule text now says plainly that
+  the official `empty_catches` lint already covers the literal `{}` and that
+  loam adds comment-only bodies and the project-wide gate.
+- **Fix: `complexity-hotspots` counts the Dart 3 constructs modern code
+  branches with.** Switch expressions (one point per arm, the `_` catch-all
+  free), collection `if` / `for` elements in lists, maps and sets, `if (x case
+  P when g)` conditions and `||` / `&&` patterns now add to cyclomatic and
+  cognitive complexity by the same rules as their statement and operator
+  counterparts (collection elements and switch expressions nest like
+  `if` / `for` / `switch`). Complexity and the `loam health` score were too
+  low for such code. The ruleset version changes (`ruleset@…`), and existing
+  baselines may report new `complexity-hotspots` findings for functions that
+  were just under a threshold: review them, then refreeze with
+  `loam baseline --update`.
+- **Fix: sharper findings in five rules.** `slop-unjustified-ignore` no longer
+  reacts to `/// ignore:` doc comments or `// ignore:` text in strings, and now
+  reports `// ignore: type=lint` without a reason. `hardcoded-secrets` finds
+  credentials in parameter default values (`{this.password = '…'}`); Google
+  `AIza…` keys are a warning that asks you to restrict the key, because
+  Google treats such keys as client identifiers. `architecture-boundaries`
+  documents that only imports are checked, not exports. `slop-unimplemented-stub`
+  treats a `mixin class` like a mixin template. `slop-narrative-comment` flags
+  a framed label only for a real frame (`=== LABEL ===`), no longer for
+  comments such as `// __init__ … __dispose__` or `**Note** … **bold**`.
+- **Fix: Windows runs keep their analyzer store and leave no temp files.** On
+  Windows the analyzer's store flush does nothing, so a run that exited right
+  away lost pending writes and left `*-temp-*` files behind. loam now waits for
+  the pending writes (at most one minute) before it closes the store and
+  removes temp files older than an hour. `loam watch` now reports changed files
+  with forward slashes on Windows too.
+- **Fix: the HTML report opens on Windows when its path contains `&` or `^`.**
+  `--format html` started the browser through `cmd /c start`, which cut such
+  a path at `&` and ran the rest as a command. It now hands the path to the
+  Windows shell directly.
+- **Fix: `--format json` and `--format sarif` keep stdout a pure document.**
+  Summary lines and notes go to stderr for every machine-readable format, and
+  `loam gate` prints an empty document when there are no findings, so the
+  output can be piped straight into a parser.
+- **New rule: `slop-setstate-after-async-gap`.** Reports `setState(…)` in a
+  Flutter `State` that can run after the screen was closed: after an `await`
+  (also inside `try`, or in `catch`/`finally` of an awaiting `try`), or in a
+  `Future.then` / `whenComplete` / `catchError` callback, with no `mounted`
+  check in between. `if (!mounted) return;`, `if (!context.mounted) return;`,
+  `if (mounted) …` and `mounted ? … : …` count as guards. Only Flutter's
+  `State.setState` counts, resolved on the element model; a project's own
+  wrapper such as `safeSetState` is not reported. Unclear control flow is not
+  reported either. Part of the `strict` profile (warning); suppressible with
+  `// loam-ignore: slop-setstate-after-async-gap – <reason>` and
+  baseline-able.
+- **New rule: `slop-tautological-assertion`.** Reports `expect` / `expectLater`
+  calls that cannot fail: a constant literal checked against a literal,
+  `equals(<constant>)` or a constant matcher (`expect(true, isTrue)`,
+  `expect(1, 1)`, `expect(null, isNull)`), or a value compared with itself
+  (`expect(x, x)`). Only the `expect` from `package:test`, `flutter_test` or
+  `matcher` counts, resolved on the element model. Collection literals with
+  variables or `for` elements, records with identifiers and `expect(x, isTrue)`
+  are not reported. Part of the `core` profile (warning); suppressible with
+  `// loam-ignore: slop-tautological-assertion – <reason>` and baseline-able.
+- **New rule: `architecture-boundaries`.** Reports `import` edges that cross a
+  forbidden layer boundary from `layers:` / `boundaries:` in `loam.yaml`: one
+  finding per forbidden file-to-file edge at the import line, naming the
+  importing layer, the target layer and both files, with a remedy that says how
+  to invert the dependency. It reads only the configured architecture and never
+  detects layers itself, so without boundaries it reports nothing. Part of the
+  `core` profile (it fires only for boundaries the project wrote down).
+  Suppressible with `// loam-ignore: architecture-boundaries – <reason>` and
+  baseline-able like any other rule. Layer directories may be written as
+  `./lib/core/` or `lib\core`; an absolute path, the project root itself, or
+  one outside the project is a config error.
+- **`slop-unimplemented-stub`: no false alarm for a `PlatformInterface` chain
+  across files.** A class whose `extends` chain leaves the file is now treated
+  as a plugin platform interface when the first foreign superclass is named
+  `…Platform` or the file imports a `…platform_interface` library. The rule
+  stays on the parse path (no resolution); a missed stub is preferred over a
+  false alarm.
+- **`loam init` detects architecture layers and writes them to `loam.yaml`.**
+  From the well-known directories under `lib/` (`core`, `domain`, `data`,
+  `features` ...) it derives **Layers** and the forbidden **Boundaries** between
+  them and writes both as visible `layers:` / `boundaries:` entries. Detection
+  runs only in `init`; a normal run never re-detects, and an existing
+  `loam.yaml` is never overwritten. With fewer than two layers or no derivable
+  boundary nothing is written. The `architecture-boundaries` rule
+  reports violations.
+- **Suppression audit: evaluation date and misplaced `until=`.** The `suppression`
+  object in JSON and SARIF gains `evaluatedOn` (`YYYY-MM-DD`, only when a
+  `// loam-ignore:` directive has an expiry date), so a report states which day
+  its expiry decisions were made on. An `until=` written inside the reason text
+  (instead of directly after the rule ID) is now reported as the new notice
+  kind `misplaced-expiry` rather than silently ignored; the directive stays valid.
+- **`a11y-interactive-semantics` reports a swallowed name once, at the
+  wrapper.** A project widget that never routes a name to
+  `Semantics(label:)`, a tooltip or a `Text` inside its tapped area is now one
+  finding at its class declaration, no matter how many call sites or forwarding
+  wrappers use it; those call sites are no longer reported. A call that omits
+  the name of a wrapper that does take one is still reported at the call. A
+  `Text` next to an unnamed icon button no longer counts as its name, and a
+  field handed to a widget inside the tapped area (`child:`) leaves the wrapper
+  unjudged. The fingerprint is anchored on the wrapper name, so a baseline may
+  list the old call-site entries as stale (`loam baseline --prune`).
+  Wrappers that swallow the name and build each other are reported once (at
+  the one whose library URI and class name sort first) instead of not at all.
+- **Docs: platform-neutral hook and CI invocation.** The pre-commit recipe and
+  the CI guidance now use `dart pub global run loam …`, which does not depend on
+  where pub puts its shim (`%LOCALAPPDATA%\Pub\Cache\bin` on Windows,
+  `~/.pub-cache/bin` elsewhere).
+- **Two new slop rules.** `slop-placeholder-comment` flags a comment whose whole
+  text stands in for missing code (`// ... rest of code`, `// ... existing code
+  ...`, `// your code here`); longer prose that merely mentions the rest of the
+  code is never flagged. `slop-unimplemented-stub` flags functions, methods,
+  getters and setters in `lib/`/`bin/` whose entire body is `throw
+  UnimplementedError()` (matched by name on the parse tree, so slop-only runs
+  stay parse-only), except template members of
+  abstract/sealed classes and mixins, `PlatformInterface` subclasses, tests and
+  generated files. Both are `strict` profile, so they never block the default
+  gate. The third rule planned in #14, TODO without a reference, is not part of
+  this change (open product question, see #76).
+- **Fix: member anchors name the class again (`Class.method`).** With the
+  current analyzer AST the class body is its own node, so the owner lookup
+  found nothing and findings in class members were anchored as just `method`;
+  same-named methods of different classes in one file shared a scope. Affects
+  the `a11y-*` rules and `slop-empty-catch`. **Fingerprints of findings inside
+  class, mixin, enum, extension and extension type members change once.** Existing baselines
+  report them as new plus stale: refresh the baseline with
+  `loam baseline --update` to adopt the new anchors. Top-level
+  functions are unaffected.
+- **New command: `loam watch` for local iteration.** Runs the full audit once,
+  then again after every change to a Dart file, `pubspec.yaml`,
+  `analysis_options.yaml` or `loam.yaml`, and prints what is new (`+`) and
+  resolved (`-`). Every run analyses the whole project on top of the persistent
+  analyzer store, so cross-file findings (cycles, unused exports, duplicates)
+  match a full `loam scan`. Bursts of saves become one run (`--debounce`,
+  default 300 ms). SIGINT/SIGTERM end it cleanly with exit 0; `--timeout` does
+  not apply. Human output only. Changed files are named with `/` on every
+  platform.
+
+- **Stale baseline entries are reported and can be removed.** `loam gate`
+  (ratchet) names baseline entries whose finding no longer occurs, per rule, on
+  stderr (the "gefixt" count). `loam baseline --prune` removes exactly those
+  entries: it takes in nothing new, keeps the ruleset version and fingerprint
+  scheme of the file and replaces `baseline.json` atomically. `loam gate
+  --strict-baseline` (or `strict_baseline: true` in `loam.yaml`; the flag
+  overrides, `--no-strict-baseline` turns it off) makes stale entries turn the
+  gate red, so CI can force the cleanup. With `--staged`/`--since`/`--changed`
+  only entries of the selected files count; `--prune` is always project-wide and
+  rejects `--write`/`--update`.
+
+- **Fix: test suite no longer needs a manual `pub get` per fixture.** Ten test
+  files (circular dependencies, import graph, public API collector, unused
+  public exports, agent-proof contract, project loader, complexity collector,
+  progress sink, suppression audit) failed with `LoadFileError` on any
+  fresh checkout, first seen on Windows, because the gitignored
+  `package_config.json` of their fixture packages was missing. They now resolve
+  the fixture themselves (`test/support/fixture_packages.dart`). Tests only.
+- **Fix: self-update locks have exactly one owner.** The state and worker locks
+  are now operating-system file locks (macOS, Linux, Windows) instead of a lock
+  file with a timestamp. Two runs can no longer both take an expired lock, and
+  a crashed run frees its lock by itself.
+- **Faster resolving with a persistent analyzer store.** The analyzer keeps
+  its summaries of the SDK, the dependencies and the project's libraries in
+  `.dart_tool/loam/analyzer/` between runs, which roughly halves the resolve
+  phase on a warm store. Results are identical with and without it; a
+  damaged store is ignored, and if loading with it fails loam says so on
+  stderr, deletes it and continues without it. The store is trimmed to 512 MB
+  per project root (least recently used entries first). Switch it off with
+  `--no-cache` or `cache: false` in `loam.yaml`.
+- **`loam slop` only parses.** When every active rule reads nothing but the
+  file itself (`hardcoded-secrets` and the four `slop-*` rules, e.g.
+  `loam slop` or a config that leaves only those), the project is parsed
+  instead of resolved, which takes a fraction of the time. Inline suppressions
+  and their audit work as before. Behaviour change: in such runs files with
+  semantic errors (an unresolved import, an undefined name) are now checked
+  too; only syntax errors still exclude a file.
+- **Intended patterns are no longer reported.** `code-duplicates` skips
+  boilerplate methods (`copyWith`, `==`, `hashCode`, `toString`, `toJson`/
+  `toMap`, `fromJson`/`fromMap`, equatable `props`), recognised by name and
+  form; `unused-public-exports` also respects `@protected`, the dependency-free
+  marker `@pragma('loam:reserved')` and project annotations. Configure via the
+  new `code_duplicates:` (`boilerplate`, `boilerplate_methods`) and
+  `unused_public_exports:` (`annotations`) sections in `loam.yaml`.
+- **`--timing`.** Any analysing command prints wall-clock time per phase
+  (setup, resolve or parse, rules, suppression, update-check; report for `scan`) and per
+  rule to stderr, so a slow run shows where the time goes. stdout is unchanged.
+- **Fix: fingerprints no longer depend on running numbers (new fingerprint
+  scheme 2).** `slop-empty-catch`, `slop-unjustified-ignore` and the
+  `a11y-form-field-label`, `a11y-icon-button-label`, `a11y-interactive-semantics`
+  and `a11y-image-label` rules used an occurrence counter as anchor, so adding
+  or removing one finding turned every later finding of that kind into a "new"
+  one and forced baseline refreshes. The anchor is now the scope plus the
+  normalised content of the flagged construct (formatting, comments and closure
+  bodies do not count); a counter only separates truly identical findings in
+  the same scope. Scope detection now also covers mixins, enums, extensions and
+  extension types. **Migration:** `baseline.json` records `fingerprintScheme: 2`.
+  An older baseline keeps working: findings whose fingerprint changed are
+  matched to baseline entries by rule, file and message, so the gate stays
+  green and prints a one-time note. Run `loam baseline --update` once to
+  upgrade the file.
+- **Suppressions are now auditable.** `// loam-ignore:` directives that
+  suppress nothing (`unused`), have no reason or rule ID, name an unknown rule,
+  or carry an invalid or expired date are reported as warnings by `scan` and
+  `gate`, instead of being dropped silently. A directive can carry an optional
+  expiry, `// loam-ignore: <ruleId> until=YYYY-MM-DD – reason`; after that day it
+  stops suppressing and the finding returns. Reports show how many findings each
+  rule had suppressed (`json`/`sarif` get a `suppression` object). The warnings
+  never change the exit code and never enter the baseline: only findings decide
+  the gate.
+- **A run never hangs silently: `--timeout`.** `loam` now aborts a run that
+  takes longer than 10 minutes (override with `--timeout <duration>` or
+  `LOAM_TIMEOUT`, e.g. `90s`, `30m`, `1h`; `0`/`off` disables it). The message
+  on stderr names the phase and rule that was running and how to raise the
+  limit; the exit code is `124` (distinct from `1` findings, `64` usage, `78`
+  config), so a hook can tell a timeout from a red gate. stdout stays clean.
+  Raised after a `loam gate` hung in a pre-commit hook under high load.
+- **Only report changed files: `--staged`, `--since <ref>`, `--changed`.**
+  `loam scan` and `loam gate` can narrow report and gate to the files git lists
+  as changed, for example as a pre-commit hook (`loam gate --staged`) or a PR
+  check (`loam gate --since origin/main`). The analysis stays project-wide so
+  cross-file rules keep their full context; in ratchet mode the baseline diff is
+  computed project-wide first, so unchanged files are never counted as fixed.
+  Outside a git repository or with an unknown ref, loam exits with 64.
+- **`a11y-interactive-semantics` reads your own wrapper widgets.** A widget
+  defined in the project whose `build()` routes a name to `Semantics(label:)`,
+  a `Tooltip`, a `label`/`semanticLabel`/`tooltip` argument or a `Text` (also
+  through further wrappers, up to four levels, each class analysed once) is
+  accepted at its call sites, whatever the parameter is called. A wrapper that
+  swallows its label is still reported, even when the call site passes
+  `label:`. Wrappers that cannot be read keep the call-site check.
+- **Rule profiles: `core` blocks, `strict` is opt-in.** `loam gate` now blocks
+  only on rules of the active profile. `core` (default) holds the rules with a
+  near-zero false-positive rate: `circular-dependencies`,
+  `unused-public-exports`, `slop-empty-catch`, `slop-unjustified-ignore`,
+  `hardcoded-secrets`. `strict` adds the heuristic and threshold-based ones
+  (comment slop, `code-duplicates`, `complexity-hotspots`, `a11y-*`). Findings
+  of the other rules still run and appear as one hint line. Choose with
+  `loam gate --profile strict` or `profile: strict` in `loam.yaml` (CLI wins;
+  unknown value: exit 64 / 78). `baseline.json` and the `ruleset@…` hash do not
+  depend on the profile. **Behaviour change:** a gate that only failed on
+  `strict`-profile rules is now green; set `profile: strict` to keep the old
+  behaviour. The website rules page shows the profile of each rule.
+- **Compact output for agents, fuller SARIF, distinct exit code.** New
+  `--format agent` lists the highest-impact findings first (severity, rule,
+  path, line) and stops at `--max-findings` (default 20, `0` = all); the last
+  line says how many were left out and how to see them all. Other formats are
+  unchanged and always list everything. SARIF now carries `rules` with help
+  text, `ruleIndex`, `partialFingerprints` (the baseline fingerprint) and, in
+  `loam gate`, `baselineState` (`new`, `unchanged`, and `absent` for fixed
+  entries). `loam gate` without a `baseline.json` now exits 66 instead of 1, so
+  CI can tell "could not run" from "gate red". Exit codes are documented in the
+  developer guide.
+- **Fix: `// loam-ignore:` works on Windows.** Eight rules (`a11y-*` and
+  `slop-*`) reported finding paths with backslashes on Windows, while inline
+  directives and baseline entries use forward slashes. No inline suppression
+  matched there, so suppressed findings failed the gate as new. All rules now
+  report project-relative POSIX paths on every OS.
+- **Auto-update, unless pinned.** The update check left the hot path: it runs
+  at most once a day in a detached background process, and the next run
+  reports the result. A `dart pub global activate` install and a standalone
+  release binary now update themselves (the binary only after the archive
+  matches the release's `.sha256`; releases now publish these files). Homebrew,
+  source and git/path installs keep the notice with the right command. The
+  first run after an update names the rules it added or removed, and a gate
+  that turns red on a changed ruleset says so. New `loam.yaml` keys:
+  `required_version` (pub constraint; never updated, `loam gate` stops with
+  exit 78 on a mismatch) and `auto_update: false`; new environment variables
+  `LOAM_NO_AUTO_UPDATE` and `LOAM_OFFLINE`. CI detection now covers common CI
+  variables beyond `CI`/`GITHUB_ACTIONS`.
+- **Fix: install channel of `dart pub global activate` installs.** loam ran as
+  a snapshot under the Dart VM, so channel detection looked at the `dart`
+  binary; with a Homebrew-installed Dart SDK a pub install was reported as
+  Homebrew. Detection now uses the snapshot path; `loam --version` shows it.
+- **New rule: `hardcoded-secrets` (slop).** Flags plaintext credentials in string
+  literals, offline and without any value leaving the rule. Two paths: known
+  provider formats anywhere (AWS access key id, GitHub, Stripe live, Google API,
+  Slack, Anthropic and OpenAI keys, PEM private keys with a key body; severity
+  error) and credential-named sites (`password`, `apiKey`, `clientSecret`,
+  `authToken`, ... as variable, named argument, assignment or map key) holding a
+  high-entropy value (severity warning). Placeholders, env-var and storage-key
+  names, `String.fromEnvironment` / `Platform.environment` reads, tests,
+  fixtures, `example/`, generated files and `firebase_options.dart` are not
+  reported. The value never appears in messages, reports, baseline or
+  fingerprint; suppress with `// loam-ignore: hardcoded-secrets - <reason>`.
 - **Fix: `code-duplicates` fingerprints are now truly position-robust.** The
   fingerprint used to include the start line of every copy, so adding a line
   above a duplicated block (for example a new field in a settings file) turned

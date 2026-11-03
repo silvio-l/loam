@@ -594,4 +594,135 @@ void f(bool flag) {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Dart 3 constructs (one per construct; cyclomatic / cognitive).
+  // -------------------------------------------------------------------------
+
+  group('Dart 3 constructs', () {
+    ComplexityMetrics of(String source) => calc.calculate(_bodyOf(source));
+
+    test('switch expression: +1 per non-wildcard arm, nesting-aware', () {
+      // Switch: cognitive 1. Arms 1 and 2: cyclomatic +2. `_` arm: free.
+      expect(
+        of('int f(int x) => switch (x) { 1 => 10, 2 => 20, _ => 0 };'),
+        ComplexityMetrics(cyclomatic: 3, cognitive: 1),
+      );
+    });
+
+    test('switch expression inside an if nests one level deeper', () {
+      expect(
+        of('''
+int f(bool b, int x) {
+  if (b) {
+    return switch (x) { 1 => 10, _ => 0 };
+  }
+  return 0;
+}
+'''),
+        // if: cyclo+1 cog+1; switch: cog 1+1; one arm: cyclo+1.
+        ComplexityMetrics(cyclomatic: 3, cognitive: 3),
+      );
+    });
+
+    test('guard on a switch expression arm counts as a decision', () {
+      expect(
+        of('int f(int x) => switch (x) { int n when n > 0 => 1, _ => 0 };'),
+        // arm +1, when +1; switch cog 1, when cog 1.
+        ComplexityMetrics(cyclomatic: 3, cognitive: 2),
+      );
+    });
+
+    test('collection if element', () {
+      expect(
+        of('List<int> f(bool b) => [1, if (b) 2];'),
+        ComplexityMetrics(cyclomatic: 2, cognitive: 1),
+      );
+    });
+
+    test('collection if/else-if/else chain mirrors the statement rules', () {
+      expect(
+        of('List<int> f(bool a, bool b) => [if (a) 1 else if (b) 2 else 3];'),
+        // if +1/+1, else-if +1/+1 (flat), plain else cog +1.
+        ComplexityMetrics(cyclomatic: 3, cognitive: 3),
+      );
+    });
+
+    test('collection for element', () {
+      expect(
+        of('List<int> f(List<int> xs) => [for (final x in xs) x];'),
+        ComplexityMetrics(cyclomatic: 2, cognitive: 1),
+      );
+    });
+
+    test('collection for with a nested if element nests', () {
+      expect(
+        of('List<int> f(List<int> xs) => [for (final x in xs) if (x > 0) x];'),
+        // for 1+0, if 1+1.
+        ComplexityMetrics(cyclomatic: 3, cognitive: 3),
+      );
+    });
+
+    test('map and set literals use the same collection elements', () {
+      expect(
+        of('Map<int, int> f(bool b) => {if (b) 1: 2};'),
+        ComplexityMetrics(cyclomatic: 2, cognitive: 1),
+      );
+      expect(
+        of('Set<int> f(bool b) => {if (b) 1};'),
+        ComplexityMetrics(cyclomatic: 2, cognitive: 1),
+      );
+    });
+
+    test('if-case statement counts the if', () {
+      expect(
+        of('void f(Object x) { if (x case int()) print(x); }'),
+        ComplexityMetrics(cyclomatic: 2, cognitive: 1),
+      );
+    });
+
+    test('if-case with a when guard counts the guard', () {
+      expect(
+        of('void f(Object x) { if (x case int n when n > 0) print(n); }'),
+        ComplexityMetrics(cyclomatic: 3, cognitive: 2),
+      );
+    });
+
+    test('if-case in a collection with a when guard', () {
+      expect(
+        of('List<int> f(Object x) => [if (x case int n when n > 0) n];'),
+        ComplexityMetrics(cyclomatic: 3, cognitive: 2),
+      );
+    });
+
+    test('logical-or pattern counts like ||', () {
+      expect(
+        of('''
+void f(Object x) {
+  switch (x) {
+    case int() || String():
+      break;
+  }
+}
+'''),
+        // switch cog 1, case +1, `||` +1/+1.
+        ComplexityMetrics(cyclomatic: 3, cognitive: 2),
+      );
+    });
+
+    test('chained logical-or pattern is one cognitive run', () {
+      expect(
+        of('int f(Object x) => switch (x) { 1 || 2 || 3 => 1, _ => 0 };'),
+        // switch 1, arm +1, two `||` cyclo +2, one run cog +1.
+        ComplexityMetrics(cyclomatic: 4, cognitive: 2),
+      );
+    });
+
+    test('logical-and pattern counts like &&', () {
+      expect(
+        of('int f(Object x) => switch (x) { num() && int() => 1, _ => 0 };'),
+        ComplexityMetrics(cyclomatic: 3, cognitive: 2),
+      );
+    });
+  });
 }

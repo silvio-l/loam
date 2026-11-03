@@ -8,8 +8,11 @@ import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/rules/codegen_input_classifier.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(Directory.current.path, 'test', 'fixtures', 'codegen_input_fixture'),
   );

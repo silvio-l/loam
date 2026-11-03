@@ -20,8 +20,11 @@ import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/rules/unused_public_exports_rule.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   // Resolve fixture paths relative to CWD (packages/loam_cli/ when run with
   // `dart test`).
   final unusedExportsFixture = p.normalize(

@@ -1,0 +1,7 @@
+name: boilerplate_fixture
+description: "Test fixture for the boilerplate filter of code-duplicates."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0

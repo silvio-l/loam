@@ -19,13 +19,15 @@ void main() {
       );
     });
 
-    test('windows uses cmd /c start with an empty title slot', () {
+    test('windows hands the path to the shell, never through cmd', () {
+      // `&` and `^` are cmd syntax: through `cmd /c start` the path would be
+      // cut at `&` and the rest run as a command.
+      const path = r'C:\a&b^c\loam-report.html';
+      final command = browserOpenCommand(path, operatingSystem: 'windows')!;
+      expect(command.first, isNot(anyOf('cmd', 'cmd.exe')));
       expect(
-        browserOpenCommand(
-          r'C:\tmp\loam-report.html',
-          operatingSystem: 'windows',
-        ),
-        equals(['cmd', '/c', 'start', '', r'C:\tmp\loam-report.html']),
+        command,
+        equals(['rundll32', 'url.dll,FileProtocolHandler', path]),
       );
     });
 

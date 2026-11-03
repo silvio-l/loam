@@ -1,7 +1,7 @@
 /// loam.dev — codebase intelligence & anti-AI-slop for Dart/Flutter.
 ///
-/// Public library surface. See CONTEXT.md for the canonical vocabulary
-/// and PRD (`docs/PRD.md`) for the architecture.
+/// Public library surface. See internal-notes for the canonical vocabulary
+/// and PRD (`internal-notes`) for the architecture.
 library;
 
 export 'src/command/loam_command.dart';

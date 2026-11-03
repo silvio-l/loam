@@ -1,16 +1,16 @@
 # loam.dev
 
-> loam.dev is a Dart CLI (command: `loam`) for codebase intelligence and anti-AI-slop on Dart and Flutter projects. It surfaces unused public API, circular dependencies and complexity hotspots as Findings, then holds them behind a Baseline so the CI Gate fails only on new regressions (Ratchet mode). It is built on the Dart `analyzer` package — semantic, element-level analysis rather than regex heuristics. Runs locally and in CI; deterministic and offline by default.
+> loam.dev is a Dart CLI (command: `loam`) for codebase intelligence and anti-AI-slop on Dart and Flutter projects. It finds what `dart analyze` does not see — structural drift (unused public API, circular dependencies, architecture-boundary violations, code duplicates, complexity hotspots), AI slop (empty catch blocks, unjustified `// ignore:`, filler and placeholder comments, unimplemented stubs, tests without an assertion, tautological assertions, undisposed resources, `setState` after an async gap, hardcoded secrets) and accessibility gaps (WCAG) — as Findings, then holds them behind a Baseline so the CI Gate fails only on new ones (Ratchet mode). It is built on the Dart `analyzer` package — semantic, element-level analysis rather than regex heuristics. Runs locally and in CI; deterministic and offline by default.
 
 The product name is always `loam.dev`; `loam` is the CLI command and the pub.dev package name. The canonical web domain is `getloam.dev`.
 
 ## Core concepts
 
-- A **Rule** is one analysis unit (unused public API, circular dependencies, complexity hotspots, slop). Each capability is a Rule behind one interface.
+- A **Rule** is one analysis unit (for example unused public API, circular dependencies, code duplicates, empty catch blocks, missing semantic labels). Each capability is a Rule behind one interface; twenty are live.
 - A **Finding** is a single result: `{ ruleId, severity, location, message, fingerprint }`.
 - The **Baseline** (`baseline.json`) freezes accepted Findings. The **Gate** is the pass/fail decision with a CI exit code.
 - **Ratchet** (default) fails only on new Findings; **Absolute** mode uses fixed thresholds.
-- `loam scan` runs a baseline-independent full audit; `loam health` reports complexity/health; `loam gate` is the CI check; `loam baseline --write` freezes the current state.
+- `loam scan` runs a baseline-independent full audit; `loam watch` repeats it after every file change; `loam health` reports complexity/health; `loam gate` is the CI check; `loam baseline --write` freezes the current state.
 
 ## Docs
 

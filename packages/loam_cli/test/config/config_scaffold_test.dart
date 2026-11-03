@@ -8,8 +8,11 @@ import 'package:loam/src/config/config_scaffold.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   // ---------------------------------------------------------------------------
   // AC1: ConfigScaffold produces a deterministic string (golden test).
   // ---------------------------------------------------------------------------

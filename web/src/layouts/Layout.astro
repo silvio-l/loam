@@ -5,18 +5,25 @@
  * Brand-Tokens (CSS :root): bg=#101014, ink=#ECEAE3, green=#88C840,
  *   soil=#564F47, dim=#8D8A7E — identisch zu assets/brand/tokens.json.
  *
- * Versions-Chip: v0.1.15 · preview (muss zur pubspec.yaml version passen).
+ * Versions-Chip: v0.1.16 · preview (muss zur pubspec.yaml version passen).
  *
  * Footer-Link: Developer-Guide (On-Site-Route /developer-guide bzw. /de/developer-guide).
  *
- * Font-Import-Slot: vorbereitet für self-hosted Spline Sans Mono (issue 04).
- * KEIN Link zu fonts.googleapis.com / gstatic (Privacy-Constraint).
+ * Fonts (self-hosted via @fontsource, alle SIL OFL 1.1): Bricolage Grotesque
+ * (Display + Fließtext, Akzente nur per Farbe/Gewicht — bewusst keine Serif),
+ * Spline Sans Mono (Code, CLI-Ausgabe, Labels; Marken-Mono). KEIN Link zu fonts.googleapis.com / gstatic
+ * (Privacy-Constraint). Designsystem: src/styles/site.css.
  */
+import '@fontsource-variable/bricolage-grotesque/opsz.css';
 import '@fontsource/spline-sans-mono/400.css';
 import '@fontsource/spline-sans-mono/500.css';
 import '@fontsource/spline-sans-mono/600.css';
+import '../styles/site.css';
 import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import WebVitals from '../components/WebVitals.astro';
+import BrandMark from '../components/BrandMark.astro';
+import GitHubStars from '../components/GitHubStars.astro';
+import { githubStars } from '../lib/github-stars';
 import { hreflangAlternates } from '../i18n/utils';
 import { t } from '../i18n/ui';
 import type { Locale } from '../i18n/utils';
@@ -30,6 +37,7 @@ interface Props {
 }
 
 const { lang, title, description, path } = Astro.props;
+const stars = await githubStars();
 // Trailing-Slash-Form (Directory-Format): canonical, hreflang-Alternates und
 // der LanguageSwitcher nutzen denselben normalisierten Pfad wie die Sitemap-
 // <loc>-Einträge — so stimmen alle URL-Signale exakt überein.
@@ -42,7 +50,7 @@ const ogImage = 'https://getloam.dev/og-image.png';
 // SoftwareApplication macht loam für Google/Bing als Dev-Tool maschinenlesbar
 // (Kategorie, OS, gratis); Organization bündelt sameAs (GitHub) + Logo.
 // Bewusst KEIN aggregateRating, solange keine echten Reviews existieren.
-// Die description ist die geprüfte pubspec-Beschreibung (Anti-Vokabular-konform).
+// Die description folgt Tagline und Claims der Root-README (Anti-Vokabular-konform).
 const structuredData = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -53,7 +61,7 @@ const structuredData = {
       applicationCategory: 'DeveloperApplication',
       operatingSystem: 'Windows, macOS, Linux',
       description:
-        'Codebase intelligence for Dart & Flutter: finds unused public API, circular dependencies and complexity hotspots behind a baseline/ratchet CI gate.',
+        'Codebase intelligence & anti-AI-slop for Dart & Flutter: finds structural drift, AI slop and accessibility gaps that dart analyze does not see, behind a baseline/ratchet CI gate that fails only on new findings.',
       offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
       author: { '@type': 'Organization', name: 'loam.dev', url: 'https://getloam.dev/' },
     },
@@ -70,10 +78,11 @@ const structuredData = {
 // Hauptnavigation (locale-scharf). Labels aus i18n/ui.ts; die aktive Seite wird
 // über den normalisierten Pfad markiert, damit jede Seite von jeder erreichbar ist.
 const navBase = lang === 'de' ? '/de' : '';
+const homeHref = lang === 'de' ? '/de/' : '/';
 const navItems = [
-  { href: `${navBase}/how-it-works/`, label: t(lang, 'nav.howItWorks') },
-  { href: `${navBase}/rules/`, label: t(lang, 'nav.rules') },
-  { href: `${navBase}/developer-guide/`, label: t(lang, 'nav.docs') },
+  { id: 'how-it-works', href: `${navBase}/how-it-works/`, label: t(lang, 'nav.howItWorks') },
+  { id: 'rules', href: `${navBase}/rules/`, label: t(lang, 'nav.rules') },
+  { id: 'docs', href: `${navBase}/developer-guide/`, label: t(lang, 'nav.docs') },
 ];
 ---
 
@@ -113,247 +122,56 @@ const navItems = [
   <!-- Structured Data (JSON-LD): SoftwareApplication + Organization -->
   <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
 
-  <!-- Self-hosted Spline Sans Mono via @fontsource — no third-party font CDN requests.
+  <!-- Self-hosted fonts via @fontsource (Bricolage Grotesque,
+       Spline Sans Mono; all SIL OFL 1.1) — no third-party font CDN requests.
        Font CSS is imported via ESM in the frontmatter so Vite bundles the woff2 files. -->
   <style is:inline>
     /* Brand-Tokens — identisch zu assets/brand/tokens.json (Corporate Design).
-       88C840 = green | 564F47 = soil | ECEAE3 = ink | 101014 = bg          */
+       88C840 = green | 564F47 = soil | ECEAE3 = ink | 101014 = bg
+       Everything else in the design system (src/styles/site.css) derives from
+       these tokens; no other hues are introduced.                           */
     :root{
       --bg:#101014; --ink:#ECEAE3; --green:#88C840; --soil:#564F47; --dim:#8D8A7E;
-      --panel:#15171c; --line:#23252b;
-      --font:'Spline Sans Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-      --wm:clamp(248px,46vw,430px);
-      /* Shared content-column width — single source for the prose column and
-         any element that must flush with it (e.g. the DE guide hint box). */
-      --prose-width:72ch;
-    }
-    *{ box-sizing:border-box; margin:0; padding:0; }
-    *:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 2px; }
-    body{
-      min-height:100svh; background:var(--bg); color:var(--ink);
-      font-family:var(--font); position:relative; overflow-x:hidden;
-      display:flex; flex-direction:column;
-    }
-    body::before{ content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
-      background:
-        radial-gradient(60% 50% at 50% 28%, rgba(136,200,64,.10) 0%, rgba(136,200,64,0) 60%),
-        linear-gradient(180deg,#0e0f13 0%, #101014 55%, #0e0f0d 100%); }
-    body::after{ content:""; position:fixed; inset:0; z-index:2; pointer-events:none; opacity:.05;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-    .grid{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
-      background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
-                       linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
-      background-size:64px 64px; mask-image:radial-gradient(80% 70% at 50% 35%,#000 30%,transparent 78%); }
-
-    header{ position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between;
-      flex-wrap:wrap; gap:.5rem clamp(.8rem,2vw,1.6rem);
-      padding:clamp(1.1rem,3vw,1.8rem) clamp(1.2rem,5vw,3rem); }
-
-    .header-left{ display:flex; align-items:center; gap:clamp(.9rem,2.5vw,2rem); flex-wrap:wrap; }
-    .mainnav{ display:flex; align-items:center; flex-wrap:wrap; gap:clamp(.6rem,1.8vw,1.4rem); }
-    .mainnav .navlink{ font-size:.74rem; letter-spacing:.12em; text-transform:uppercase;
-      color:var(--dim); text-decoration:none; padding:.3rem 0; border-bottom:1px solid transparent; transition:.18s; }
-    .mainnav .navlink:hover, .mainnav .navlink:focus-visible{ color:var(--ink); }
-    .mainnav .navlink.active{ color:var(--green); border-bottom-color:var(--green); }
-    @media (max-width:560px){ .chip{ display:none; } }
-    .brand{ display:flex; align-items:center; gap:.6rem; text-decoration:none; }
-    .brand .b-dot{ width:.5rem; height:.5rem; border-radius:50%; background:var(--green); box-shadow:0 0 12px var(--green); }
-    .wm-sm{ height:1.05rem; width:auto; display:block; }
-    .header-right{ display:flex; align-items:center; gap:.8rem; }
-    .chip{ font-size:.7rem; letter-spacing:.16em; text-transform:uppercase; color:var(--green);
-      border:1px solid rgba(136,200,64,.28); border-radius:999px; padding:.42rem .8rem; background:rgba(136,200,64,.05); }
-
-    main{ position:relative; z-index:3; flex:1; }
-
-    .strata{ position:fixed; left:0; right:0; bottom:0; height:34vh; z-index:1; pointer-events:none;
-      background:linear-gradient(180deg, transparent 0%, rgba(86,79,71,.0) 30%, rgba(86,79,71,.30) 72%, rgba(86,79,71,.55) 100%);
-      mask-image:linear-gradient(180deg,transparent,#000 60%); }
-    .strata::before{ content:""; position:absolute; left:0; right:0; bottom:0; height:120px;
-      background:repeating-linear-gradient(180deg, rgba(86,79,71,.16) 0 10px, rgba(0,0,0,0) 10px 22px); opacity:.6; }
-
-    footer{ position:relative; z-index:3; text-align:center; padding:1.4rem; font-size:.74rem; color:var(--dim); letter-spacing:.04em; }
-    footer .accent{ color:var(--soil); }
-    footer a{ color:var(--dim); text-decoration:none; border-bottom:1px solid rgba(141,138,126,.3); padding-bottom:1px; transition:.18s; }
-    footer a:hover, footer a:focus-visible{ color:var(--green); border-color:var(--green); }
-
-    @keyframes rise{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
-    @media (prefers-reduced-motion:reduce){ *{ animation:none !important; } }
-
-    /* ─── Shared prose-page typography (Single Source — Slice 01) ──────────────
-       Consumed by all hand-authored content pages (how-it-works, rules, privacy)
-       EN + DE. Colors/measures come exclusively from :root brand tokens above.
-       Page-specific layout blocks (pipeline steps, scan/gate cards, rules cards,
-       privacy section:first-of-type) remain local in their respective pages.
-       Markdown-only elements (pre, blockquote, hr, table/th/td) are intentionally
-       deferred to Slice 2 (developer-guide) to preserve optical equivalence on the
-       6 hand-authored pages (none of them use those elements).                   */
-    .prose-page {
-      max-width: var(--prose-width);
-      margin: 0 auto;
-      padding: 3rem clamp(1.2rem, 5vw, 3rem) 5rem;
-      line-height: 1.7;
-    }
-    .prose-page h1 {
-      font-size: clamp(1.6rem, 4vw, 2.4rem);
-      font-weight: 600;
-      color: var(--ink);
-      margin-bottom: 1rem;
-    }
-    .lead {
-      color: var(--dim);
-      font-size: .95rem;
-      margin-bottom: 2.8rem;
-      border-left: 2px solid var(--green);
-      padding-left: 1rem;
-    }
-    .prose-page h2 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--green);
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      margin: 2.8rem 0 1rem;
-    }
-    .prose-page h3 {
-      font-size: .95rem;
-      font-weight: 600;
-      color: var(--ink);
-      margin: 0 0 .3rem;
-    }
-    .prose-page p {
-      color: var(--dim);
-      font-size: .9rem;
-      margin-bottom: .8rem;
-    }
-    .prose-page ul,
-    .prose-page ol {
-      color: var(--dim);
-      font-size: .9rem;
-      padding-left: 1.4rem;
-      margin-bottom: .8rem;
-    }
-    .prose-page ul li,
-    .prose-page ol li {
-      margin-bottom: .4rem;
-    }
-    .prose-page a {
-      color: var(--ink);
-      text-decoration: none;
-      border-bottom: 1px solid rgba(236,233,225,.3);
-      padding-bottom: 1px;
-      transition: .18s;
-    }
-    .prose-page a:hover, .prose-page a:focus-visible {
-      color: var(--green);
-      border-color: var(--green);
-    }
-    .prose-page code {
-      color: var(--ink);
-      background: rgba(255,255,255,.05);
-      padding: .05em .4em;
-      border-radius: 5px;
-      font-size: .88em;
-    }
-    .prose-page section {
-      border-top: 1px solid var(--line);
-      padding-top: .4rem;
-    }
-    /* ── Markdown variant: h2 section separator (Slice 02) ───────────────────
-       Hand-authored pages use <section> wrappers; .prose-page section supplies
-       the border-top. Markdown output has no <section>, so .prose-page--md h2
-       gets its own top border. Scoped to avoid doubling on hand-authored pages. */
-    .prose-page--md h2 {
-      padding-top: 1.4rem;
-      border-top: 1px solid var(--line);
-    }
-    /* ── Markdown-rendered element rules (added Slice 02) ──────────────────────
-       Used by GuideArticle (developer-guide pages). Hand-authored content pages
-       never emit these elements, so there is no display change for them.
-       RuleCard's <pre> lives inside .prose-page on rules pages; its
-       .example-block pre rules (border:none;border-radius:0) in RuleCard.astro
-       neutralise the cascade so rules pages stay pixel-identical.              */
-    .prose-page pre {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 1rem 1.1rem;
-      overflow-x: auto;
-      margin: 0 0 1.2rem;
-    }
-    .prose-page pre code {
-      background: none;
-      padding: 0;
-      font-size: .82rem;
-      line-height: 1.6;
-      color: var(--ink);
-    }
-    .prose-page blockquote {
-      border-left: 2px solid var(--green);
-      padding: .2rem 0 .2rem 1rem;
-      margin: 0 0 1rem;
-      color: var(--dim);
-      font-size: .9rem;
-    }
-    .prose-page blockquote p {
-      margin-bottom: .4rem;
-    }
-    .prose-page hr {
-      border: 0;
-      border-top: 1px solid var(--line);
-      margin: 2.2rem 0;
-    }
-    .prose-page table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 0 0 1.2rem;
-      font-size: .86rem;
-    }
-    .prose-page th,
-    .prose-page td {
-      border: 1px solid var(--line);
-      padding: .45rem .6rem;
-      text-align: left;
-      color: var(--dim);
-    }
-    .prose-page th {
-      color: var(--green);
-    }
-    .prose-page strong {
-      color: var(--ink);
+      --panel:#15171c; --panel-2:#1a1c22; --line:#23252b; --line-strong:#33363d;
+      --green-a12:rgba(136,200,64,.12); --green-a40:rgba(136,200,64,.4);
+      --green-a50:rgba(136,200,64,.5); --green-a70:rgba(136,200,64,.7);
+      --soil-a30:rgba(86,79,71,.3); --soil-a55:rgba(86,79,71,.55);
+      --flag:#E0785F; --flag-a14:rgba(224,120,95,.14);
     }
   </style>
 </head>
 <body>
-  <div class="grid"></div>
+  <a class="skip-link" href="#main" data-testid="layout-skip-link">{lang === 'de' ? 'Zum Inhalt springen' : 'Skip to content'}</a>
 
-  <header>
-    <div class="header-left">
-      <a class="brand" href={lang === 'de' ? '/de/' : '/'} aria-label="loam.dev">
-        <span class="b-dot"></span>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href={homeHref} aria-label="loam.dev" data-testid="layout-brand">
+        <BrandMark class="brand__mark" />
         <img class="wm-sm" src="/wordmark.svg" alt="loam.dev" width="480" height="120">
       </a>
-      <nav class="mainnav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
+      <nav class="mainnav" data-testid="layout-main-nav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
         {navItems.map(item => (
           <a
             href={item.href}
+            data-testid={`layout-nav-${item.id}`}
             class:list={["navlink", { active: normalizedPath === item.href }]}
             aria-current={normalizedPath === item.href ? 'page' : undefined}
           >{item.label}</a>
         ))}
       </nav>
-    </div>
-    <div class="header-right">
-      <!-- Versions-Chip: v0.1.15 · preview — muss zur pubspec.yaml version passen -->
-      <span class="chip">v0.1.15 · preview</span>
-      <LanguageSwitcher lang={lang} path={normalizedPath} />
+      <div class="header-right">
+        <!-- Versions-Chip: v0.1.16 · preview — muss zur pubspec.yaml version passen -->
+        <span class="chip">v0.1.16 · preview</span>
+        <LanguageSwitcher lang={lang} path={normalizedPath} />
+        <GitHubStars initialCount={stars} ariaLabel={t(lang, 'stars.ariaLabel')} />
+        <a class="btn btn--primary btn--sm header-cta" href={`${homeHref}#install`} data-testid="layout-nav-install">{t(lang, 'nav.install')}</a>
+      </div>
     </div>
   </header>
 
-  <main>
+  <main id="main" tabindex="-1">
     <slot />
   </main>
-
-  <div class="strata"></div>
 
   <!-- Matomo Analytics — prod-only, cookiefrei, DSGVO-konfiguriert.
        Site-ID 3 = loam (getloam.dev). Deaktiviert im Dev-Server via import.meta.env.PROD. -->
@@ -380,16 +198,26 @@ _paq.push(["enableLinkTracking"]);
   <!-- Core Web Vitals (RUM) → Matomo custom events. First-party bundled, prod-only. -->
   {import.meta.env.PROD && <WebVitals enabled={true} />}
 
-  <footer>
-    <a href={lang === 'de' ? '/de/developer-guide/' : '/developer-guide/'}>{t(lang, 'footer.devGuide')}</a>
-    &nbsp;<span class="accent">·</span>&nbsp;
-    <a href={lang === 'de' ? '/de/privacy/' : '/privacy/'}>{t(lang, 'footer.privacy')}</a>
-    &nbsp;<span class="accent">·</span>&nbsp;
-    <a href="https://github.com/silvio-l/loam" target="_blank" rel="noopener">GitHub</a>
-    &nbsp;<span class="accent">·</span>&nbsp;
-    <a href="https://silvio-lindstedt.de" target="_blank" rel="noopener me">{t(lang, 'footer.author')}</a>
-    &nbsp;<span class="accent">·</span>&nbsp;
-    {t(lang, 'footer.copyright')}
+  <footer class="site-footer">
+    <div class="wrap site-footer__inner">
+      <div class="site-footer__brand">
+        <BrandMark class="site-footer__mark" />
+        <img class="site-footer__wm" src="/wordmark.svg" alt="loam.dev" width="480" height="120" loading="lazy">
+        <p class="site-footer__tag">{t(lang, 'footer.tagline')}</p>
+      </div>
+      <nav class="site-footer__links" aria-label={t(lang, 'footer.navLabel')}>
+        <a href={`${navBase}/how-it-works/`} data-testid="layout-footer-how">{t(lang, 'nav.howItWorks')}</a>
+        <a href={`${navBase}/rules/`} data-testid="layout-footer-rules">{t(lang, 'nav.rules')}</a>
+        <a href={lang === 'de' ? '/de/developer-guide/' : '/developer-guide/'} data-testid="layout-footer-guide">{t(lang, 'footer.devGuide')}</a>
+        <a href={lang === 'de' ? '/de/privacy/' : '/privacy/'} data-testid="layout-footer-privacy">{t(lang, 'footer.privacy')}</a>
+        <a href="https://github.com/silvio-l/loam" target="_blank" rel="noopener" data-testid="layout-footer-github">GitHub<span class="ext" aria-hidden="true">↗</span><span class="sr-only"> {t(lang, 'a11y.newTab')}</span></a>
+        <a href="https://silvio-lindstedt.de" target="_blank" rel="noopener me" data-testid="layout-footer-author">{t(lang, 'footer.author')}<span class="ext" aria-hidden="true">↗</span><span class="sr-only"> {t(lang, 'a11y.newTab')}</span></a>
+      </nav>
+      <p class="site-footer__legal">{t(lang, 'footer.copyright')}</p>
+    </div>
   </footer>
+  <!-- Site behaviour (copy buttons, share, scene progress fallback): one bundled
+       first-party module from 'self' — no inline JS, so no CSP hash needed. -->
+  <script>import '../scripts/site.ts';</script>
 </body>
 </html>

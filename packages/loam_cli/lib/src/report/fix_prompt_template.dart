@@ -1,7 +1,7 @@
 /// Versioniertes Fix-Prompt-Template für den interaktiven HTML-Report.
 ///
 /// Das Template ist eine Dart-Konstante und trägt den expliziten `prompt@ver`-
-/// Marker gemäß CONTEXT.md (`VerdictCache`, `prompt@ver`, Invariante 5).
+/// Marker gemäß internal-notes (`VerdictCache`, `prompt@ver`, Invariante 5).
 ///
 /// Design-Entscheidung (issue 07):
 /// - Das Template-String-Format wird sowohl von der Dart-Funktion
@@ -19,7 +19,7 @@
 ///   [kGenericFixHint]. Die Map ist Teil der Versionierung (`prompt@ver`):
 ///   eine Änderung hier erfordert eine neue `prompt@ver`.
 ///
-/// Invariante 4 (pure renderer): Keine I/O, keine Schwellen, keine LLM-Calls.
+/// pure renderer, ADR 0001: Keine I/O, keine Schwellen, keine LLM-Calls.
 /// Invariante 5 (reproduzierbar): Gleiche Auswahl ⇒ byte-identischer Prompt.
 library;
 

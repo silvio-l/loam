@@ -138,7 +138,9 @@ void main() {
       expect(
         ex.message,
         contains(
-          p.join('/opt/homebrew/share/flutter', 'bin', 'cache', 'dart-sdk'),
+          p.normalize(
+            p.join('/opt/homebrew/share/flutter', 'bin', 'cache', 'dart-sdk'),
+          ),
         ),
       );
       // Steering, not a stacktrace.

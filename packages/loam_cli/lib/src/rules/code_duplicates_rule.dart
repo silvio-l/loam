@@ -1,4 +1,5 @@
 import '../config/loam_config.dart' show kDefaultSourceDirs;
+import '../duplicates/boilerplate_matcher.dart';
 import '../duplicates/duplicate_code_collector.dart';
 import '../loader/project_loader.dart';
 import '../model/finding.dart';
@@ -25,6 +26,10 @@ import 'rule.dart';
 /// - **Severity:** [Severity.warning] — consistent with
 ///   `circular-dependencies` / `complexity-hotspots` / `unused-public-exports`.
 ///
+/// Intentional boilerplate methods (`copyWith`, `operator ==`, `hashCode`,
+/// `toString`, `toJson`/`toMap`, `fromJson`/`fromMap`, equatable `props`) are
+/// skipped by [BoilerplateMatcher]; such bodies are meant to look alike.
+///
 /// The rule never crashes when [ProjectLoadResult.errors] is non-empty; it
 /// analyses the resolvable files only (same robustness contract as all Rules).
 ///
@@ -39,6 +44,7 @@ class CodeDuplicatesRule implements Rule {
     required this.projectRoot,
     DuplicateCodeCollector? collector,
     this.sourceDirs = kDefaultSourceDirs,
+    this.boilerplate = const BoilerplateMatcher(),
   }) : _collector = collector ?? const DuplicateCodeCollector();
 
   /// Absolute path of the project being analysed.
@@ -48,6 +54,11 @@ class CodeDuplicatesRule implements Rule {
   /// `test/`, `tool/` and `example/` are excluded unless added via
   /// `source_dirs` in `loam.yaml` — consistent with `complexity-hotspots`.
   final List<String> sourceDirs;
+
+  /// Which methods count as intentional boilerplate and are not compared
+  /// (`copyWith`, `==`, `hashCode`, `toString`, `fromJson`, … by default;
+  /// `code_duplicates` section of `loam.yaml`).
+  final BoilerplateMatcher boilerplate;
 
   final DuplicateCodeCollector _collector;
 
@@ -63,6 +74,7 @@ class CodeDuplicatesRule implements Rule {
       result,
       projectRoot,
       sourceDirs: sourceDirs,
+      boilerplate: boilerplate,
     );
 
     final findings = <Finding>[];

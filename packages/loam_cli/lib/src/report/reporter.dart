@@ -1,5 +1,9 @@
+import 'package:path/path.dart' as p;
+
+import '../baseline/baseline_diff.dart';
 import '../model/finding.dart';
 import '../recommendation/recommendation_engine.dart';
+import '../suppression/suppression_audit.dart';
 
 /// Coarse scope statistics for one analysis run.
 ///
@@ -42,7 +46,7 @@ class ScanStats {
 ///
 /// [isTty] is injected by the calling command (which reads `stdout.hasTerminal`)
 /// rather than read directly in the reporter, keeping the reporter unit-testable
-/// and side-effect-free (Invariant 4).
+/// and side-effect-free (pure renderer, ADR 0001).
 class ReportPayload {
   /// Creates a [ReportPayload].
   const ReportPayload({
@@ -52,9 +56,12 @@ class ReportPayload {
     required this.toolVersion,
     required this.isTty,
     this.suppressedCount = 0,
+    this.suppressionAudit = const SuppressionAudit.empty(),
     this.stats,
     this.sourceDirs,
     this.recommendations = const [],
+    this.maxFindings,
+    this.baselineDiff,
   });
 
   /// All findings from the current run, pre-sorted by the [AnalysisRunner].
@@ -68,6 +75,11 @@ class ReportPayload {
   /// knowingly suppressed — the difference an agent (or human) needs to
   /// reconcile a clean `scan` against a `health` hotspot table.
   final int suppressedCount;
+
+  /// Suppressions per rule and warnings about unused, expired or malformed
+  /// `// loam-ignore:` directives. Warnings only — they never change the exit
+  /// code. Defaults to empty.
+  final SuppressionAudit suppressionAudit;
 
   /// Coarse scope statistics for this run (files/lines analysed, rules run),
   /// or `null` when the caller did not compute them (e.g. `gate`/`baseline`,
@@ -88,7 +100,7 @@ class ReportPayload {
   /// Whether the output sink is a terminal (true) or a pipe/file (false).
   ///
   /// The calling command reads `stdout.hasTerminal` and passes the value here,
-  /// so reporters never touch I/O directly (Invariant 4 — pure renderer).
+  /// so reporters never touch I/O directly (pure renderer, ADR 0001).
   final bool isTty;
 
   /// The source directories configured for this scan (e.g. `['lib', 'bin']`),
@@ -110,6 +122,17 @@ class ReportPayload {
   /// never in place of them. Empty when [findings] is empty, so a clean run
   /// never shows a hollow recommendations block.
   final List<Recommendation> recommendations;
+
+  /// Cap on the findings listed by size-bounded formats (`agent`), or `null`
+  /// for the format's own default. `0` means unlimited. Formats that always
+  /// list everything (`human`, `json`, `sarif`, `markdown`, `html`) ignore it.
+  final int? maxFindings;
+
+  /// Baseline comparison for this run, or `null` when none was made (every
+  /// command except `gate` in ratchet mode). The SARIF reporter turns it into
+  /// `baselineState` (`new` / `unchanged` / `absent`) so code-scanning
+  /// systems can tell new findings from frozen ones.
+  final BaselineDiff? baselineDiff;
 }
 
 /// Pure renderer: converts a [ReportPayload] to a formatted [String].
@@ -126,4 +149,15 @@ abstract interface class Reporter {
   ///
   /// Pure function — no side effects, no thresholds, no exit logic.
   String render(ReportPayload payload);
+}
+
+/// Converts [filePath] to a forward-slash-normalised path relative to
+/// [projectRoot], without a leading slash (Windows safety). Shared by every
+/// reporter that prints finding locations.
+String relativeReportPath(String filePath, String projectRoot) {
+  final rel = p.isAbsolute(filePath)
+      ? p.relative(filePath, from: projectRoot)
+      : filePath;
+  final forward = rel.replaceAll(r'\', '/');
+  return forward.startsWith('/') ? forward.substring(1) : forward;
 }

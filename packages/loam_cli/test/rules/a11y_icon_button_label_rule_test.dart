@@ -15,8 +15,11 @@ import 'package:loam/src/rules/a11y_icon_button_label_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -166,14 +169,14 @@ void main() {
   });
 
   test(
-    'AC2: total findings count — 1 (IconButton) + 2 (GestureDetector, InkWell)',
+    'AC2: total findings count — 1 (IconButton) + 2 (GestureDetector, InkWell) + 2 lookalikes',
     () {
       final findings = makeRule().run(loadResult);
       expect(
         findings,
-        hasLength(3),
+        hasLength(5),
         reason:
-            'Expected exactly 3 findings total. '
+            'Expected exactly 5 findings total. '
             'Got: ${findings.map((f) => "${f.filePath}:${f.line} ${f.message}").join("; ")}',
       );
     },
@@ -401,4 +404,28 @@ void main() {
       expect(ids, isNot(contains('a11y-icon-button-label')));
     },
   );
+
+  // #116: names that Flutter already derives must not be reported.
+  test('#116: Tooltip ancestor or labelled Icon name the button', () {
+    final named = makeRule()
+        .run(loadResult)
+        .where(
+          (f) => f.filePath.contains('icon_button_named_by_tooltip_or_icon'),
+        );
+    expect(named, isEmpty);
+  });
+
+  test('#116: lookalike Tooltip and unlabelled Icon are still reported', () {
+    final reported = makeRule()
+        .run(loadResult)
+        .where((f) => f.filePath.contains('icon_button_unnamed_lookalikes'));
+    expect(reported, hasLength(2));
+  });
+
+  test('#116: remedy offers Tooltip and Icon semanticLabel', () {
+    final f = makeRule()
+        .run(loadResult)
+        .firstWhere((f) => f.filePath.contains('icon_button_missing_label'));
+    expect(f.remedy, allOf(contains('Tooltip'), contains('semanticLabel')));
+  });
 }

@@ -20,3 +20,11 @@ class _NegativeInformative {
   // Handles retry with exponential backoff up to 3 attempts.
   void _retry() {}
 }
+
+class _NegativeInlineDecoration {
+  // __init__ sets up the cache and __dispose__ tears it down.
+  void _a() {}
+
+  // **Note** the order matters here, see the **bold** sections above.
+  void _b() {}
+}

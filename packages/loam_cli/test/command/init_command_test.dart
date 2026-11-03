@@ -9,8 +9,11 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../../bin/loam.dart' as cli;
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   // ---------------------------------------------------------------------------
   // AC3: `loam init` writes loam.yaml to the project root.
   // AC4: Existing loam.yaml is not overwritten; clear message, exit != 0.

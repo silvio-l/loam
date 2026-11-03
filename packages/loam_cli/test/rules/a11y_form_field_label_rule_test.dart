@@ -15,8 +15,11 @@ import 'package:loam/src/rules/a11y_form_field_label_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -437,5 +440,17 @@ void main() {
     final formIdx = ids.indexOf('a11y-form-field-label');
     final iconIdx = ids.indexOf('a11y-icon-button-label');
     expect(formIdx, lessThan(iconIdx));
+  });
+
+  test('#116: InputDecoration(label: Text(...)) counts as a label', () {
+    final clean = makeRule()
+        .run(loadResult)
+        .where((f) => f.filePath.contains('text_field_label_widget'));
+    expect(clean, isEmpty);
+  });
+
+  test('#116: remedy calls hintText a fallback only', () {
+    final f = makeRule().run(loadResult).first;
+    expect(f.remedy, contains('only a fallback'));
   });
 }

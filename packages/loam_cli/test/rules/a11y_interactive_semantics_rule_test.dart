@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:loam/src/config/loam_config.dart';
 import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/model/finding.dart';
+import 'package:loam/src/model/fingerprint.dart';
 import 'package:loam/src/model/rule_category.dart';
 import 'package:loam/src/report/human_reporter.dart';
 import 'package:loam/src/report/json_reporter.dart';
@@ -15,8 +16,11 @@ import 'package:loam/src/rules/a11y_interactive_semantics_rule.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -279,16 +283,17 @@ void main() {
   // Total finding count sanity check
   // ---------------------------------------------------------------------------
 
-  test('total findings: exactly 2 (custom_widget_positive.dart + '
-      'label_property_empty_positive.dart)', () {
-    final findings = makeRule().run(loadResult);
-    expect(
-      findings,
-      hasLength(2),
-      reason:
-          'Expected exactly 2 findings total. '
-          'Got: ${findings.map((f) => "${f.filePath}:${f.line} ${f.message}").join("; ")}',
-    );
+  test('findings come only from the three positive fixtures', () {
+    final byFile = <String, int>{};
+    for (final f in makeRule().run(loadResult)) {
+      final name = f.filePath.split('/').last;
+      byFile[name] = (byFile[name] ?? 0) + 1;
+    }
+    expect(byFile, {
+      'custom_widget_positive.dart': 1,
+      'label_property_empty_positive.dart': 1,
+      'wrapper_swallowed_positive.dart': 4,
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -457,5 +462,63 @@ void main() {
     );
     final ids = AnalysisRunner.activeRuleIdsForConfig(config);
     expect(ids, isNot(contains('a11y-interactive-semantics')));
+  });
+
+  // ---------------------------------------------------------------------------
+  // Project-defined wrappers (issue #10): judged by their own source
+  // ---------------------------------------------------------------------------
+
+  test('wrappers routing a name to a sink (incl. two levels, State, '
+      'self-labelled) → no finding', () {
+    final findings = makeRule()
+        .run(loadResult)
+        .where((f) => f.filePath.contains('wrapper_passthrough_clean'));
+    expect(findings, isEmpty);
+  });
+
+  test('a swallowing wrapper is reported once at its definition, however '
+      'often it is used; forwarding wrappers are not reported again', () {
+    final findings = makeRule()
+        .run(loadResult)
+        .where((f) => f.filePath.contains('wrapper_swallowed_positive'))
+        .toList();
+    final names = findings.map((f) => f.message.split(' ').first).toList()
+      ..sort();
+    expect(names, [
+      'IconBesideText', // Text beside the icon button names nothing
+      'NeedsTitle', // call site omits the name of a labelled wrapper
+      'PingButton', // builds PongButton and vice versa: one finding per cycle
+      'SwallowingButton', // three uses + one forwarding use, one finding
+    ]);
+    final swallower = findings.firstWhere(
+      (f) => f.message.startsWith('SwallowingButton'),
+    );
+    final source = File(
+      p.join(fixturePath, 'lib', 'wrapper_swallowed_positive.dart'),
+    ).readAsLinesSync();
+    expect(source[swallower.line - 1], contains('class SwallowingButton'));
+  });
+
+  test('the swallowed-name fingerprint is anchored at the wrapper, not at '
+      'its uses', () {
+    final swallower = makeRule()
+        .run(loadResult)
+        .singleWhere(
+          (f) =>
+              f.filePath.contains('wrapper_swallowed_positive') &&
+              f.message.startsWith('SwallowingButton'),
+        );
+    // The fixture uses SwallowingButton four times (three direct, one through
+    // a forwarding wrapper); the single finding carries a fingerprint derived
+    // only from rule, file and wrapper name, so adding or removing uses cannot
+    // change it.
+    expect(
+      swallower.fingerprint,
+      computeFingerprint(
+        ruleId: swallower.ruleId,
+        relativePath: swallower.filePath,
+        semanticAnchor: 'wrapper:SwallowingButton',
+      ),
+    );
   });
 }

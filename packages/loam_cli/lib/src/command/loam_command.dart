@@ -10,7 +10,7 @@ import '../progress/tty_progress_renderer.dart';
 ///
 /// [showProgress] is the resolved on/off decision (see [shouldShowProgress]);
 /// [sink] is the matching [ProgressSink] — a [TtyProgressRenderer] when on,
-/// [NoopProgressSink] otherwise. Bundled together so a single
+/// a [NoticeOnlySink] (notices only) otherwise. Bundled together so a single
 /// [LoamCommand.resolveProgress] call yields both without recomputing the
 /// policy (and, critically, without constructing a second
 /// [TtyProgressRenderer] instance whose state would then be split across
@@ -38,6 +38,14 @@ abstract class LoamCommand extends Command<int> {
   /// Returns `'human'` when the flag is absent (should not happen in
   /// practice, as a default is registered at runner level).
   String get format => globalResults?['format'] as String? ?? 'human';
+
+  /// Cap from the global `--max-findings` option (`0` = unlimited), or `null`
+  /// when absent. Only the `agent` format honours it. The runner rejects
+  /// non-numeric and negative values before any command runs.
+  int? get maxFindings {
+    final raw = globalResults?['max-findings'] as String?;
+    return raw == null ? null : int.tryParse(raw);
+  }
 
   /// Explicit report file path from the global `--output` option, or `null`.
   ///
@@ -70,7 +78,7 @@ abstract class LoamCommand extends Command<int> {
     );
     return (
       showProgress: show,
-      sink: show ? TtyProgressRenderer() : const NoopProgressSink(),
+      sink: show ? TtyProgressRenderer() : NoticeOnlySink(),
     );
   }
 

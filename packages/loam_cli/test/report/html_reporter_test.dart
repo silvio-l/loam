@@ -1,6 +1,8 @@
 @TestOn('vm')
 library;
 
+import 'dart:convert';
+
 import 'package:loam/src/complexity/complexity_metrics.dart';
 import 'package:loam/src/complexity/function_complexity.dart';
 import 'package:loam/src/complexity/health_score.dart';
@@ -163,6 +165,20 @@ void main() {
           matches(
             RegExp(r'<script[^>]+src\s*=\s*"https?://', caseSensitive: false),
           ),
+        ),
+      );
+    });
+
+    // The website embeds the report under a hash-pinned CSP, which blocks
+    // inline event handlers, including ones the script builds at runtime.
+    test('output and its script contain no inline event handlers', () {
+      final output = const HtmlReporter().render(
+        _payload(findings: [_finding()]),
+      );
+      expect(
+        output,
+        isNot(
+          matches(RegExp(r'''\son[a-z]+\s*=\s*["']''', caseSensitive: false)),
         ),
       );
     });
@@ -352,7 +368,7 @@ void main() {
   // -------------------------------------------------------------------------
   // Anti-vocabulary: must not use "Dashboard" or "GUI" in output
   // -------------------------------------------------------------------------
-  group('Anti-vocabulary (CONTEXT.md)', () {
+  group('Anti-vocabulary (internal-notes)', () {
     test('output does not contain "Dashboard"', () {
       final output = const HtmlReporter().render(
         _payload(findings: [_finding()]),
@@ -464,6 +480,22 @@ void main() {
   // -------------------------------------------------------------------------
   // Issue 07 — AC2: FixPromptTemplate embedded with prompt@ver marker
   // -------------------------------------------------------------------------
+  group('data blocks are script-safe', () {
+    test('a finding message containing </script> cannot end the JSON block', () {
+      const evil = '</script><img src=x>';
+      final output = const HtmlReporter().render(
+        _payload(findings: [_finding(message: evil)]),
+      );
+      expect(output, isNot(contains(evil)));
+      final block = RegExp(
+        r'<script type="application/json" id="loam-data">\n([\s\S]*?)\n</script>',
+      ).firstMatch(output)!.group(1)!;
+      final data = jsonDecode(block) as Map<String, dynamic>;
+      final findings = data['findings'] as List<dynamic>;
+      expect((findings.single as Map<String, dynamic>)['message'], evil);
+    });
+  });
+
   group('Issue 07 — AC2: FixPromptTemplate embedded', () {
     test('output contains the fix-prompt template script block', () {
       final output = const HtmlReporter().render(_payload());
@@ -874,6 +906,78 @@ void main() {
       final reporter = const HtmlReporter();
       final payload = _payload(findings: [_finding()], recommendations: recs);
       expect(reporter.render(payload), equals(reporter.render(payload)));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue 124 — brand redesign: remedy hand-over, rule counts, no font loads
+  // -------------------------------------------------------------------------
+  group('HtmlReporter remedy, rule counts and fonts (issue 124)', () {
+    Map<String, dynamic> embeddedData(String html) {
+      final m = RegExp(
+        r'<script type="application/json" id="loam-data">([\s\S]*?)</script>',
+      ).firstMatch(html)!;
+      return jsonDecode(m.group(1)!) as Map<String, dynamic>;
+    }
+
+    test(
+      'embedded findings carry the remedy (null when the rule has none)',
+      () {
+        final out = const HtmlReporter().render(
+          _payload(
+            findings: [
+              Finding(
+                ruleId: 'code-duplicates',
+                severity: Severity.warning,
+                filePath: '/project/lib/a.dart',
+                line: 3,
+                message: 'dup',
+                fingerprint: 'f1',
+                remedy: 'Extract the shared helper.',
+              ),
+              _finding(fingerprint: 'f2'),
+            ],
+          ),
+        );
+        final findings = embeddedData(out)['findings'] as List<dynamic>;
+        expect(
+          (findings[0] as Map)['remedy'],
+          equals('Extract the shared helper.'),
+        );
+        expect((findings[1] as Map).containsKey('remedy'), isTrue);
+        expect((findings[1] as Map)['remedy'], isNull);
+      },
+    );
+
+    test('rule counts list most findings first, ties by rule id', () {
+      final out = const HtmlReporter().render(
+        _payload(
+          findings: [
+            _finding(ruleId: 'zeta', fingerprint: 'a'),
+            _finding(ruleId: 'beta', fingerprint: 'b'),
+            _finding(ruleId: 'alpha', fingerprint: 'c'),
+            _finding(ruleId: 'beta', fingerprint: 'd'),
+          ],
+        ),
+      );
+      final names = RegExp(
+        r'<span class="rule-name">([^<]+)</span><b>(\d+)</b>',
+      ).allMatches(out).map((m) => '${m.group(1)}=${m.group(2)}').toList();
+      expect(names, equals(['beta=2', 'alpha=1', 'zeta=1']));
+    });
+
+    test('a clean run renders no rule counts', () {
+      final out = const HtmlReporter().render(_payload());
+      expect(out, isNot(contains('data-testid="report-rule-counts"')));
+    });
+
+    test('the report loads no font (no @font-face, no url() in the CSS)', () {
+      final out = const HtmlReporter().render(_payload(findings: [_finding()]));
+      final css = RegExp(
+        r'<style>([\s\S]*?)</style>',
+      ).firstMatch(out)!.group(1)!;
+      expect(css, isNot(contains('@font-face')));
+      expect(css, isNot(contains('url(')));
     });
   });
 }

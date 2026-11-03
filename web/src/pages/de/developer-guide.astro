@@ -9,24 +9,22 @@ import GuideArticle from '../../components/GuideArticle.astro';
   description="Der Developer & Tool Guide von loam.dev: Kernkonzepte, CLI-Befehle, Ausgabeformate und der Umgang mit Codegeneratoren — gerendert aus der einen Quelle in /docs."
   path="/de/developer-guide"
 >
-  <p class="guide-note">
-    Dieser Leitfaden wird auf Englisch gepflegt — die Fachbegriffe sind im
-    gesamten Tool einheitlich englisch.
-  </p>
-  <GuideArticle />
+  <GuideArticle lang="de">
+    <p class="guide-note" data-testid="guide-note-language">
+      Dieser Leitfaden wird auf Englisch gepflegt — die Fachbegriffe sind im
+      gesamten Tool einheitlich englisch.
+    </p>
+  </GuideArticle>
 </Layout>
 
 <style is:global>
   .guide-note {
-    position: relative;
-    z-index: 3;
-    /* Shared content-column width — flush with the article column (.prose-page). */
-    max-width: var(--prose-width);
-    margin: clamp(1.4rem, 4vw, 3rem) auto 0;
+    margin-bottom: var(--s-6);
+    max-width: var(--guide-measure, 72ch);
     padding: 0.7rem 1rem;
     border: 1px solid var(--line);
     border-left: 2px solid var(--green);
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     background: var(--panel);
     color: var(--dim);
     font-size: 0.82rem;

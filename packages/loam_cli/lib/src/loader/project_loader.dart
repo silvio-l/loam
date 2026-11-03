@@ -6,27 +6,49 @@ import 'package:analyzer/diagnostic/diagnostic.dart';
 import 'package:path/path.dart' as p;
 
 import '../progress/progress_sink.dart';
+import '../timing/phase_timer.dart';
+import 'analyzer_cache.dart';
 import 'sdk_locator.dart';
 import 'stack_profile.dart';
 export 'stack_profile.dart';
 
-/// A successfully resolved Dart file entry produced by [ProjectLoader].
+/// A successfully loaded Dart file entry produced by [ProjectLoader].
 ///
-/// Carries the full [ResolvedUnitResult] (element model reachable via
-/// [ResolvedUnitResult.libraryElement]), the normalised absolute [path], and
-/// the [isUnderLib] flag that distinguishes `lib/` surface from
-/// `bin/`/`test/`/`tool/` files.
+/// In a full load it carries the resolved unit ([result], element model
+/// reachable via [ResolvedUnitResult.libraryElement]); in a parse-only load
+/// ([ProjectLoader.load] with `parseOnly: true`) only the [parsed] unit. Both
+/// carry the normalised absolute [path] and the [isUnderLib] flag that
+/// distinguishes `lib/` surface from `bin/`/`test/`/`tool/` files.
 class LoadedFile {
-  /// Creates a [LoadedFile].
+  /// Creates a [LoadedFile] for a resolved unit.
   const LoadedFile({
-    required this.result,
+    required ResolvedUnitResult result,
     required this.path,
     required this.isUnderLib,
-  });
+  }) : _result = result,
+       parsed = result;
+
+  /// Creates a [LoadedFile] for a parse-only load: [result] is unavailable.
+  const LoadedFile.parsed({
+    required this.parsed,
+    required this.path,
+    required this.isUnderLib,
+  }) : _result = null;
+
+  /// The unit's AST, content and line info — available in every load.
+  /// `FileRule`s and the suppression scan read only this.
+  final ParsedUnitResult parsed;
+
+  final ResolvedUnitResult? _result;
 
   /// The fully resolved unit — [libraryElement] and the complete element model
-  /// are accessible from here.
-  final ResolvedUnitResult result;
+  /// are accessible from here. Throws [StateError] in a parse-only load, which
+  /// the runner only uses when every active rule is a `FileRule`.
+  ResolvedUnitResult get result =>
+      _result ??
+      (throw StateError(
+        '$path was only parsed, not resolved (parse-only load)',
+      ));
 
   /// Normalised absolute path of the Dart source file.
   final String path;
@@ -128,6 +150,12 @@ class ProjectLoadResult {
 /// - If a file resolves but has diagnostics of severity [Severity.error], it
 ///   is recorded as an error with the first error diagnostic message as reason.
 class ProjectLoader {
+  /// Test seam: one analyzer store for all projects a test file loads, so the
+  /// SDK summaries are built once instead of once per temporary project. Used
+  /// only when a load names no store of its own; entries are keyed by content
+  /// signature, so sharing never changes results. Production code never sets it.
+  static String? testCacheDirectory;
+
   /// Creates a [ProjectLoader].
   const ProjectLoader();
 
@@ -144,9 +172,23 @@ class ProjectLoader {
   /// the total dart-file count), `advance` per file, and `endPhase` on exit.
   /// Defaults to [NoopProgressSink] — callers that do not want progress pass
   /// nothing and get zero overhead.
+  ///
+  /// [cacheDirectory]: when set, the analyzer keeps its summary store there
+  /// between runs ([AnalyzerCache]); results are identical, the resolve phase
+  /// is faster on a warm store. If the store cannot be opened or the load
+  /// with it fails, the project is loaded again without it.
+  ///
+  /// When no [cacheDirectory] is given, [testCacheDirectory] stands in for it.
+  ///
+  /// [parseOnly]: when `true`, files are only parsed, not resolved. Entries
+  /// then carry [LoadedFile.parsed] only, [ProjectLoadResult.partUnits] stays
+  /// empty, and only syntax errors put a file into [ProjectLoadResult.errors].
+  /// For runs whose rules all read nothing but the file's own AST.
   Future<ProjectLoadResult> load(
     String projectRoot, {
     ProgressSink progressSink = const NoopProgressSink(),
+    String? cacheDirectory,
+    bool parseOnly = false,
   }) async {
     final root = p.normalize(p.absolute(projectRoot));
 
@@ -168,9 +210,12 @@ class ProjectLoader {
       );
     }
 
+    final timer = PhaseTimer.active;
+    final stopSetup = timer?.begin('setup');
     final dartFiles = _collectDartFiles(root);
 
     if (dartFiles.isEmpty) {
+      stopSetup?.call();
       return ProjectLoadResult(
         resolved: const [],
         errors: const [],
@@ -192,18 +237,76 @@ class ProjectLoader {
       throw SdkResolutionException.notFound(resolved: sdkPath);
     }
 
-    final AnalysisContextCollection collection;
-    try {
-      collection = AnalysisContextCollection(
-        includedPaths: [root],
-        sdkPath: sdkPath,
+    Future<ProjectLoadResult> loadWith(
+      AnalysisContextCollection Function() create,
+    ) async {
+      final AnalysisContextCollection collection;
+      try {
+        collection = create();
+      } on FileSystemException {
+        // Belt-and-suspenders: a path that passed the lib/_internal check but
+        // is still incomplete (truncated/corrupt SDK) surfaces here. Convert
+        // the raw analyzer crash into the same actionable, stacktrace-free
+        // guidance.
+        throw SdkResolutionException.notFound(resolved: sdkPath);
+      }
+      stopSetup?.call();
+      return _loadFiles(
+        collection,
+        root: root,
+        dartFiles: dartFiles,
+        stackProfile: stackProfile,
+        progressSink: progressSink,
+        parseOnly: parseOnly,
       );
-    } on FileSystemException {
-      // Belt-and-suspenders: a path that passed the lib/_internal check but is
-      // still incomplete (truncated/corrupt SDK) surfaces here. Convert the raw
-      // analyzer crash into the same actionable, stacktrace-free guidance.
-      throw SdkResolutionException.notFound(resolved: sdkPath);
     }
+
+    // The summary store only speeds up resolution; a parse-only load does not
+    // need it.
+    final storeDirectory = cacheDirectory ?? testCacheDirectory;
+    final cache = parseOnly || storeDirectory == null
+        ? null
+        : AnalyzerCache.open(storeDirectory);
+    if (cache != null) {
+      var failed = false;
+      try {
+        return await loadWith(
+          () => cache.collection(includedPaths: [root], sdkPath: sdkPath),
+        );
+      } on SdkResolutionException {
+        rethrow;
+      } on Object catch (error) {
+        // Anything going wrong with the store must not end the run: fall
+        // through and load once more without it, exactly as before #8. The
+        // store is discarded so a broken entry does not make every later run
+        // load twice.
+        failed = true;
+        timer?.begin('cache-fallback')();
+        progressSink.notice(
+          'loam: analyzer cache failed (${error.runtimeType}); discarded '
+          '$storeDirectory, this run continues without it.',
+        );
+      } finally {
+        await cache.close(discard: failed);
+      }
+    }
+    return loadWith(
+      () => AnalysisContextCollection(includedPaths: [root], sdkPath: sdkPath),
+    );
+  }
+
+  Future<ProjectLoadResult> _loadFiles(
+    AnalysisContextCollection collection, {
+    required String root,
+    required List<String> dartFiles,
+    required StackProfile stackProfile,
+    required ProgressSink progressSink,
+    required bool parseOnly,
+  }) async {
+    final stopResolve = PhaseTimer.active?.begin(
+      parseOnly ? 'parse' : 'resolve',
+      detail: '${dartFiles.length} files',
+    );
     // Start progress phase — we now know the total file count.
     progressSink.startPhase('Lade Projekt', total: dartFiles.length);
     try {
@@ -223,26 +326,30 @@ class ProjectLoader {
           // the enclosing AnalysisContextCollection. Treat as a load error so
           // the rule layer never receives a broken/incomplete element model, but
           // the loader still processes all other files cleanly.
-          SomeResolvedUnitResult someResult;
+          final Object someResult;
           try {
             final session = collection.contextFor(filePath).currentSession;
-            someResult = await session.getResolvedUnit(filePath);
+            someResult = parseOnly
+                ? session.getParsedUnit(filePath)
+                : await session.getResolvedUnit(filePath);
           } on StateError catch (e) {
             errors.add(LoadFileError(path: filePath, reason: e.message));
             continue;
           }
 
-          if (someResult is ResolvedUnitResult) {
+          if (someResult is ParsedUnitResult) {
             // A `part of` file resolves as a ResolvedUnitResult with isPart=true.
             // Its declarations are reachable through the owning library's
             // libraryElement.fragments and must NOT be re-collected as candidates.
             // However, its compilation unit IS stored in [partUnits] so the
             // UsageIndex can scan it for *references* — preventing False Positives
             // when a symbol is only referenced from a part file (HellerIO FP #2).
+            // A parse-only load needs no reference index and drops parts.
             if (someResult.isPart) {
               // Only store clean part units for reference scanning; broken part
               // files cannot contribute reliable reference data.
-              if (_firstErrorDiagnostic(someResult.diagnostics) == null) {
+              if (someResult is ResolvedUnitResult &&
+                  _firstErrorDiagnostic(someResult.diagnostics) == null) {
                 partUnits.add(someResult);
               }
               continue;
@@ -255,12 +362,19 @@ class ProjectLoader {
 
             if (firstError == null) {
               // Clean resolution — add to the success branch.
+              final isUnderLib = filePath.startsWith(libDir);
               resolved.add(
-                LoadedFile(
-                  result: someResult,
-                  path: filePath,
-                  isUnderLib: filePath.startsWith(libDir),
-                ),
+                someResult is ResolvedUnitResult
+                    ? LoadedFile(
+                        result: someResult,
+                        path: filePath,
+                        isUnderLib: isUnderLib,
+                      )
+                    : LoadedFile.parsed(
+                        parsed: someResult,
+                        path: filePath,
+                        isUnderLib: isUnderLib,
+                      ),
               );
             } else {
               // Has parse/semantic errors — add to the error branch.
@@ -299,6 +413,7 @@ class ProjectLoader {
         stackProfile: stackProfile,
       );
     } finally {
+      stopResolve?.call();
       progressSink.endPhase();
       await collection.dispose();
     }

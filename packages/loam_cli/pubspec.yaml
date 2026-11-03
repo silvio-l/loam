@@ -1,6 +1,6 @@
 name: loam
-description: "Codebase intelligence for Dart & Flutter: unused public API, circular deps, duplicates, complexity hotspots, empty catch, unjustified ignores, narrative/workflow comments and a11y."
-version: 0.1.15
+description: "Dart/Flutter: unused API, circular deps, boundaries, duplicates, complexity, catch, secrets, ignores, narrative/workflow/placeholder, stubs, assertions, resources, setState, a11y."
+version: 0.1.16
 repository: https://github.com/silvio-l/loam
 homepage: https://getloam.dev
 topics:
@@ -16,7 +16,14 @@ environment:
 executables:
   loam: loam
 dependencies:
-  analyzer: ">=13.0.0 <15.0.0"
+  # Pinned to tested minor versions: lib/src/loader/analyzer_cache.dart uses
+  # analyzer internals (AnalysisContextCollectionImpl(byteStore:),
+  # FileByteStore.flush/writeCount, the latter from 14.4.0 on), which are not
+  # covered by semver; a break in a newer minor would break
+  # `dart pub global activate loam` for users. Raise the upper bound at each
+  # release after checking that file; criterion: analyzer_cache_test is green
+  # on the newest analyzer allowed.
+  analyzer: ">=14.4.0 <14.8.0"
   args: ^2.7.0
   crypto: ^3.0.0
   glob: ^2.1.2

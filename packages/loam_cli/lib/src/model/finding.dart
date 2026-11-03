@@ -6,7 +6,7 @@ export 'wcag_ref.dart';
 /// A single result emitted by a `Rule`.
 ///
 /// The [fingerprint] is a position-robust stable hash used by the
-/// `BaselineEngine` to diff findings across runs (see CONTEXT.md). Note that
+/// `BaselineEngine` to diff findings across runs (see internal-notes). Note that
 /// [line]/[column] are presentation-only: they feed precise highlighting in the
 /// SARIF and HTML reporters, but they are deliberately NOT part of the
 /// fingerprint — otherwise the baseline would churn on every line shift.

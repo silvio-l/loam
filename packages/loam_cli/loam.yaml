@@ -12,7 +12,7 @@
 # (per-package) loam.yaml layers on top of it (nearer wins; ignore lists are
 # additive). See docs/developer-guide.md → "Configuration & discovery".
 #
-# Schema: https://github.com/silvio-l/loam (see docs/PRD.md)
+# Schema: https://github.com/silvio-l/loam (see internal-notes)
 
 # ---------------------------------------------------------------------------
 # update_check — opt out of the update-availability notice (bool, default true)
@@ -25,6 +25,24 @@
 #   --no-update-check (CLI) > LOAM_NO_UPDATE_CHECK (env) > update_check: false
 # ---------------------------------------------------------------------------
 # update_check: true
+
+# ---------------------------------------------------------------------------
+# auto_update — let loam install new versions by itself (bool, default true)
+#
+# true  = a pub.dev install or a standalone release binary updates itself in
+#         the background (checksum-verified); Homebrew only gets the notice.
+# false = keep the update notice, never install. Machine-wide: set
+#         LOAM_NO_AUTO_UPDATE. CI and LOAM_OFFLINE never update.
+# ---------------------------------------------------------------------------
+# auto_update: true
+
+# ---------------------------------------------------------------------------
+# required_version — pin the loam version (pub constraint, default: no pin)
+#
+# A pinned project is never auto-updated. A running version outside the
+# constraint prints a warning, and `loam gate` stops with exit code 78.
+# ---------------------------------------------------------------------------
+# required_version: ">=0.1.15 <0.2.0"
 
 # ---------------------------------------------------------------------------
 # a11y — include accessibility-category rules in `loam scan` (bool, default true)
@@ -77,9 +95,7 @@ ignore:
   # loam's own self-dogfood: the a11y and slop rules scan every loaded source
   # file, so the deliberately-bad test/fixtures/* mini-packages would turn the
   # `loam gate --absolute` self-gate (pre-push hook + QA workflow) red. They are
-  # test inputs, not shippable code. This mirrors exactly what
-  # test/rules/dogfooding_test.dart applies programmatically (ignoreGlobs:
-  # ['test/**']) — keep the two in lockstep. Excluded from the published archive
+  # test inputs, not shippable code. Excluded from the published archive
   # via .pubignore, so consumers never see this self-config.
   - "test/**"
   # - "lib/generated/**"   # ignore generated files

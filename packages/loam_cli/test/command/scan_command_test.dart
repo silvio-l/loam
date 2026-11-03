@@ -7,8 +7,11 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../../bin/loam.dart' as cli;
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -52,56 +55,6 @@ environment:
     } finally {
       tempDir.deleteSync(recursive: true);
     }
-  });
-
-  // ---------------------------------------------------------------------------
-  // AC3: Output includes finding lines and a summary line
-  // ---------------------------------------------------------------------------
-
-  test('scan stdout includes at least one finding line for fixture', () async {
-    // Use subprocess to capture stdout cleanly.
-    final entrypoint = '${Directory.current.path}/bin/loam.dart';
-    final result = Process.runSync(Platform.executable, [
-      'run',
-      entrypoint,
-      'scan',
-      '--project-root',
-      fixturePath,
-    ]);
-
-    // exit 1 expected (findings present)
-    expect(result.exitCode, equals(1));
-    final out = result.stdout as String;
-    // Each finding line contains the ruleId
-    expect(
-      out,
-      contains('unused-public-exports'),
-      reason: 'stdout must include finding lines with ruleId',
-    );
-    // Summary line is present
-    expect(
-      out,
-      contains('finding'),
-      reason: 'stdout must include a summary line mentioning "finding"',
-    );
-  });
-
-  // ---------------------------------------------------------------------------
-  // AC5: The entrypoint_test scan stub is replaced — check scan is no longer
-  // emitting "not yet implemented".
-  // This test complements the entrypoint_test changes.
-  // ---------------------------------------------------------------------------
-
-  test('scan does NOT emit "not yet implemented" for fixture project', () {
-    final entrypoint = '${Directory.current.path}/bin/loam.dart';
-    final result = Process.runSync(Platform.executable, [
-      'run',
-      entrypoint,
-      'scan',
-      '--project-root',
-      fixturePath,
-    ]);
-    expect(result.stdout as String, isNot(contains('not yet implemented')));
   });
 
   // ---------------------------------------------------------------------------

@@ -1,8 +1,11 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:pub_semver/pub_semver.dart';
 import 'package:yaml/yaml.dart';
 
+import '../rules/rule_profile.dart';
+import 'architecture_config.dart';
 import 'loam_config.dart';
 
 /// Thrown by [ConfigLoader.load] when `loam.yaml` is present but contains
@@ -49,7 +52,7 @@ abstract final class ConfigLoader {
   /// Dart's own `analysis_options.yaml` (found by walking up) and means a
   /// repo-root config is honoured even when a sub-package is analysed. The walk
   /// is **bounded at the git root** so discovery stays repo-relative and
-  /// reproducible across machines and CI (CONTEXT.md Invariant 4) — a
+  /// reproducible across machines and CI (internal-notes Invariant 5) — a
   /// `loam.yaml` above the repository (e.g. in `$HOME`) is never picked up.
   /// When no git root is found, only `<projectRoot>/loam.yaml` is considered.
   ///
@@ -58,8 +61,15 @@ abstract final class ConfigLoader {
   /// top of it. Merge semantics (nearer wins):
   /// - `rules`: merged per ruleId — the nearer value overrides.
   /// - `ignore`: concatenated farthest-first, de-duplicated, order preserved.
-  /// - `source_dirs` / `update_check` / `a11y`: scalar override; a layer that
-  ///   omits the key inherits the value from the farther layer.
+  /// - `code_duplicates.boilerplate_methods` and
+  ///   `unused_public_exports.annotations` and
+  ///   `slop_assertion_free_test.assertion_functions`: lists are united across
+  ///   layers;
+  ///   `code_duplicates.boilerplate` is a scalar override.
+  /// - `source_dirs` / `update_check` / `a11y` / `auto_update` /
+  ///   `required_version` / `profile` / `strict_baseline` / `cache`: scalar
+  ///   override; a layer that omits the key inherits the value from the farther
+  ///   layer.
   ///
   /// [knownRuleIds]: when non-null, any ruleId in the `rules` map of **any**
   /// layer that is NOT in this set triggers a [ConfigLoadException]. When null,
@@ -78,7 +88,24 @@ abstract final class ConfigLoader {
     for (final file in files) {
       merged = merged.overlay(_parseFile(file, knownRuleIds));
     }
-    return merged.materialize();
+    final config = merged.materialize();
+    _validateBoundaries(config);
+    return config;
+  }
+
+  /// Every layer named in a boundary must be a configured layer - a typo would
+  /// otherwise silently disable the boundary.
+  static void _validateBoundaries(LoamConfig config) {
+    for (final b in config.boundaries) {
+      for (final name in [b.from, ...b.deny]) {
+        if (!config.layers.containsKey(name)) {
+          throw ConfigLoadException(
+            '$fileName: boundary refers to unknown layer "$name". '
+            'Known layers: ${config.layers.keys.join(', ')}.',
+          );
+        }
+      }
+    }
   }
 
   /// Returns the `loam.yaml` files in scope for [projectRoot], ordered
@@ -146,13 +173,205 @@ abstract final class ConfigLoader {
       throw ConfigLoadException('Failed to parse $fileName: ${e.message}');
     }
 
+    final codeDuplicates = _parseSection(doc, 'code_duplicates', const {
+      'boilerplate',
+      'boilerplate_methods',
+    });
+    final unusedExports = _parseSection(doc, 'unused_public_exports', const {
+      'annotations',
+    });
+
+    final assertionFree = _parseSection(doc, 'slop_assertion_free_test', const {
+      'assertion_functions',
+    });
+
     return _PartialConfig(
       ruleToggles: _parseRuleToggles(doc, knownRuleIds),
       ignoreGlobs: _parseIgnoreGlobs(doc),
       sourceDirs: _parseSourceDirs(doc),
       updateCheck: _parseUpdateCheck(doc),
       includeA11y: _parseIncludeA11y(doc),
+      autoUpdate: _parseBool(doc, 'auto_update'),
+      requiredVersion: _parseRequiredVersion(doc),
+      profile: _parseProfile(doc),
+      strictBaseline: _parseBool(doc, 'strict_baseline'),
+      cache: _parseBool(doc, 'cache'),
+      skipBoilerplate: _parseBool(codeDuplicates, 'boilerplate'),
+      boilerplateMethods:
+          _parseNameList(codeDuplicates, 'boilerplate_methods') ?? const [],
+      reservedAnnotations:
+          _parseNameList(unusedExports, 'annotations') ?? const [],
+      assertionFunctions:
+          _parseNameList(assertionFree, 'assertion_functions') ?? const [],
+      layers: _parseLayers(doc),
+      boundaries: _parseBoundaries(doc),
     );
+  }
+
+  /// Reads the optional mapping [section] (whose only legal keys are
+  /// [allowedKeys]). Absent section → an empty map. An unknown key is a
+  /// [ConfigLoadException], so a typo can never silently disable a setting.
+  static YamlMap _parseSection(
+    YamlMap doc,
+    String section,
+    Set<String> allowedKeys,
+  ) {
+    final raw = doc[section];
+    if (raw == null) return YamlMap();
+    if (raw is! YamlMap) {
+      throw ConfigLoadException('$fileName: "$section" must be a mapping.');
+    }
+    for (final key in raw.keys) {
+      if (!allowedKeys.contains(key.toString())) {
+        throw ConfigLoadException(
+          '$fileName: unknown key "$key" in "$section". '
+          'Known keys: ${allowedKeys.join(', ')}.',
+        );
+      }
+    }
+    return raw;
+  }
+
+  /// Parses an optional list of non-empty identifier names under [key].
+  /// Absent → `null`.
+  static List<String>? _parseNameList(YamlMap section, String key) {
+    final raw = section[key];
+    if (raw == null) return null;
+    if (raw is! YamlList) {
+      throw ConfigLoadException('$fileName: "$key" must be a list of names.');
+    }
+    final names = <String>[];
+    for (final item in raw) {
+      final name = item is String ? item.trim().replaceFirst('@', '') : '';
+      if (!RegExp(r'^[A-Za-z_$][A-Za-z0-9_$]*$').hasMatch(name)) {
+        throw ConfigLoadException(
+          '$fileName: each entry in "$key" must be a plain identifier, '
+          'got: $item.',
+        );
+      }
+      if (!names.contains(name)) names.add(name);
+    }
+    return names;
+  }
+
+  /// Parses `layers` (`name: project-relative/dir`). Absent -> empty.
+  static Map<String, String> _parseLayers(YamlMap doc) {
+    final raw = doc['layers'];
+    if (raw == null) return const {};
+    if (raw is! YamlMap) {
+      throw ConfigLoadException(
+        '$fileName: "layers" must be a mapping of layer name -> directory.',
+      );
+    }
+    final layers = <String, String>{};
+    for (final entry in raw.entries) {
+      final dir = entry.value;
+      if (dir is! String || dir.trim().isEmpty) {
+        throw ConfigLoadException(
+          '$fileName: layer "${entry.key}" must map to a non-empty '
+          'directory string, got: $dir.',
+        );
+      }
+      layers['${entry.key}'] = normalizeLayerDir('${entry.key}', dir);
+    }
+    return layers;
+  }
+
+  /// Brings a layer directory from `loam.yaml` into the form the boundary rule
+  /// compares against: project-relative POSIX, no `./`, no trailing `/`
+  /// (`./lib/core/`, `lib\core` -> `lib/core`).
+  ///
+  /// Throws [ConfigLoadException] for an absolute path, a path that leaves the
+  /// project, or one that names the project root itself.
+  static String normalizeLayerDir(String layer, String dir) {
+    final posix = dir.trim().replaceAll(r'\', '/');
+    if (posix.startsWith('/') || RegExp(r'^[A-Za-z]:').hasMatch(posix)) {
+      throw ConfigLoadException(
+        '$fileName: layer "$layer" must be a directory relative to the '
+        'project root, not an absolute path, got: "$dir". Write it as e.g. '
+        '"lib/core".',
+      );
+    }
+    final normalized = p.posix.normalize(posix);
+    if (normalized == '.' ||
+        normalized == '..' ||
+        normalized.startsWith('../')) {
+      throw ConfigLoadException(
+        '$fileName: layer "$layer" must name a directory inside the project, '
+        'got: "$dir". Write it relative to the project root, e.g. "lib/core".',
+      );
+    }
+    return normalized;
+  }
+
+  /// Parses `boundaries` (list of `{from: layer, deny: [layers]}`).
+  static List<LayerBoundary> _parseBoundaries(YamlMap doc) {
+    final raw = doc['boundaries'];
+    if (raw == null) return const [];
+    if (raw is! YamlList) {
+      throw ConfigLoadException(
+        '$fileName: "boundaries" must be a list of {from, deny} entries.',
+      );
+    }
+    final boundaries = <LayerBoundary>[];
+    for (final item in raw) {
+      final from = item is YamlMap ? item['from'] : null;
+      final deny = item is YamlMap ? item['deny'] : null;
+      if (from is! String ||
+          deny is! YamlList ||
+          deny.isEmpty ||
+          deny.any((d) => d is! String)) {
+        throw ConfigLoadException(
+          '$fileName: each entry in "boundaries" needs "from" (a layer name) '
+          'and a non-empty "deny" list of layer names, got: $item.',
+        );
+      }
+      boundaries.add(
+        LayerBoundary(from: from, deny: List.unmodifiable(deny.cast<String>())),
+      );
+    }
+    return boundaries;
+  }
+
+  /// Parses an optional boolean [key]. Absent → `null` (inherit).
+  static bool? _parseBool(YamlMap doc, String key) {
+    final raw = doc[key];
+    if (raw == null) return null;
+    if (raw is! bool) {
+      throw ConfigLoadException(
+        '$fileName: "$key" must be a boolean value (true/false), got: $raw.',
+      );
+    }
+    return raw;
+  }
+
+  /// Parses `profile` (`core` | `strict`). Absent → `null` (inherit).
+  static RuleProfile? _parseProfile(YamlMap doc) {
+    final raw = doc['profile'];
+    if (raw == null) return null;
+    final parsed = raw is String ? RuleProfile.tryParse(raw) : null;
+    if (parsed == null) {
+      throw ConfigLoadException(
+        '$fileName: "profile" must be one of '
+        '${RuleProfile.values.map((v) => v.name).join(', ')}, got: $raw.',
+      );
+    }
+    return parsed;
+  }
+
+  /// Parses `required_version` as a pub version constraint (`">=0.1.15
+  /// <0.2.0"`, `"^0.1.15"` or an exact `"0.1.15"`). Absent → `null`.
+  static VersionConstraint? _parseRequiredVersion(YamlMap doc) {
+    final raw = doc['required_version'];
+    if (raw == null) return null;
+    try {
+      return VersionConstraint.parse(raw.toString());
+    } on FormatException {
+      throw ConfigLoadException(
+        '$fileName: "required_version" must be a version constraint such as '
+        '">=0.1.15 <0.2.0" or "0.1.15", got: $raw.',
+      );
+    }
   }
 
   /// Parses the `rules` mapping (`ruleId → bool`); validates against
@@ -285,6 +504,17 @@ class _PartialConfig {
     required this.sourceDirs,
     required this.updateCheck,
     required this.includeA11y,
+    this.autoUpdate,
+    this.requiredVersion,
+    this.profile,
+    this.strictBaseline,
+    this.cache,
+    this.skipBoilerplate,
+    this.boilerplateMethods = const [],
+    this.reservedAnnotations = const [],
+    this.assertionFunctions = const [],
+    this.layers = const {},
+    this.boundaries = const [],
   });
 
   const _PartialConfig.empty()
@@ -292,13 +522,35 @@ class _PartialConfig {
       ignoreGlobs = const [],
       sourceDirs = null,
       updateCheck = null,
-      includeA11y = null;
+      includeA11y = null,
+      autoUpdate = null,
+      requiredVersion = null,
+      profile = null,
+      strictBaseline = null,
+      cache = null,
+      skipBoilerplate = null,
+      boilerplateMethods = const [],
+      reservedAnnotations = const [],
+      assertionFunctions = const [],
+      layers = const {},
+      boundaries = const [];
 
   final Map<String, bool> ruleToggles;
   final List<String> ignoreGlobs;
   final List<String>? sourceDirs;
   final bool? updateCheck;
   final bool? includeA11y;
+  final bool? autoUpdate;
+  final VersionConstraint? requiredVersion;
+  final RuleProfile? profile;
+  final bool? strictBaseline;
+  final bool? cache;
+  final bool? skipBoilerplate;
+  final List<String> boilerplateMethods;
+  final List<String> reservedAnnotations;
+  final List<String> assertionFunctions;
+  final Map<String, String> layers;
+  final List<LayerBoundary> boundaries;
 
   /// Returns the result of layering [nearer] on top of `this` (the farther
   /// layer). `rules` merge per ruleId, `ignore` lists concatenate (farther
@@ -311,14 +563,40 @@ class _PartialConfig {
       if (!mergedIgnores.contains(glob)) mergedIgnores.add(glob);
     }
 
+    // layers merge per name; boundaries merge per importing layer (nearer wins).
+    final mergedBoundaries = <String, LayerBoundary>{
+      for (final b in boundaries) b.from: b,
+      for (final b in nearer.boundaries) b.from: b,
+    };
+
     return _PartialConfig(
+      layers: {...layers, ...nearer.layers},
+      boundaries: mergedBoundaries.values.toList(),
       ruleToggles: mergedToggles,
       ignoreGlobs: mergedIgnores,
       sourceDirs: nearer.sourceDirs ?? sourceDirs,
       updateCheck: nearer.updateCheck ?? updateCheck,
       includeA11y: nearer.includeA11y ?? includeA11y,
+      autoUpdate: nearer.autoUpdate ?? autoUpdate,
+      requiredVersion: nearer.requiredVersion ?? requiredVersion,
+      profile: nearer.profile ?? profile,
+      strictBaseline: nearer.strictBaseline ?? strictBaseline,
+      cache: nearer.cache ?? cache,
+      skipBoilerplate: nearer.skipBoilerplate ?? skipBoilerplate,
+      boilerplateMethods: _union(boilerplateMethods, nearer.boilerplateMethods),
+      reservedAnnotations: _union(
+        reservedAnnotations,
+        nearer.reservedAnnotations,
+      ),
+      assertionFunctions: _union(assertionFunctions, nearer.assertionFunctions),
     );
   }
+
+  static List<String> _union(List<String> a, List<String> b) => [
+    ...a,
+    for (final x in b)
+      if (!a.contains(x)) x,
+  ];
 
   /// Resolves the merged layers into an immutable [LoamConfig], applying the
   /// Zero-Config defaults for any field left unset.
@@ -328,5 +606,16 @@ class _PartialConfig {
     sourceDirs: sourceDirs ?? kDefaultSourceDirs,
     updateCheck: updateCheck ?? true,
     includeA11y: includeA11y ?? true,
+    autoUpdate: autoUpdate ?? true,
+    requiredVersion: requiredVersion,
+    profile: profile,
+    strictBaseline: strictBaseline ?? false,
+    cache: cache ?? true,
+    skipBoilerplate: skipBoilerplate ?? true,
+    boilerplateMethods: List.unmodifiable(boilerplateMethods),
+    reservedAnnotations: List.unmodifiable(reservedAnnotations),
+    assertionFunctions: List.unmodifiable(assertionFunctions),
+    layers: Map.unmodifiable(layers),
+    boundaries: List.unmodifiable(boundaries),
   );
 }

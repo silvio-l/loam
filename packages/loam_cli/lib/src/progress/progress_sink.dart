@@ -4,8 +4,9 @@
 /// interface — they have no knowledge of stderr, ANSI codes, or terminal
 /// geometry (Invariant 1: no CLI coupling in the loader/runner layer).
 ///
-/// Two implementations exist:
-/// - [NoopProgressSink] — default, used when progress display is off.
+/// Implementations:
+/// - [NoopProgressSink] — default for library callers, drops everything.
+/// - `NoticeOnlySink` — CLI runs with progress display off: only notices.
 /// - `TtyProgressRenderer` — renders a live bar to stderr in the CLI layer.
 abstract class ProgressSink {
   /// Called when a new phase begins.
@@ -25,6 +26,11 @@ abstract class ProgressSink {
   /// Implementations typically clear the progress line here so that subsequent
   /// output (report, error messages) is not interleaved with the bar.
   void endPhase();
+
+  /// A one-line message the user should see even without a progress bar
+  /// (e.g. the analyzer store failed and the run continues without it).
+  /// The CLI prints it to stderr; compute layers never write there directly.
+  void notice(String message);
 }
 
 /// A no-op implementation of [ProgressSink] used when progress display is off.
@@ -44,4 +50,7 @@ class NoopProgressSink implements ProgressSink {
 
   @override
   void endPhase() {}
+
+  @override
+  void notice(String message) {}
 }

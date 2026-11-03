@@ -7,7 +7,7 @@ import 'package:crypto/crypto.dart';
 /// The fingerprint is a 16-character lowercase hex string (64 bits of SHA-256).
 /// It uniquely identifies a finding by its **semantic identity**, not its
 /// presentation: line/column shifts and reformatting do not change the
-/// fingerprint (see CONTEXT.md — "Fingerprint").
+/// fingerprint (see internal-notes — "Fingerprint").
 ///
 /// Inputs (concatenated with NUL separators before hashing):
 /// 1. [ruleId] — the rule that produced the finding.

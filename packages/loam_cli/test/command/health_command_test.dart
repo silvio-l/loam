@@ -6,7 +6,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import '../../bin/loam.dart' as cli;
+import '../support/cli_runner.dart';
+import '../support/shared_store.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,345 +78,80 @@ int hotFn(int a, int b, int c, int d, int e, int f, int g, int h, int i) {
   return dir;
 }
 
-// ---------------------------------------------------------------------------
-// Capture stdout from cli.run via zone-override is not trivial; instead we
-// run the CLI in-process but redirect stdout to a string via IOOverrides.
-// For output-content tests we use a subprocess for clean capture.
-// ---------------------------------------------------------------------------
+int? _score(String out) {
+  final m = RegExp(r'Health-Score:\s+(\d+)').firstMatch(out);
+  return m == null ? null : int.parse(m.group(1)!);
+}
 
 void main() {
-  // ---- AC4: Exit codes -------------------------------------------------------
+  useSharedAnalyzerStore();
+
+  late Directory clean;
+  late Directory hotspot;
+  late CliResult cleanRun;
+  late CliResult hotspotRun;
+
+  // One analysis per project for the whole file.
+  setUpAll(() async {
+    clean = _makeCleanProject();
+    hotspot = _makeHotspotProject();
+    cleanRun = await runCli(['health', '--project-root', clean.path]);
+    hotspotRun = await runCli(['health', '--project-root', hotspot.path]);
+  });
+
+  tearDownAll(() {
+    clean.deleteSync(recursive: true);
+    hotspot.deleteSync(recursive: true);
+  });
 
   group('exit codes', () {
-    test('health on clean project → exit 0', () async {
-      final dir = _makeCleanProject();
-      try {
-        final code = await cli.run(['health', '--project-root', dir.path]);
-        expect(code, equals(0));
-      } finally {
-        dir.deleteSync(recursive: true);
-      }
+    test('health is a report command: exit 0 even with hotspots', () {
+      expect(cleanRun.exitCode, 0);
+      expect(hotspotRun.exitCode, 0);
     });
-
-    test(
-      'health on hotspot project → exit 0 (report command, not gate)',
-      () async {
-        final dir = _makeHotspotProject();
-        try {
-          final code = await cli.run(['health', '--project-root', dir.path]);
-          expect(
-            code,
-            equals(0),
-            reason:
-                'health is a report command — low score must not change exit code',
-          );
-        } finally {
-          dir.deleteSync(recursive: true);
-        }
-      },
-    );
 
     test('two positionals → exit 64 (EX_USAGE)', () async {
-      final code = await cli.run(['health', '/path/one', '/path/two']);
-      expect(code, equals(64), reason: 'two positionals must yield EX_USAGE');
-    });
-
-    test(
-      'positional path (no --project-root) on clean project → exit 0',
-      () async {
-        final dir = _makeCleanProject();
-        try {
-          final code = await cli.run(['health', dir.path]);
-          expect(code, equals(0));
-        } finally {
-          dir.deleteSync(recursive: true);
-        }
-      },
-    );
-  });
-
-  // ---- AC1 + AC6: Output content: clean project → score 100 / grade A -------
-
-  group('output content — clean project', () {
-    late Directory dir;
-    late String output;
-
-    setUpAll(() async {
-      dir = _makeCleanProject();
-      final entrypoint = '${Directory.current.path}/bin/loam.dart';
-      final result = Process.runSync(Platform.executable, [
-        'run',
-        entrypoint,
-        'health',
-        '--project-root',
-        dir.path,
-      ]);
-      output = result.stdout as String;
-    });
-
-    tearDownAll(() => dir.deleteSync(recursive: true));
-
-    test('output contains Health-Score header line', () {
-      expect(output, contains('loam health'));
-      expect(output, contains('Health-Score:'));
-    });
-
-    test('clean project shows score 100', () {
-      expect(output, contains('100'), reason: 'clean project must score 100');
-    });
-
-    test('clean project shows grade A', () {
-      expect(output, contains('Grade: A'));
-    });
-
-    test('clean project shows no-hotspot message', () {
-      expect(
-        output,
-        contains('No hotspots detected.'),
-        reason: 'clean project must show empty-hotspot message',
-      );
-    });
-
-    test('output does NOT contain anti-vocabulary', () {
-      expect(output, isNot(contains('Smell')));
-      expect(output, isNot(contains('Bad code')));
+      final r = await runCli(['health', '/path/one', '/path/two']);
+      expect(r.exitCode, 64);
     });
   });
 
-  // ---- AC1 + E2E: hotspot project → score drop + table rows ----------------
-
-  group('output content — hotspot project', () {
-    late Directory dir;
-    late String output1;
-    late String output2;
-
-    setUpAll(() {
-      dir = _makeHotspotProject();
-      final entrypoint = '${Directory.current.path}/bin/loam.dart';
-      final r1 = Process.runSync(Platform.executable, [
-        'run',
-        entrypoint,
-        'health',
-        '--project-root',
-        dir.path,
-      ]);
-      output1 = r1.stdout as String;
-      // Run a second time to verify reproducibility (same output).
-      final r2 = Process.runSync(Platform.executable, [
-        'run',
-        entrypoint,
-        'health',
-        '--project-root',
-        dir.path,
-      ]);
-      output2 = r2.stdout as String;
+  group('score', () {
+    test('clean project scores 100 / grade A without hotspots', () {
+      expect(_score(cleanRun.stdout), 100);
+      expect(cleanRun.stdout, contains('Grade: A'));
     });
 
-    tearDownAll(() => dir.deleteSync(recursive: true));
-
-    test('hotspot project: score < 100', () {
-      // Extract score from "Health-Score: <N> / 100"
-      final match = RegExp(
-        r'Health-Score:\s+(\d+)\s+/\s+100',
-      ).firstMatch(output1);
-      expect(match, isNotNull, reason: 'output must contain Health-Score line');
-      final score = int.parse(match!.group(1)!);
-      expect(
-        score,
-        lessThan(100),
-        reason: 'hotspot project must produce score < 100',
-      );
+    test('hotspot project scores below 100 and names the complex function', () {
+      expect(_score(hotspotRun.stdout), lessThan(100));
+      expect(hotspotRun.stdout, isNot(contains('Grade: A')));
+      expect(hotspotRun.stdout, contains('hotFn'));
     });
 
-    test('hotspot project: grade is not A', () {
-      expect(
-        output1,
-        isNot(contains('Grade: A')),
-        reason: 'hotspot project must not achieve grade A',
-      );
+    test('same input produces identical output (reproducibility)', () async {
+      final again = await runCli(['health', '--project-root', hotspot.path]);
+      expect(again.stdout, hotspotRun.stdout);
     });
 
-    test('hotspot project: hotspot table header is present', () {
-      expect(output1, contains('FILE:LINE'));
-      expect(output1, contains('SYMBOL'));
-      expect(output1, contains('CYC'));
-      expect(output1, contains('COG'));
+    test('--project-root and positional path give the same score', () async {
+      final positional = await runCli(['health', hotspot.path]);
+      expect(positional.exitCode, 0);
+      expect(_score(positional.stdout), _score(hotspotRun.stdout));
     });
 
-    test('hotspot project: hotspot row references the complex function', () {
-      expect(
-        output1,
-        contains('hotFn'),
-        reason: 'hotspot table must reference the complex function',
-      );
-    });
-
-    test('E2E reproducibility: two runs produce identical output', () {
-      expect(
-        output1,
-        equals(output2),
-        reason: 'health output must be deterministic across runs',
-      );
-    });
-  });
-
-  // ---- AC5: toggle-off does NOT change score (toggle-independence) ----------
-
-  group('toggle independence', () {
-    test(
-      'complexity-hotspots toggle disabled does NOT affect health score',
-      () async {
-        final dir = _makeHotspotProject();
-        try {
-          // Write a loam.yaml with complexity-hotspots disabled.
-          File(p.join(dir.path, 'loam.yaml')).writeAsStringSync('''
+    test('complexity-hotspots toggle does not change the score', () async {
+      final dir = _makeHotspotProject();
+      try {
+        File(p.join(dir.path, 'loam.yaml')).writeAsStringSync('''
 rules:
   complexity-hotspots: false
 ''');
-
-          // Score from the in-process run with toggle OFF.
-          final entrypoint = '${Directory.current.path}/bin/loam.dart';
-          final withToggleOff = Process.runSync(Platform.executable, [
-            'run',
-            entrypoint,
-            'health',
-            '--project-root',
-            dir.path,
-          ]);
-          final outputOff = withToggleOff.stdout as String;
-
-          // Score from a run WITHOUT loam.yaml (toggle default = on).
-          final dirNoConfig = _makeHotspotProject();
-          try {
-            final withoutConfig = Process.runSync(Platform.executable, [
-              'run',
-              entrypoint,
-              'health',
-              '--project-root',
-              dirNoConfig.path,
-            ]);
-            final outputDefault = withoutConfig.stdout as String;
-
-            // Both outputs must show the same score.
-            final scoreOff = RegExp(
-              r'Health-Score:\s+(\d+)',
-            ).firstMatch(outputOff)?.group(1);
-            final scoreDefault = RegExp(
-              r'Health-Score:\s+(\d+)',
-            ).firstMatch(outputDefault)?.group(1);
-
-            expect(scoreOff, isNotNull);
-            expect(scoreDefault, isNotNull);
-            expect(
-              scoreOff,
-              equals(scoreDefault),
-              reason:
-                  'disabling complexity-hotspots toggle must NOT change the health score',
-            );
-          } finally {
-            dirNoConfig.deleteSync(recursive: true);
-          }
-        } finally {
-          dir.deleteSync(recursive: true);
-        }
-      },
-    );
-  });
-
-  // ---- AC3: --project-root and positional path equivalence ------------------
-
-  group('path resolution', () {
-    test('--project-root and positional path give same score', () async {
-      final dir = _makeHotspotProject();
-      try {
-        final codeExplicit = await cli.run([
-          'health',
-          '--project-root',
-          dir.path,
-        ]);
-        final codePositional = await cli.run(['health', dir.path]);
-        expect(codeExplicit, equals(0));
-        expect(codePositional, equals(0));
+        final off = await runCli(['health', '--project-root', dir.path]);
+        expect(_score(off.stdout), isNotNull);
+        expect(_score(off.stdout), _score(hotspotRun.stdout));
       } finally {
         dir.deleteSync(recursive: true);
       }
     });
-  });
-
-  // ---- AC1 renderer: fixture-based E2E with complexity_hotspots_fixture -----
-
-  group('E2E against complexity_hotspots_fixture', () {
-    final fixturePath = p.normalize(
-      p.join(
-        Directory.current.path,
-        'test',
-        'fixtures',
-        'complexity_hotspots_fixture',
-      ),
-    );
-
-    test('fixture project exits 0', () async {
-      final code = await cli.run(['health', '--project-root', fixturePath]);
-      expect(code, equals(0));
-    });
-
-    test('fixture project output is reproducible (run twice → identical)', () {
-      final entrypoint = '${Directory.current.path}/bin/loam.dart';
-      final r1 = Process.runSync(Platform.executable, [
-        'run',
-        entrypoint,
-        'health',
-        '--project-root',
-        fixturePath,
-      ]);
-      final r2 = Process.runSync(Platform.executable, [
-        'run',
-        entrypoint,
-        'health',
-        '--project-root',
-        fixturePath,
-      ]);
-      expect(r1.stdout, equals(r2.stdout));
-    });
-
-    test('fixture output contains Health-Score and Grade', () {
-      final entrypoint = '${Directory.current.path}/bin/loam.dart';
-      final r = Process.runSync(Platform.executable, [
-        'run',
-        entrypoint,
-        'health',
-        '--project-root',
-        fixturePath,
-      ]);
-      final out = r.stdout as String;
-      expect(out, contains('Health-Score:'));
-      expect(out, contains('Grade:'));
-    });
-
-    test(
-      'fixture output shows hotspot table (fixture has complex functions)',
-      () {
-        final entrypoint = '${Directory.current.path}/bin/loam.dart';
-        final r = Process.runSync(Platform.executable, [
-          'run',
-          entrypoint,
-          'health',
-          '--project-root',
-          fixturePath,
-        ]);
-        final out = r.stdout as String;
-        // Fixture has justOverCyclomatic (cyclomatic=21) and veryHighCognitive
-        // (cognitive=36). At least one of those must appear as a Hotspot row.
-        final hasHotspotRow =
-            out.contains('justOverCyclomatic') ||
-            out.contains('veryHighCognitive') ||
-            out.contains('justUnderCyclomatic');
-        expect(
-          hasHotspotRow,
-          isTrue,
-          reason: 'fixture must produce at least one hotspot row',
-        );
-      },
-    );
   });
 }

@@ -1,6 +1,6 @@
 ---
 /**
- * GitHubStars — Star-CTA badge for the Home page only (EN + DE).
+ * GitHubStars — compact GitHub star badge in the site header (every page, EN + DE).
  * Build-time: fetches star count from GitHub API with a short timeout;
  * on any failure renders a neutral CTA without a number (no build break).
  * Client-side: updates the count on load via direct GitHub API fetch (no proxy).
@@ -9,13 +9,11 @@
 interface Props {
   /** Baked star count from the build-time fetch, or null on failure. */
   initialCount: number | null;
-  /** Locale-aware CTA label, e.g. "Star on GitHub" or "Bei GitHub staren". */
-  label: string;
   /** Locale-aware aria label for screen readers. */
   ariaLabel: string;
 }
 
-const { initialCount, label, ariaLabel } = Astro.props;
+const { initialCount, ariaLabel } = Astro.props;
 
 const REPO = 'silvio-l/loam';
 const GITHUB_URL = `https://github.com/${REPO}`;
@@ -23,6 +21,7 @@ const GITHUB_URL = `https://github.com/${REPO}`;
 
 <a
   class="gh-stars"
+  data-testid="github-stars-link"
   href={GITHUB_URL}
   target="_blank"
   rel="noopener noreferrer"
@@ -42,7 +41,7 @@ const GITHUB_URL = `https://github.com/${REPO}`;
         1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
     </svg>
   </span>
-  <span class="gh-label">{label}</span>
+  <span class="gh-label">GitHub</span>
   {initialCount !== null && (
     <span class="gh-count" id="gh-count">{initialCount.toLocaleString('en')}</span>
   )}
@@ -74,48 +73,19 @@ const GITHUB_URL = `https://github.com/${REPO}`;
 </script>
 
 <style is:global>
+  /* Header badge: same height and type as the other header controls. */
   .gh-stars {
-    display: inline-flex;
-    align-items: center;
-    gap: .5rem;
-    font-size: .82rem;
-    font-weight: 500;
-    color: var(--ink);
-    text-decoration: none;
-    background: linear-gradient(180deg, var(--panel), #101216);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: .42rem .9rem .42rem .75rem;
-    transition: .18s;
-    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    display: inline-flex; align-items: center; gap: .5rem; min-height: 2.5rem;
+    padding: 0 .85rem; border: 1px solid var(--line-strong); border-radius: 999px;
+    font: 500 .74rem / 1 var(--font-mono); letter-spacing: .04em;
+    color: var(--ink); text-decoration: none; transition: color .18s, border-color .18s;
   }
-  .gh-stars:hover, .gh-stars:focus-visible {
-    color: var(--green);
-    border-color: rgba(136,200,64,.5);
-    box-shadow: 0 4px 22px rgba(136,200,64,.15);
-  }
-  .gh-icon {
-    display: flex;
-    align-items: center;
-    color: var(--dim);
-    flex-shrink: 0;
-  }
-  .gh-stars:hover .gh-icon, .gh-stars:focus-visible .gh-icon {
-    color: var(--green);
-  }
-  .gh-label {
-    white-space: nowrap;
-  }
-  .gh-count {
-    display: inline-flex;
-    align-items: center;
-    background: rgba(136,200,64,.12);
-    color: var(--green);
-    border-radius: 999px;
-    padding: .1rem .55rem;
-    font-size: .74rem;
-    font-weight: 600;
-    letter-spacing: .04em;
-    margin-left: .1rem;
-  }
+  .gh-stars:hover, .gh-stars:focus-visible { color: var(--green); border-color: var(--green-a50); }
+  .gh-icon { display: flex; color: var(--ink); flex-shrink: 0; }
+  .gh-stars:hover .gh-icon, .gh-stars:focus-visible .gh-icon { color: var(--green); }
+  .gh-label { white-space: nowrap; }
+  .gh-count { display: inline-flex; align-items: center; gap: .3rem; padding-left: .55rem;
+    border-left: 1px solid var(--line-strong); color: var(--green); font-weight: 600; }
+  .gh-count::before { content: "★"; font-size: .9em; }
+  @media (max-width: 620px) { .gh-label { display: none; } }
 </style>

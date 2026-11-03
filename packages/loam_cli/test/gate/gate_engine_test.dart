@@ -182,4 +182,34 @@ void main() {
       );
     });
   });
+
+  group('GateEngine.evaluate(strictStale)', () {
+    GateResult run({required bool strict, required bool withStale}) {
+      engine.write([
+        _finding('fp-kept'),
+        if (withStale) _finding('fp-stale'),
+      ], 'ruleset@1');
+      final diff = engine.diff([_finding('fp-kept')], engine.read());
+      return gate.evaluate(
+        mode: GateMode.ratchet,
+        diff: diff,
+        strictStale: strict,
+      );
+    }
+
+    test('stale entries are transparent by default', () {
+      expect(run(strict: false, withStale: true).passed, isTrue);
+    });
+
+    test('stale entries fail the gate when strict', () {
+      final r = run(strict: true, withStale: true);
+      expect(r.passed, isFalse);
+      expect(r.exitCode, 1);
+      expect(r.fixedCount, 1);
+    });
+
+    test('strict without stale entries passes', () {
+      expect(run(strict: true, withStale: false).passed, isTrue);
+    });
+  });
 }

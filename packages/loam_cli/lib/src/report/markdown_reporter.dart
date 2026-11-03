@@ -2,6 +2,7 @@ import 'package:path/path.dart' as p;
 
 import '../model/finding.dart';
 import '../recommendation/recommendation_engine.dart';
+import '../suppression/suppression_audit.dart';
 import 'reporter.dart';
 
 /// GitHub-Flavored Markdown reporter.
@@ -29,12 +30,22 @@ import 'reporter.dart';
 /// 0 findings — clean
 /// ```
 ///
-/// Invariant 4 (pure renderer): no I/O, no exit-code logic, no thresholds.
+/// pure renderer, ADR 0001: no I/O, no exit-code logic, no thresholds.
 /// Invariant 5 (reproducible): no timestamps, no absolute paths in content;
 /// same input always produces a byte-identical string.
 class MarkdownReporter implements Reporter {
   /// Creates a [MarkdownReporter].
   const MarkdownReporter();
+
+  /// Writes the suppression audit as plain lines (per-rule counts, warnings).
+  void _writeAudit(StringBuffer buf, SuppressionAudit audit) {
+    final lines = audit.toSummaryLines();
+    if (lines.isEmpty) return;
+    buf.writeln();
+    for (final line in lines) {
+      buf.writeln('- $line  ');
+    }
+  }
 
   @override
   String render(ReportPayload payload) {
@@ -50,6 +61,7 @@ class MarkdownReporter implements Reporter {
         ..writeln();
       final stats = _statsLine(payload.stats);
       if (stats != null) buf.writeln(stats);
+      _writeAudit(buf, payload.suppressionAudit);
       return buf.toString();
     }
 
@@ -104,6 +116,7 @@ class MarkdownReporter implements Reporter {
     );
     final stats = _statsLine(payload.stats);
     if (stats != null) buf.writeln(stats);
+    _writeAudit(buf, payload.suppressionAudit);
 
     final recommendations = _recommendationsSection(payload.recommendations);
     if (recommendations != null) buf.write(recommendations);

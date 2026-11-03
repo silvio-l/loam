@@ -7,11 +7,18 @@ import 'package:loam/src/loader/project_loader.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fixture_packages.dart';
+import '../support/shared_store.dart';
+
 void main() {
+  useSharedAnalyzerStore();
+
   // Resolve the fixture path relative to packages/loam_cli/ (dart test CWD).
   final fixturePath = p.normalize(
     p.join(Directory.current.path, 'test', 'fixtures', 'cross_file_fixture'),
   );
+
+  setUpAll(() => ensureFixtureResolved(fixturePath));
 
   // ---------------------------------------------------------------------------
   // AC1 + AC2: resolved list is sorted by normalised absolute path and two

@@ -1,0 +1,11 @@
+name: slop_assertion_free_test_fixture
+description: "Test fixture for SlopAssertionFreeTestRule tests."
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+
+dev_dependencies:
+  mocktail: any
+  test: any

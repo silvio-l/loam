@@ -1,11 +1,13 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:path/path.dart' as p;
 
 import '../loader/project_loader.dart';
+import '../model/anchor.dart';
 import '../model/finding.dart';
 import '../model/fingerprint.dart';
+import '../model/project_path.dart';
+import 'a11y_name_sources.dart';
 import 'generated_file.dart';
 import 'rule.dart';
 
@@ -45,10 +47,12 @@ import 'rule.dart';
 /// are skipped entirely.
 ///
 /// **Fingerprint semantics:**
-/// `computeFingerprint(ruleId, relativePath,
-///   enclosingMemberName + ':' + widgetKind + ':' + occurrenceIndex)` —
-/// robust against line/column shifts; stable as long as the enclosing
-/// function/method name and the occurrence order within it don't change.
+/// `computeFingerprint(ruleId, relativePath, anchor)` with the anchor
+/// `enclosingMemberName:widgetKind:contentHash:n` — `contentHash` covers the
+/// widget's normalised tokens (closure bodies collapsed, comments and
+/// formatting ignored) and `n` counts only earlier identical widgets in the
+/// same member. Inserting code or comments elsewhere, line shifts and
+/// re-formatting leave it unchanged.
 ///
 /// **Finding contract:**
 /// - `severity`: [Severity.warning]
@@ -89,7 +93,7 @@ class A11yFormFieldLabelRule implements Rule {
       // Skip generated files — *.g.dart, *.freezed.dart, *.mocks.dart, gen-l10n.
       if (isGeneratedDartFile(file.path)) continue;
 
-      final relativePath = p.relative(file.path, from: projectRoot);
+      final relativePath = projectRelativePosixPath(file.path, projectRoot);
 
       final visitor = _FormFieldLabelVisitor(
         ruleId: ruleId,
@@ -118,11 +122,7 @@ class _FormFieldLabelVisitor extends RecursiveAstVisitor<void> {
   final String relativePath;
   final List<Finding> findings;
 
-  /// Occurrence counter keyed by `enclosingMemberName:widgetKind`.
-  ///
-  /// Ensures that multiple flagged widgets of the same type within the same
-  /// enclosing member get distinct, deterministic fingerprints.
-  final Map<String, int> _occurrenceCount = {};
+  final AnchorCounter _anchors = AnchorCounter();
 
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
@@ -136,17 +136,17 @@ class _FormFieldLabelVisitor extends RecursiveAstVisitor<void> {
     final classEl = constructorEl.enclosingElement;
 
     // Only act on Flutter's TextField or TextFormField.
-    final isTextField = _isFlutterClass(classEl, 'TextField');
-    final isTextFormField = _isFlutterClass(classEl, 'TextFormField');
+    final isTextField = isFlutterClass(classEl, 'TextField');
+    final isTextFormField = isFlutterClass(classEl, 'TextFormField');
     if (!isTextField && !isTextFormField) return;
 
     final widgetKind = classEl.name ?? 'TextField';
 
     // Suppressed by a Semantics(label: …) ancestor?
-    if (_isWrappedInSemanticsLabel(node)) return;
+    if (hasNamingAncestor(node)) return;
 
     // Inspect the decoration: argument.
-    final decorationArg = _namedArgNode(node, 'decoration');
+    final decorationArg = namedArgument(node.argumentList, 'decoration');
 
     if (decorationArg == null) {
       // No decoration at all — definitely missing a label.
@@ -166,97 +166,16 @@ class _FormFieldLabelVisitor extends RecursiveAstVisitor<void> {
     final decoClassEl = decoConstructorEl.enclosingElement;
 
     // decoration value is not Flutter's InputDecoration — leave it alone.
-    if (!_isFlutterClass(decoClassEl, 'InputDecoration')) return;
+    if (!isFlutterClass(decoClassEl, 'InputDecoration')) return;
 
     // InputDecoration present — check for labelText or hintText (fallback).
-    if (_hasArg(decorationExpr, 'labelText')) return; // clean
-    if (_hasArg(decorationExpr, 'hintText')) return; // hintText fallback: clean
+    final decoArgs = decorationExpr.argumentList;
+    if (hasNamedArgument(decoArgs, 'labelText')) return; // clean
+    if (hasNamedArgument(decoArgs, 'label')) return; // label: Text(…) is clean
+    if (hasNamedArgument(decoArgs, 'hintText')) return; // fallback: clean
 
-    // InputDecoration without labelText or hintText — label is missing.
+    // InputDecoration without label, labelText or hintText — label is missing.
     _addFinding(node, widgetKind: widgetKind);
-  }
-
-  /// Returns `true` when [classEl] is Flutter's class with the given [name].
-  ///
-  /// Uses the resolved library URI — never a string/regex match on the source
-  /// (Invariant 1: semantics over syntax).
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
-  bool _isFlutterClass(InterfaceElement classEl, String name) {
-    if (classEl.name != name) return false;
-    final libUri = classEl.enclosingElement.uri;
-    return libUri.scheme == 'package' &&
-        libUri.pathSegments.isNotEmpty &&
-        libUri.pathSegments.first == 'flutter';
-  }
-
-  /// Returns the [NamedArgument] node for [argName], or `null` if absent.
-  NamedArgument? _namedArgNode(
-    InstanceCreationExpression node,
-    String argName,
-  ) {
-    for (final arg in node.argumentList.arguments) {
-      if (arg is NamedArgument && arg.name.lexeme == argName) return arg;
-    }
-    return null;
-  }
-
-  /// Returns `true` when [node] has a named argument with [argName].
-  bool _hasArg(InstanceCreationExpression node, String argName) {
-    return node.argumentList.arguments.any(
-      (arg) => arg is NamedArgument && arg.name.lexeme == argName,
-    );
-  }
-
-  /// Returns `true` when [node] is enclosed in any `Semantics` ancestor that
-  /// has a non-null `label` named argument.
-  ///
-  /// Walks the parent chain (any depth) looking for an
-  /// [InstanceCreationExpression] whose class is Flutter's `Semantics` and
-  /// that has a `label:` argument.
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
-  bool _isWrappedInSemanticsLabel(AstNode node) {
-    AstNode? current = node.parent;
-    while (current != null) {
-      if (current is InstanceCreationExpression) {
-        final constructorEl = current.constructorName.element;
-        if (constructorEl != null) {
-          final classEl = constructorEl.enclosingElement;
-          if (_isFlutterClass(classEl, 'Semantics') &&
-              _hasArg(current, 'label')) {
-            return true;
-          }
-        }
-      }
-      current = current.parent;
-    }
-    return false;
-  }
-
-  /// Returns the qualified name of the enclosing function or method.
-  ///
-  /// Used as part of the semantic anchor for fingerprint stability. Walks the
-  /// parent chain and returns the first `MethodDeclaration` or
-  /// `FunctionDeclaration` name it finds. Returns `'<unknown>'` when no
-  /// enclosing member is found.
-  // loam-ignore: code-duplicates – identical helper in each rule's private visitor; a shared mixin would couple unrelated rule files together.
-  String _enclosingMemberName(AstNode node) {
-    AstNode? current = node.parent;
-    while (current != null) {
-      if (current is MethodDeclaration) {
-        final className =
-            (current.parent is ClassDeclaration
-                ? (current.parent as ClassDeclaration).namePart.typeName.lexeme
-                : null) ??
-            '';
-        final method = current.name.lexeme;
-        return className.isEmpty ? method : '$className.$method';
-      }
-      if (current is FunctionDeclaration) {
-        return current.name.lexeme;
-      }
-      current = current.parent;
-    }
-    return '<unknown>';
   }
 
   /// Emits a finding for [node] with [widgetKind].
@@ -264,12 +183,13 @@ class _FormFieldLabelVisitor extends RecursiveAstVisitor<void> {
     InstanceCreationExpression node, {
     required String widgetKind,
   }) {
-    final enclosingName = _enclosingMemberName(node);
-    final counterKey = '$enclosingName:$widgetKind';
-    final idx = _occurrenceCount[counterKey] ?? 0;
-    _occurrenceCount[counterKey] = idx + 1;
-
-    final anchor = '$enclosingName:$widgetKind:$idx';
+    final enclosingName = enclosingMemberName(node);
+    // Scope + node content (closure bodies collapsed); the counter only
+    // separates true duplicates, so insertions elsewhere never shift it.
+    final anchor = _anchors.next(
+      '$enclosingName:$widgetKind',
+      normalizedSource(node),
+    );
     final fingerprint = computeFingerprint(
       ruleId: ruleId,
       relativePath: relativePath,
@@ -299,10 +219,10 @@ class _FormFieldLabelVisitor extends RecursiveAstVisitor<void> {
         kind: 'missing-form-label',
         remedy:
             "Add decoration: InputDecoration(labelText: '<label>') so screen "
-            'readers and sighted users can identify the field. For search or '
-            "read-only contexts, hintText: '<placeholder>' is accepted as a "
-            'fallback. Alternatively, wrap the field with '
-            "Semantics(label: '<label>').",
+            'readers and sighted users can identify the field. hintText is '
+            'only a fallback: it disappears once the user types, so use it '
+            'only for search or read-only contexts. Alternatively, wrap the '
+            "field with Semantics(label: '<label>').",
         wcagRef: WcagRef.wcag332,
       ),
     );

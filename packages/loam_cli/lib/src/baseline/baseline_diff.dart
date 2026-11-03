@@ -34,4 +34,16 @@ class BaselineDiff {
   ///
   /// Represents improvements — never fail the gate.
   final List<BaselineFinding> fixedFindings;
+
+  /// Number of [fixedFindings] (stale baseline entries) per rule ID, sorted by
+  /// rule ID.
+  Map<String, int> get staleByRule {
+    final counts = <String, int>{};
+    for (final f in fixedFindings) {
+      counts[f.ruleId] = (counts[f.ruleId] ?? 0) + 1;
+    }
+    return Map.fromEntries(
+      counts.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
+  }
 }

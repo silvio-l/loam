@@ -6,8 +6,11 @@ import 'dart:io';
 import 'package:loam/src/loader/project_loader.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   // Resolve fixture paths relative to packages/loam_cli/ (dart test CWD).
   final brokenFixturePath = p.normalize(
     p.join(Directory.current.path, 'test', 'fixtures', 'broken_fixture'),

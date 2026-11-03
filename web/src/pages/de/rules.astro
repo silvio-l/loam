@@ -2,43 +2,102 @@
 import Layout from '../../layouts/Layout.astro';
 import RuleCard from '../../components/RuleCard.astro';
 import { t } from '../../i18n/ui';
+import '../../styles/rules.css';
 
 const lang = 'de';
 const live = t(lang, 'rules.badge.live');
 const planned = t(lang, 'rules.badge.planned');
 const slopLabel = t(lang, 'rules.slop.label');
 const cleanLabel = t(lang, 'rules.clean.label');
+const profileLabels = {
+  core: t(lang, 'rules.profile.core'),
+  strict: t(lang, 'rules.profile.strict'),
+};
 ---
 
 <Layout
   lang="de"
   title="Rules — loam.dev"
-  description="Der vollständige loam.dev-Regelkatalog: vierzehn Analyse-Fähigkeiten für Dart/Flutter-Projekte — zwölf heute live, zwei geplant. Jede Rule zeigt ein Slop-vs.-sauber-Codebeispiel."
+  description="Alle Rules von loam.dev für Dart/Flutter: zwanzig heute aktiv, eine geplant. Was jede Rule findet, ob sie dein CI-Gate blockieren kann, und je ein gemeldetes und ein sauberes Codebeispiel."
   path="/de/rules"
 >
-  <div class="prose-page">
-    <h1>Rules</h1>
+  <span id="status" class="sr-only" role="status" aria-live="polite"></span>
 
-    <p class="lead">
-      loam.dev bietet vierzehn Analyse-Fähigkeiten, alle hinter einem stabilen
-      <code>Rule</code>-Interface. Eine neue Rule hinzuzufügen ändert die
-      Pipeline nicht — nur die Rule-Liste. Zwölf Rules sind heute live,
-      zwei sind geplant und erscheinen als Post-MVP-Iterationen.
-      Der Status ist immer ehrlich angegeben.
-    </p>
+  <header class="scene page-head rules-head" aria-labelledby="rules-title" data-testid="rules-head">
+    <div class="wrap rules-head__grid intro">
+      <p class="label">Rule-Verzeichnis</p>
+      <h1 id="rules-title" class="display">Rules<span class="accent">.</span></h1>
+      <p class="lead page-head__lead">Zwanzig Rules sind in loam.dev heute aktiv, eine weitere ist geplant. Jede Rule
+      findet eine Art von Problem, zeigt ein gemeldetes und ein sauberes Beispiel und sagt
+      dir, ob sie dein Gate blockieren kann. Alle stecken hinter einem stabilen <code>Rule</code>-Interface: Eine neue Rule erweitert die Liste, nie die Pipeline.</p>
+      <div class="rules-head__profiles">
+        <p class="label label--plain">Gate-Profile</p>
+        <p class="body-copy-p">Jede aktive Rule hat ein Gate-Profil. <strong>core</strong>-Rules sind auf nahezu
+      null Fehlalarme ausgelegt und standardmäßig die einzigen, die <code>loam gate</code> rot werden lassen. <strong>strict</strong>-Rules arbeiten mit Heuristiken oder
+      Schwellenwerten: Sie laufen immer mit und erscheinen als Hinweis, blockieren aber nur
+      mit <code>loam gate --profile strict</code> (oder <code>profile: strict</code> in der <code>loam.yaml</code>). Das Profil ändert <code>baseline.json</code> nie. Du bist mit
+      einem einzelnen Finding nicht einverstanden? <code>// loam-ignore: &lt;rule-id&gt; – &lt;reason&gt;</code> schaltet es an Ort und
+      Stelle stumm — die Begründung ist Pflicht.</p>
+      </div>
+    </div>
+  </header>
 
-    <!-- Live-Rule -->
-    <section>
-      <h2>Live</h2>
+  <div class="wrap rules-layout">
+    <nav class="rules-index" aria-label="Rule-Verzeichnis" data-testid="rules-index">
+      <p class="label label--plain rules-index__title">Rule-Verzeichnis</p>
+      <p class="rules-index__group">Struktureller Drift</p>
+      <ul>
+        <li><a href="#unused-public-exports" data-testid="rules-index-unused-public-exports">unused-public-exports</a></li>
+        <li><a href="#circular-dependencies" data-testid="rules-index-circular-dependencies">circular-dependencies</a></li>
+        <li><a href="#architecture-boundaries" data-testid="rules-index-architecture-boundaries">architecture-boundaries</a></li>
+        <li><a href="#code-duplicates" data-testid="rules-index-code-duplicates">code-duplicates</a></li>
+        <li><a href="#complexity-hotspots" data-testid="rules-index-complexity-hotspots">complexity-hotspots</a></li>
+      </ul>
+      <p class="rules-index__group">Lücken in der Barrierefreiheit</p>
+      <ul>
+        <li><a href="#a11y-form-field-label" data-testid="rules-index-a11y-form-field-label">a11y-form-field-label</a></li>
+        <li><a href="#a11y-image-label" data-testid="rules-index-a11y-image-label">a11y-image-label</a></li>
+        <li><a href="#a11y-icon-button-label" data-testid="rules-index-a11y-icon-button-label">a11y-icon-button-label</a></li>
+        <li><a href="#a11y-interactive-semantics" data-testid="rules-index-a11y-interactive-semantics">a11y-interactive-semantics</a></li>
+      </ul>
+      <p class="rules-index__group">AI-Slop</p>
+      <ul>
+        <li><a href="#hardcoded-secrets" data-testid="rules-index-hardcoded-secrets">hardcoded-secrets</a></li>
+        <li><a href="#slop-empty-catch" data-testid="rules-index-slop-empty-catch">slop-empty-catch</a></li>
+        <li><a href="#slop-unjustified-ignore" data-testid="rules-index-slop-unjustified-ignore">slop-unjustified-ignore</a></li>
+        <li><a href="#slop-narrative-comment" data-testid="rules-index-slop-narrative-comment">slop-narrative-comment</a></li>
+        <li><a href="#slop-workflow-narration-comment" data-testid="rules-index-slop-workflow-narration-comment">slop-workflow-narration-comment</a></li>
+        <li><a href="#slop-placeholder-comment" data-testid="rules-index-slop-placeholder-comment">slop-placeholder-comment</a></li>
+        <li><a href="#slop-unimplemented-stub" data-testid="rules-index-slop-unimplemented-stub">slop-unimplemented-stub</a></li>
+        <li><a href="#slop-tautological-assertion" data-testid="rules-index-slop-tautological-assertion">slop-tautological-assertion</a></li>
+        <li><a href="#slop-undisposed-resource" data-testid="rules-index-slop-undisposed-resource">slop-undisposed-resource</a></li>
+        <li><a href="#slop-assertion-free-test" data-testid="rules-index-slop-assertion-free-test">slop-assertion-free-test</a></li>
+        <li><a href="#slop-setstate-after-async-gap" data-testid="rules-index-slop-setstate-after-async-gap">slop-setstate-after-async-gap</a></li>
+      </ul>
+      <p class="rules-index__group">Geplant</p>
+      <ul>
+        <li><a href="#anti-ai-slop" data-testid="rules-index-anti-ai-slop">anti-ai-slop</a></li>
+      </ul>
+    </nav>
+
+    <div class="rules-main">
+
+    <!-- Live rules, grouped by kind of problem -->
+    <section class="rules-section" aria-labelledby="live-title" data-testid="rules-live">
+      <h2 id="live-title" class="sr-only">Live</h2>
+
+      <h3 class="rules-group" id="group-structural"><span class="label label--plain">Struktureller Drift</span></h3>
 
       <RuleCard
         ruleId="unused-public-exports"
         title="Ungenutzte öffentliche Exports"
         status="live"
         badgeLabel={live}
+        profile="core"
+        profileLabel={profileLabels.core}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Findet öffentliche API-Member — Klassen, Methoden, Getter/Setter, Felder, Enums, Typedefs — ohne Referenz im gesamten Projekt. Die Analyse läuft auf dem aufgelösten Element-Model, nicht per Regex. Code-Generator-Eingaben (Drift, freezed, Riverpod, json_serializable) werden automatisch ausgeschlossen, ohne jede Konfiguration."
+        description="Findet öffentliche API-Member — Klassen, Methoden, Getter/Setter, Felder, Enums, Typedefs — ohne Referenz im gesamten Projekt. Die Analyse läuft auf dem aufgelösten Element-Model, nicht per Regex. Code-Generator-Eingaben (Drift, freezed, Riverpod, json_serializable) werden automatisch ausgeschlossen, ohne jede Konfiguration. Mit @visibleForTesting, @internal, @protected oder @pragma('loam:reserved') annotierte Symbole gelten als bewusst öffentlich und werden nicht gemeldet."
         slopCode={`// öffentlich, aber nirgendwo verwendet
 class OldHelper {
   static String format(String s) => s.trim();
@@ -61,6 +120,8 @@ class ActiveHelper {
         title="Zirkuläre Dependencies"
         status="live"
         badgeLabel={live}
+        profile="core"
+        profileLabel={profileLabels.core}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
         description="Erkennt Import-Zyklen zwischen Dart-Bibliotheken. Zyklen machen die Kompilierungsreihenfolge mehrdeutig, verhindern Tree-Shaking und sind ein häufiges Zeichen unklarer Schichtverantwortlichkeiten."
@@ -76,13 +137,34 @@ import 'a.dart'; // ← Zyklus: a → b → a`}
       />
 
       <RuleCard
+        ruleId="architecture-boundaries"
+        title="Architektur-Grenzen"
+        status="live"
+        badgeLabel={live}
+        profile="core"
+        profileLabel={profileLabels.core}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet Imports, die eine verbotene Layer-Grenze überschreiten. Layer und Grenzen stehen in der loam.yaml: loam init erkennt sie einmal und schreibt sie heraus, du verfeinerst sie, die Rule rät nie. Jedes Finding nennt den importierenden Layer, den Ziel-Layer und die Import-Zeile. Geprüft werden nur Imports, Exporte nicht. Ohne konfigurierte Grenzen keine Findings."
+        slopCode={`// loam.yaml: boundaries: [{from: core, deny: [features]}]
+// lib/core/theme.dart
+import '../features/profile/profile_page.dart'; // ← core darf features nicht importieren`}
+        cleanCode={`// core besitzt den Vertrag, features setzen ihn um:
+// lib/core/page_factory.dart  (abstrakte Klasse, keine Feature-Imports)
+// lib/features/profile/profile_page.dart
+import '../../core/page_factory.dart';`}
+      />
+
+      <RuleCard
         ruleId="code-duplicates"
         title="Code-Duplikate"
         status="live"
         badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="loam.dev findet Duplikate im Code per AST-normalisiertem Token-Hashing — exakte Kopien (Typ-1) und strukturell identische Blöcke mit umbenannten Bezeichnern oder Literalen (Typ-2). Jedes Finding beschreibt einen vollständigen Cluster mit allen Fundstellen, sodass die Baseline die gesamte Gruppe als einen Eintrag verfolgt. Ein klassischer KI-Agent-Nebeneffekt: Hilfsfunktionen, die kopiert statt extrahiert wurden."
+        description="loam.dev findet Duplikate im Code per AST-normalisiertem Token-Hashing — exakte Kopien (Typ-1) und strukturell identische Blöcke mit umbenannten Bezeichnern oder Literalen (Typ-2). Jedes Finding beschreibt einen vollständigen Cluster mit allen Fundstellen, sodass die Baseline die gesamte Gruppe als einen Eintrag verfolgt. Ein klassischer KI-Agent-Nebeneffekt: Hilfsfunktionen, die kopiert statt extrahiert wurden. Gewollte Boilerplate (copyWith, ==, hashCode, toString, toJson, fromJson, …) wird übersprungen."
         slopCode={`// feature_a/utils.dart
 String formatDate(DateTime d) =>
     '\${d.day}.\${d.month}.\${d.year}';
@@ -103,6 +185,8 @@ String formatDate(DateTime d) =>
         title="Komplexitäts-Hotspots"
         status="live"
         badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
         description="Misst zyklomatische und kognitive Komplexität je Funktion/Methode und aggregiert sie zu einem Projekt-Health-Score. Markiert Funktionen, die zu komplex zum Review oder Testen sind."
@@ -129,14 +213,18 @@ Future<void> syncData(List<Item> items) async {
 Future<void> _syncOne(Item item) async { … }`}
       />
 
+      <h3 class="rules-group" id="group-a11y"><span class="label label--plain">Lücken in der Barrierefreiheit</span></h3>
+
       <RuleCard
         ruleId="a11y-form-field-label"
         title="Formularfeld ohne Label"
         status="live"
         badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Meldet Flutter-TextField- und TextFormField-Widgets, die weder ein decoration: InputDecoration(labelText: …) (noch hintText als Fallback) noch einen umschließenden Semantics(label: …)-Vorfahren haben. WCAG 1.3.1 (Info and Relationships), 3.3.2 (Labels or Instructions) und 4.1.2 (Name, Role, Value) verlangen, dass Formularfelder ein programmatisch bestimmbares Label haben. Die Analyse läuft auf dem aufgelösten Element-Model — lokale Klassen namens TextField werden nie gemeldet. Konservativ: ein decoration:-Wert, der keine direkte InputDecoration(…)-Erstellung ist, wird ignoriert. Rein AST-basiert: Laufzeitkontrast, Fokusreihenfolge, Touch-Target-Größen und dynamische Decoration-Werte sind außerhalb des Scope."
+        description="Meldet Flutter-TextField- und TextFormField-Widgets, die weder ein decoration: InputDecoration(labelText: …) oder InputDecoration(label: Text(…)) (noch hintText als schwächerer Fallback) noch einen umschließenden Semantics(label: …)-Vorfahren haben. WCAG 1.3.1 (Info and Relationships), 3.3.2 (Labels or Instructions) und 4.1.2 (Name, Role, Value) verlangen, dass Formularfelder ein programmatisch bestimmbares Label haben. Die Analyse läuft auf dem aufgelösten Element-Model — lokale Klassen namens TextField werden nie gemeldet. Konservativ: ein decoration:-Wert, der keine direkte InputDecoration(…)-Erstellung ist, wird ignoriert. Rein AST-basiert: Laufzeitkontrast, Fokusreihenfolge, Touch-Target-Größen und dynamische Decoration-Werte sind außerhalb des Scope."
         slopCode={`// keine Decoration — Screen Reader hat kein Label
 TextField()
 
@@ -166,9 +254,11 @@ Semantics(
         title="Bild ohne semantisches Label"
         status="live"
         badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Meldet Flutter-Image/Image.asset/Image.network/Image.file/Image.memory-Widgets ohne semanticLabel, die nicht per excludeFromSemantics: true aus dem Accessibility-Tree ausgeschlossen sind. WCAG 1.1.1 (Non-text Content) verlangt für jedes nicht-dekorative Bild eine Textalternative. Die Analyse läuft auf dem aufgelösten Element-Model — lokale Klassen namens Image werden nie gemeldet."
+        description="Meldet Flutter-Image/Image.asset/Image.network/Image.file/Image.memory-Widgets ohne semanticLabel, die nicht per excludeFromSemantics: true, einen Semantics(excludeSemantics: true)- oder ExcludeSemantics-Vorfahren aus dem Accessibility-Tree ausgeschlossen und nicht von einem Semantics(label: …)-Vorfahren benannt sind. Bilder in Dot-Shorthand-Schreibweise werden mitgeprüft. WCAG 1.1.1 (Non-text Content) verlangt für jedes nicht-dekorative Bild eine Textalternative. Die Analyse läuft auf dem aufgelösten Element-Model — lokale Klassen namens Image werden nie gemeldet."
         slopCode={`// kein semantisches Label — Screen Reader liest nichts
 Image.asset('assets/hero.png')
 
@@ -189,9 +279,11 @@ Image.asset('assets/divider.png',
         title="Icon-Button ohne zugänglichen Namen"
         status="live"
         badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Meldet Flutter-IconButton-Widgets ohne tooltip und ohne umschließendes Semantics(label: …), sowie GestureDetector/InkWell-Widgets, deren direktes child ein reines Icon-Widget ist und denen ebenfalls ein Semantics(label: …)-Vorfahre fehlt. WCAG 4.1.2 (Name, Role, Value) verlangt, dass jedes interaktive Steuerelement einen programmatisch bestimmbaren Namen hat. Die Analyse läuft auf dem aufgelösten Element-Model — lokale Klassen namens IconButton werden nie gemeldet. Rein AST-basiert: zusammengesetzte Icon-Kinder und dynamische tooltip-Werte sind außerhalb des Scope."
+        description="Meldet Flutter-IconButton-Widgets ohne tooltip, ohne Icon mit semanticLabel und ohne umschließendes Semantics(label: …) oder Tooltip(message: …), sowie GestureDetector/InkWell-Widgets, deren direktes child ein reines Icon-Widget ist und denen ebenfalls ein Name dieser Art fehlt. WCAG 4.1.2 (Name, Role, Value) verlangt, dass jedes interaktive Steuerelement einen programmatisch bestimmbaren Namen hat. Die Analyse läuft auf dem aufgelösten Element-Model — lokale Klassen namens IconButton werden nie gemeldet. Rein AST-basiert: zusammengesetzte Icon-Kinder und dynamische tooltip-Werte sind außerhalb des Scope."
         slopCode={`// kein tooltip — Screen Reader gibt nichts aus
 IconButton(
   icon: Icon(Icons.close),
@@ -225,9 +317,11 @@ Semantics(
         title="Interaktives Widget ohne Semantik"
         status="live"
         badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Meldet generische und benutzerdefinierte (nicht-Flutter-)Widgets, die einen onTap-, onPressed- oder onLongPress-Callback tragen, aber keinen umschließenden Semantics(label: …)-Vorfahren haben. WCAG 4.1.2 (Name, Role, Value) verlangt, dass jedes interaktive Steuerelement einen programmatisch bestimmbaren Namen hat. Die Analyse läuft auf dem aufgelösten Element-Model — Flutter-Built-in-Widgets, die bereits von Geschwister-Rules erfasst werden (IconButton, GestureDetector, InkWell, TextField, TextFormField), sind aus dieser Rule ausgeschlossen. Rein AST-basiert: außerhalb des Scope sind Widgets, die über vererbte Callbacks interaktiv werden, benutzerdefinierte Gesture-Recognizer, die die genannten Parameternamen umgehen, und Accessible-Name-Mechanismen außer Semantics(label: …)."
+        description="Meldet generische und benutzerdefinierte (nicht-Flutter-)Widgets, die einen onTap-, onPressed- oder onLongPress-Callback tragen, aber keinen umschließenden Semantics(label: …)-Vorfahren haben. WCAG 4.1.2 (Name, Role, Value) verlangt, dass jedes interaktive Steuerelement einen programmatisch bestimmbaren Namen hat. Die Analyse läuft auf dem aufgelösten Element-Model — Flutter-Built-in-Widgets, die bereits von Geschwister-Rules erfasst werden (IconButton, GestureDetector, InkWell, TextField, TextFormField), sind aus dieser Rule ausgeschlossen. Eigene Wrapper-Widgets werden gelesen statt geraten: leitet ihr build() einen Namen an Semantics(label:), einen Tooltip, ein label-/semanticLabel-/tooltip-Argument oder einen Text im Tipp-Bereich weiter — direkt oder über weitere Wrapper bis vier Ebenen tief —, gelten die Aufrufstellen als benannt. Ein Wrapper, der den Namen verschluckt, wird einmal an seiner Klasse gemeldet, egal wie oft er verwendet wird; ein Aufruf, der den Namen eines Wrappers weglässt, der einen annimmt, wird am Aufruf gemeldet. Nicht lesbare Wrapper (Drittanbieter, dynamisch) fallen auf die Prüfung des label-, semanticLabel- oder tooltip-Arguments an der Aufrufstelle zurück. Rein AST-basiert: außerhalb des Scope sind Widgets, die über vererbte Callbacks interaktiv werden, benutzerdefinierte Gesture-Recognizer, die die genannten Parameternamen umgehen, und Accessible-Name-Mechanismen außer Semantics(label: …)."
         slopCode={`// Custom-Karte ohne Semantics — Screen Reader hat keinen Namen
 CustomCard(
   onTap: () => showDetails(item),
@@ -253,14 +347,39 @@ ActionChip(
 )`}
       />
 
+      <h3 class="rules-group" id="group-slop"><span class="label label--plain">AI-Slop</span></h3>
+
+      <RuleCard
+        ruleId="hardcoded-secrets"
+        title="Fest eingetragenes Geheimnis in einem String-Literal"
+        status="live"
+        badgeLabel={live}
+        profile="core"
+        profileLabel={profileLabels.core}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet API-Schlüssel, Passwörter und Tokens, die als String-Literale im Quellcode stehen — offline, ohne Token-Kosten, und der Wert erscheint nie im Report, in der Baseline oder im Fingerprint. Zwei Wege: bekannte Anbieter-Formate überall (AWS, GitHub, Stripe live, Slack, Anthropic/OpenAI, PEM-Private-Keys; Schweregrad error; Google-API-Keys sind eine Warnung mit Hinweis, den Key zu beschränken, da Google sie als Client-Kennungen behandelt) und Literale an Zugangsdaten-Namen (Variable, Argument, Parameter-Default, Zuweisung, Map-Schlüssel) mit hoher Entropie (Schweregrad warning). Platzhalter, Env-Variablen- und Storage-Key-Namen, String.fromEnvironment-/Platform.environment-Zugriffe, Tests, Fixtures, example/, generierte Dateien und firebase_options.dart werden nie gemeldet."
+        slopCode={`// Zugangsdaten im Quellcode
+const apiKey = 'k8Jx92LmQp4Zr7Tv0aBc';
+
+final client = Client(password: 'Tr0ub4dor&3xQ');`}
+        cleanCode={`// zur Build-Zeit injiziert: --dart-define=API_KEY=...
+const apiKey = String.fromEnvironment('API_KEY');
+
+// oder zur Laufzeit lesen
+final password = Platform.environment['DB_PASSWORD'];`}
+      />
+
       <RuleCard
         ruleId="slop-empty-catch"
         title="Leerer oder nur-Kommentar-catch-Block"
         status="live"
         badgeLabel={live}
+        profile="core"
+        profileLabel={profileLabels.core}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Meldet catch-Blöcke, deren Body leer ist ({}) oder nur Kommentare enthält — beide verschlucken Exceptions stillschweigend. Dies erweitert den eingebauten empty_catches-Lint (der nur den buchstäblich leeren Fall erkennt) um die Kommentar-only-Variante, die KI-Agenten häufig produzieren, wenn sie einen catch-Block mit einem Füll-Kommentar unterdrücken. Schweregrad: warning. Bodys mit einem rethrow, throw oder einem Logging-Aufruf werden nie gemeldet (konservative Allowlist). Generierte Dateien (.g.dart, .freezed.dart, …) werden automatisch übersprungen."
+        description="Meldet catch-Blöcke, deren Rumpf leer ist ({}) oder nur Kommentare enthält — beide verschlucken Exceptions stillschweigend. Der offizielle empty_catches-Lint deckt das buchstäbliche {} bereits ab; loam ergänzt die Kommentar-only-Variante, die KI-Agenten häufig produzieren, wenn sie einen catch-Block mit einem Füll-Kommentar unterdrücken, sowie das projektweite Gate. catch (_) {} mit buchstäblich leerem Rumpf ist der bewusste Weg, einen Fehler zu ignorieren, und wird nicht gemeldet. Schweregrad: warning. Rümpfe mit einem rethrow, throw oder einem Logging-Aufruf werden nie gemeldet (konservative Allowlist). Generierte Dateien (.g.dart, .freezed.dart, …) werden automatisch übersprungen."
         slopCode={`// buchstäblich leer — Exception verschwindet
 try {
   await fetchData();
@@ -293,6 +412,8 @@ try {
         title="Unbegründete // ignore:-Direktive"
         status="live"
         badgeLabel={live}
+        profile="core"
+        profileLabel={profileLabels.core}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
         description="Meldet // ignore:- und // ignore_for_file:-Direktiven ohne schriftliche Begründung — weder als Inline-Text nach den Lint-Namen noch als Kommentar in der vorherigen Zeile. Grundlose Unterdrückungsdirektiven sind ein häufiger KI-Agenten-Shortcut: der Agent bringt den Linter zum Schweigen, statt die eigentliche Ursache zu beheben. Schweregrad: info. Generierte Dateien (.g.dart, .freezed.dart, …) werden automatisch übersprungen."
@@ -316,6 +437,8 @@ print('done.');
         title="Narrativer Füll-// Kommentar"
         status="live"
         badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
         description="Meldet // Kommentare, die keine Information über das hinaus liefern, was der Code bereits zeigt. Deklarationsnah: Text wiederholt den Namen (z. B. // build vor void build()) oder verwendet einen festen narrativen Ausdruck (constructor, getter, setter, build method, the <name> method/widget). Kontextfrei, überall in der Datei: dekorative Banner-/Trennkommentare, leere Kategorie-Label (Main logic, Helper function, …), reine Emoji-Dekoration, redundante Blockende-Marker (// end if) sowie vage TODOs ohne konkrete Handlung oder Referenz — ein TODO mit echter Substanz wird nie gemeldet. Schweregrad: info. Generierte Dateien werden automatisch übersprungen."
@@ -348,9 +471,11 @@ class MyWidget extends StatelessWidget {
         title="Sequenzielle Workflow-Narration"
         status="live"
         badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Meldet zwei oder mehr Step 1:/Step 2:/First,/Next,/Then,/Finally,-Kommentare, die jeweils unmittelbar vor einem Statement im selben Funktions-/Methoden-/Konstruktor-Body stehen und gemeinsam den Body Schritt für Schritt erzählen, obwohl die Statements bereits selbsterklärend sind. Ein einzelner solcher Kommentar allein wird nicht gemeldet — nur eine Sequenz. Schweregrad: info. Generierte Dateien werden automatisch übersprungen."
+        description="Meldet zwei oder mehr Step 1:/Step 2:/First,/Next,/Then,/Finally,-Kommentare, die jeweils unmittelbar vor einem Statement im selben Funktions-/Methoden-/Konstruktor-Rumpf stehen und gemeinsam den Rumpf Schritt für Schritt erzählen, obwohl die Statements bereits selbsterklärend sind. Ein einzelner solcher Kommentar allein wird nicht gemeldet — nur eine Sequenz. Schweregrad: info. Generierte Dateien werden automatisch übersprungen."
         slopCode={`void placeOrder(Order order) {
   // Step 1: validate the order
   validate(order);
@@ -366,51 +491,176 @@ class MyWidget extends StatelessWidget {
 }`}
       />
 
-      <div class="deeper-box">
-        <h3>Mehr in die Tiefe</h3>
+      <RuleCard
+        ruleId="slop-placeholder-comment"
+        title="Platzhalterkommentare"
+        status="live"
+        badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet einen Kommentar, dessen gesamter Text ein Platzhalter für nicht vorhandenen Code ist, etwa // ... rest of code, // ... existing code ..., // rest of the implementation here oder // your code here. Das ist die sichtbare Spur einer abgeschnittenen KI-Änderung: die Datei kompiliert, aber ein Teil des Verhaltens fehlt. Ein längerer Satz, der nur vom Rest des Codes spricht, wird nie gemeldet, ebenso keine Doc-Kommentare. Schweregrad: warning. Generierte Dateien werden automatisch übersprungen."
+        slopCode={`void checkout(Cart cart) {
+  validate(cart);
+  // ... rest of code
+}`}
+        cleanCode={`void checkout(Cart cart) {
+  validate(cart);
+  charge(cart);
+  sendConfirmation(cart);
+}`}
+      />
+
+      <RuleCard
+        ruleId="slop-unimplemented-stub"
+        title="Unimplementierte Stubs"
+        status="live"
+        badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet eine Funktion, Methode, einen Getter oder Setter in lib/ oder bin/, deren gesamter Rumpf throw UnimplementedError() ist, am Namen im Syntaxbaum erkannt. Ein Stub, der beim Aufruf abstürzt, ist ein Platzhalter, den ein Agent statt der Implementierung hinterlassen hat. Nicht gemeldet: ein throw zwischen anderen Statements (zum Beispiel ein default-Zweig), Mitglieder abstrakter oder sealed Klassen und Mixins, Klassen die PlatformInterface erweitern (auch über Dateigrenzen, erkannt an einer Basisklasse namens …Platform oder einem platform_interface-Import), Tests und generierte Dateien. Schweregrad: warning."
+        slopCode={`class Repository {
+  Order load(String id) => throw UnimplementedError();
+}`}
+        cleanCode={`class Repository {
+  Repository(this._db);
+  final Database _db;
+
+  Order load(String id) => Order.fromRow(_db.row('orders', id));
+}`}
+      />
+
+      <RuleCard
+        ruleId="slop-tautological-assertion"
+        title="Tautologische Test-Assertion"
+        status="live"
+        badgeLabel={live}
+        profile="core"
+        profileLabel={profileLabels.core}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet expect- und expectLater-Aufrufe, die nicht fehlschlagen können: ein konstantes Literal gegen einen konstanten Matcher (expect(true, isTrue), expect(1, 1), expect(null, isNull)) oder ein Wert gegen sich selbst (expect(x, x)). Sie bleiben grün, egal was der getestete Code tut — typisches Überbleibsel, wenn ein Agent einen Test „grün macht“. Es zählt nur das expect aus package:test, flutter_test oder matcher, aufgelöst im Element-Model. Nicht gemeldet: Collection-Literale mit Variablen oder for-Elementen, Records mit Bezeichnern und expect(x, isTrue). Schweregrad: warning."
+        slopCode={`test('liest die Bestellung', () {
+  final order = parseOrder(input);
+  expect(true, isTrue);
+  expect(order, order);
+});`}
+        cleanCode={`test('liest die Bestellung', () {
+  final order = parseOrder(input);
+  expect(order.id, 'A-1042');
+  expect(order.lines, hasLength(3));
+});`}
+        ruleId="slop-undisposed-resource"
+        title="Nicht freigegebene Ressourcen"
+        status="live"
+        badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet ein Feld eines Flutter-State oder einer Klasse mit eigenem dispose(), das die Klasse selbst anlegt (Controller, FocusNode, Notifier oder Timer.periodic) und das dispose() nie freigibt. Der Feldtyp muss im aufgelösten Element-Model dispose, close oder cancel anbieten, deshalb wird OverlayPortalController, der keines hat, nie gemeldet; close und cancel zählen nur, wenn das Dart-SDK oder ein Fremdpaket sie deklariert. Freigegeben heißt: in dispose() referenziert, dort in einer Liste oder Schleife, oder in einer aufgerufenen Hilfsmethode. Nicht gemeldet: Werte aus Konstruktorparametern, widget.x oder Provider-Zugriffen, static-Felder und late-Felder, denen nie ein angelegter Wert zugewiesen wird. Schweregrad: warning."
+        slopCode={`class _FormState extends State<Form> {
+  final _name = TextEditingController();
+  late final Timer _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) => refresh());
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+}`}
+        cleanCode={`class _FormState extends State<Form> {
+  final _name = TextEditingController();
+  late final Timer _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) => refresh());
+  }
+
+  @override
+  void dispose() {
+    _tick.cancel();
+    _name.dispose();
+    super.dispose();
+  }
+}`}
+      />
+
+      <RuleCard
+        ruleId="slop-assertion-free-test"
+        title="Tests ohne Prüfung"
+        status="live"
+        badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet einen test oder testWidgets, dessen Rumpf nie etwas prüft: kein expect, expectLater, fail, verify, check oder expectAsync, weder im Rumpf noch in einer Projektfunktion, die er aufruft (bis zu drei Aufrufschritte), und kein assert oder throw im Rumpf selbst. Der Testname verspricht ein Verhalten, das niemand prüft, der Test bleibt also grün, egal was der Code tut. Aufrufe in andere Pakete wie pumpWidget sind keine Prüfung; der Aufruf eines Callback-Parameters zählt als Prüfung, weil die Prüfung dort steht, wo der Callback übergeben wird. Nicht gemeldet: Tests mit skip: und generierte Dateien. Eigene Prüf-Hilfsfunktionen kommen unter slop_assertion_free_test in loam.yaml. Tests werden nur geprüft, wenn kein ignore-Glob sie ausschließt. Schweregrad: info."
+        slopCode={`test('stellt den Warenkorb nach einem Neustart wieder her', () {
+  final cart = Cart.restore(storage);
+  cart.add(item);
+});`}
+        cleanCode={`test('stellt den Warenkorb nach einem Neustart wieder her', () {
+  final cart = Cart.restore(storage);
+  cart.add(item);
+  expect(cart.items, [item]);
+});`}
+      />
+
+      <RuleCard
+        ruleId="slop-setstate-after-async-gap"
+        title="setState nach einer async-Lücke"
+        status="live"
+        badgeLabel={live}
+        profile="strict"
+        profileLabel={profileLabels.strict}
+        slopLabel={slopLabel}
+        cleanLabel={cleanLabel}
+        description="Meldet setState in einem Flutter-State, das laufen kann, nachdem der Screen geschlossen wurde: nach einem await, in catch oder finally eines try mit await oder in einem Callback von Future.then, whenComplete oder catchError, ohne mounted-Prüfung dazwischen. Auf einem nicht mehr eingehängten State wirft setState eine Exception. Der offizielle Lint use_build_context_synchronously prüft nur BuildContext, nicht setState. Als Prüfung zählen: if (!mounted) return;, if (!context.mounted) return;, if (mounted) … und mounted ? … : …. Es zählt nur Flutters State.setState, aufgelöst im Element-Model; ein eigener Wrapper wie safeSetState wird nicht gemeldet, unklarer Kontrollfluss auch nicht. Schweregrad: warning."
+        slopCode={`Future<void> _aktualisieren() async {
+  final bestellungen = await api.ladeBestellungen();
+  setState(() => _bestellungen = bestellungen);
+}`}
+        cleanCode={`Future<void> _aktualisieren() async {
+  final bestellungen = await api.ladeBestellungen();
+  if (!mounted) return;
+  setState(() => _bestellungen = bestellungen);
+}`}
+      />
+
+      <aside class="deeper-box" aria-labelledby="deeper-title">
+        <h3 id="deeper-title" class="h3">Mehr in die Tiefe</h3>
         <p>
-          Der
-          <a href="/de/developer-guide/">Developer Guide</a>
-          (englisch) enthält die vollständige CLI-Referenz, Konfigurationsoptionen
-          (Rule-Toggles, Pfad-Suppression, Inline-<code>// loam-ignore:</code>-Direktiven)
-          und die vollständige Baseline-Onboarding-Sequenz — einschließlich der
-          Integration von <code>loam gate</code> in GitHub Actions.
+          Der <a class="link" href="/de/developer-guide/" data-testid="rules-link-guide-intro">Developer Guide</a> (auf Englisch) enthält die vollständige CLI-Referenz, die Konfiguration
+          (Rule-Schalter, Pfad-Ausschlüsse, Inline-Direktiven <code>// loam-ignore:</code>)
+          und den kompletten Einstieg mit Baseline.
         </p>
         <p>
-          Die automatische Unterdrückung für Code-Generator-Eingaben ist im Guide
-          unter „Automatic codegen-input suppression" beschrieben — die drei
-          Erkennungssignale (Base-Type-Registry, Annotation-Registry, struktureller
-          Fallback) funktionieren ohne <code>loam.yaml</code>-Konfiguration.
+          Eingaben für Codegeneratoren (freezed, json_serializable, Drift, Riverpod und
+          andere) erkennt loam.dev ohne jede <code>loam.yaml</code>-Einstellung — der
+          Abschnitt „Automatic codegen-input suppression“ im Guide erklärt die drei
+          Erkennungssignale.
         </p>
-      </div>
+      </aside>
     </section>
 
     <!-- Geplante Rules -->
-    <section>
-      <h2>Geplant</h2>
+    <section class="rules-section" aria-labelledby="planned-title" data-testid="rules-planned">
+      <h2 id="planned-title" class="h2">Geplant</h2>
 
       <p class="section-intro">
-        Diese Rules stehen auf der Post-MVP-Roadmap. Jede ist ein
-        eigenständiges Plugin hinter demselben <code>Rule</code>-Interface —
-        die Pipeline ändert sich beim Erscheinen nicht.
+        Als Nächstes auf der Roadmap. Sie kommt als weitere Rule hinter demselben <code>Rule</code>-Interface — sonst ändert sich an der Pipeline nichts.
       </p>
-
-      <RuleCard
-        ruleId="architecture-boundaries"
-        title="Architektur-Grenzen"
-        status="planned"
-        badgeLabel={planned}
-        slopLabel={slopLabel}
-        cleanLabel={cleanLabel}
-        description="Erkennt das Layer-Layout automatisch (core/, features/, services/, …) und meldet Imports, die verbotene Grenzen überschreiten. Zero-Config: das abgeleitete Regelset wird transparent herausgeschrieben und kann eingefroren oder verfeinert werden."
-        slopCode={`// features/profile/profile_page.dart
-// ↓ Features-Schicht greift in Services-Interna
-import '../../services/db/internal_schema.dart';`}
-        cleanCode={`// services exponiert stattdessen ein öffentliches API:
-// services/user_repository.dart (öffentliches Interface)
-// features/profile/profile_page.dart
-import '../../services/user_repository.dart';`}
-      />
 
       <RuleCard
         ruleId="anti-ai-slop"
@@ -419,60 +669,47 @@ import '../../services/user_repository.dart';`}
         badgeLabel={planned}
         slopLabel={slopLabel}
         cleanLabel={cleanLabel}
-        description="Erkennt KI-typische Qualitätsmängel: tote Guard-Clauses und halluzinierte Abstraktionen. (Grundlose // ignore:-Direktiven sind bereits als slop-unjustified-ignore live; leere und kommentar-only catch-Blöcke sind bereits als slop-empty-catch live; narrative Füll-Kommentare sind bereits als slop-narrative-comment live.) Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer erkennt Slop auf Intentionsebene — über einen Verdict-Cache deterministisch und kostenarm."
-        slopCode={`// narrativer Füll-Kommentar
-/// Diese Methode verarbeitet die Daten, indem sie
-/// über alle Elemente iteriert und die Transformation
-/// anwendet.
-List<String> process(List<String> items) =>
-    items.map((i) => i.toUpperCase()).toList();`}
-        cleanCode={`// Doku-Kommentar mit Mehrwert, nicht Rauschen
-/// Gibt [items] in Großbuchstaben zurück.
-List<String> process(List<String> items) =>
-    items.map((i) => i.toUpperCase()).toList();`}
+        description="Wird KI-Abkürzungen suchen, die sich nur über die Absicht beurteilen lassen: Guard-Clauses, die nie greifen können, und Abstraktionen, die niemand braucht. Deterministische AST-Muster laufen zuerst; ein optionaler LLM-Layer mit deinem eigenen API-Key beurteilt den Rest — jedes Urteil wird gecacht, gleicher Code bekommt also immer dasselbe Urteil, und Wiederholungen kosten keine Tokens. (Leere catch-Blöcke, unbegründete // ignore:, Füll- und Platzhalterkommentare sowie unimplementierte Stubs decken die aktiven Slop-Rules oben bereits ab.)"
+        slopCode={`// ein Interface mit einer Implementierung und einem Aufrufer
+abstract class DateFormatterInterface {
+  String format(DateTime d);
+}
+
+class DateFormatterImpl implements DateFormatterInterface {
+  @override
+  String format(DateTime d) => '\${d.day}.\${d.month}.\${d.year}';
+}`}
+        cleanCode={`// genau das, was gebraucht wird
+String formatDate(DateTime d) => '\${d.day}.\${d.month}.\${d.year}';`}
       />
     </section>
 
-    <!-- Mehr in die Tiefe -->
-    <section>
-      <h2>Mehr in die Tiefe</h2>
-
-      <p>
-        Der
-        <a href="/de/developer-guide/">Developer Guide</a>
-        (englisch) enthält die vollständige CLI-Referenz, Output-Formate,
-        Konfiguration und ausgearbeitete Beispiele — einschließlich der
-        Integration von <code>loam gate</code> in GitHub Actions.
-      </p>
-    </section>
+    </div>
   </div>
+
+  <!-- Try the rules -->
+  <section class="scene rules-try" aria-labelledby="try-title" data-testid="rules-try">
+    <div class="wrap rules-try__grid">
+      <div>
+        <p class="label">Loslegen</p>
+        <h2 id="try-title" class="h2">Probier die Rules an deinem Code aus</h2>
+      </div>
+      <div class="rules-try__cmds">
+        <div class="cmd">
+          <span class="cmd__p" aria-hidden="true">$</span>
+          <code class="cmd__t" id="rules-cmd-pub">dart pub global activate loam</code>
+          <button class="cmd__copy" type="button" data-copy-target="rules-cmd-pub" data-track="rules" data-testid="rules-copy-pub" data-done="kopiert" data-failed="Kopieren fehlgeschlagen" aria-label="Installationsbefehl kopieren">kopieren</button>
+        </div>
+        <div class="cmd cmd--secondary">
+          <span class="cmd__p" aria-hidden="true">$</span>
+          <code class="cmd__t"><span id="rules-cmd-scan">loam scan</span><span class="muted">  # im Projektordner</span></code>
+          <button class="cmd__copy" type="button" data-copy-target="rules-cmd-scan" data-track="rules" data-testid="rules-copy-scan" data-done="kopiert" data-failed="Kopieren fehlgeschlagen" aria-label="Scan-Befehl kopieren">kopieren</button>
+        </div>
+        <p class="rules-try__text"><code>loam scan</code> lässt alle aktiven Rules über dein Projekt laufen. Der <a class="link" href="/de/developer-guide/" data-testid="rules-link-guide-scan">Developer Guide</a> (auf Englisch) enthält die
+        vollständige CLI-Referenz, die Ausgabeformate, die Konfiguration und durchgerechnete
+        Beispiele — auch dazu, wie du <code>loam gate</code> in der CI einsetzt.</p>
+      </div>
+    </div>
+  </section>
 </Layout>
 
-<style is:global>
-  .section-intro {
-    margin-bottom: 1.4rem !important;
-  }
-  .deeper-box {
-    background: var(--panel);
-    border: 1px solid rgba(136,200,64,.18);
-    border-radius: 8px;
-    padding: 1rem 1.2rem;
-    margin: .4rem 0 1.6rem;
-  }
-  .deeper-box h3 {
-    font-size: .78rem;
-    font-weight: 600;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--green);
-    margin: 0 0 .6rem;
-  }
-  .deeper-box p {
-    font-size: .86rem !important;
-    color: var(--dim);
-    margin-bottom: .5rem !important;
-  }
-  .deeper-box p:last-child {
-    margin-bottom: 0 !important;
-  }
-</style>

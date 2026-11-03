@@ -1,0 +1,5 @@
+# This fixture's lib/ files are written as test()-style samples that deliberately
+# hold only the tautological assertion under test; the assertion-free-test rule
+# has its own fixture.
+rules:
+  slop-assertion-free-test: false

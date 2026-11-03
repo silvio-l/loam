@@ -20,12 +20,17 @@ const label = t(lang, 'switcher.label');
 const ariaLabel = t(lang, 'switcher.ariaLabel');
 ---
 
-<a
-  class="lang-switch"
-  href={switchUrl}
-  aria-label={ariaLabel}
-  data-target-locale={targetLocale}
->{label}</a>
+<nav class="lang" aria-label={lang === 'de' ? 'Sprache' : 'Language'}>
+  <span class="lang__current" aria-current="true">{lang.toUpperCase()}</span>
+  <span class="lang__sep" aria-hidden="true">/</span>
+  <a
+    class="lang-switch"
+    data-testid="layout-lang-switch"
+    href={switchUrl}
+    aria-label={ariaLabel}
+    data-target-locale={targetLocale}
+  >{label}</a>
+</nav>
 
 <script is:inline>
   // Pre-populate: if the user previously chose a locale, highlight the switcher
@@ -46,21 +51,14 @@ const ariaLabel = t(lang, 'switcher.ariaLabel');
 </script>
 
 <style is:global>
-  .lang-switch {
-    font-size: .72rem;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: var(--dim);
-    text-decoration: none;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: .3rem .7rem;
-    transition: .18s;
-  }
-  .lang-switch:hover,
-  .lang-switch:focus-visible,
-  .lang-switch.lang-active {
-    color: var(--green);
-    border-color: rgba(136,200,64,.5);
-  }
+  /* Quiet text toggle: current language bright, the other one a link.
+     The link keeps a 2.5rem target (WCAG 2.5.8). */
+  .lang { display: inline-flex; align-items: center; gap: .15rem;
+    font: 500 .74rem / 1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+  .lang__current { color: var(--ink); padding: 0 .2rem; }
+  .lang__sep { color: var(--line-strong); }
+  .lang-switch { display: inline-flex; align-items: center; justify-content: center;
+    min-height: 2.5rem; min-width: 2.5rem; padding: 0 .2rem;
+    color: var(--dim); text-decoration: none; transition: color .18s; }
+  .lang-switch:hover, .lang-switch:focus-visible, .lang-switch.lang-active { color: var(--green); }
 </style>

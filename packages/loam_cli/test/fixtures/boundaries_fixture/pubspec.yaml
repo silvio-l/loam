@@ -1,0 +1,6 @@
+name: boundaries_fixture
+description: "Test fixture for the architecture-boundaries rule."
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.0

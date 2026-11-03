@@ -8,12 +8,15 @@ import 'package:loam/src/loader/project_loader.dart';
 import 'package:loam/src/rules/usage_index.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 // ---------------------------------------------------------------------------
 // Test helper — loads the unused_exports_fixture and exposes the index.
 // ---------------------------------------------------------------------------
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,

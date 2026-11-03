@@ -2,6 +2,7 @@ import 'package:path/path.dart' as p;
 
 import '../model/finding.dart';
 import '../recommendation/recommendation_engine.dart';
+import '../suppression/suppression_audit.dart';
 import 'reporter.dart';
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,10 @@ const _grey = '\x1B[90m';
 /// 0 findings — clean
 /// ```
 ///
+/// In the ratchet gate ([ReportPayload.baselineDiff] set) every finding line
+/// carries a baseline column: `new` for a finding missing from the baseline,
+/// blank for a frozen one.
+///
 /// ANSI colours are applied only when [ReportPayload.isTty] is `true`;
 /// plain text (no escape codes) is emitted otherwise — safe for pipes,
 /// logs, and unit tests.
@@ -53,6 +58,7 @@ class HumanReporter implements Reporter {
         ..writeln();
       final stats = _statsLine(payload.stats, tty);
       if (stats != null) buf.writeln(stats);
+      _writeAudit(buf, payload.suppressionAudit);
       final recommendations = _recommendationsBlock(
         payload.recommendations,
         tty,
@@ -62,6 +68,13 @@ class HumanReporter implements Reporter {
     }
 
     final buf = StringBuffer()..write(_identityHeader(payload, tty));
+
+    // Ratchet gate only: mark the findings that are not in the baseline, so a
+    // red gate names its cause instead of hiding it among frozen findings.
+    final diff = payload.baselineDiff;
+    final newFingerprints = diff == null
+        ? null
+        : {for (final f in diff.newFindings) f.fingerprint};
 
     // Group findings by filePath while preserving input order.
     final groups = <String, List<Finding>>{};
@@ -91,22 +104,7 @@ class HumanReporter implements Reporter {
       }
 
       for (final f in fileFindings) {
-        final loc = f.column == null ? '${f.line}' : '${f.line}:${f.column}';
-        final severityLabel = _severityLabel(f.severity, tty);
-
-        buf.writeln(
-          '  ${loc.padRight(8)}$severityLabel  ${f.ruleId}  ${f.message}',
-        );
-        // WCAG reference note — shown only for accessibility findings.
-        if (f.wcagRef != null) {
-          final ref = f.wcagRef!;
-          final note = '          WCAG ${ref.number} ${ref.title}: ${ref.url}';
-          if (tty) {
-            buf.writeln('$_grey$note$_reset');
-          } else {
-            buf.writeln(note);
-          }
-        }
+        _writeFinding(buf, f, newFingerprints, tty);
       }
 
       buf.writeln();
@@ -122,13 +120,27 @@ class HumanReporter implements Reporter {
         tty,
       ),
     );
+    if (newFingerprints != null) {
+      final legend =
+          'new = not in baseline.json; unmarked findings are frozen in the '
+          'baseline and never turn the gate red.';
+      buf.writeln(tty ? '$_grey$legend$_reset' : legend);
+    }
     final stats = _statsLine(payload.stats, tty);
     if (stats != null) buf.writeln(stats);
+    _writeAudit(buf, payload.suppressionAudit);
 
     final recommendations = _recommendationsBlock(payload.recommendations, tty);
     if (recommendations != null) buf.write(recommendations);
 
     return buf.toString();
+  }
+
+  /// Writes the suppression audit (per-rule counts, directive warnings).
+  void _writeAudit(StringBuffer buf, SuppressionAudit audit) {
+    for (final line in audit.toSummaryLines()) {
+      buf.writeln(line);
+    }
   }
 
   /// Preventive-recommendations block, or `null` when [recommendations] is
@@ -178,6 +190,42 @@ class HumanReporter implements Reporter {
     }
     buf.writeln(); // blank line separating header from content
     return buf.toString();
+  }
+
+  /// Writes one finding line (plus its WCAG note). [newFingerprints] is set
+  /// in the ratchet gate and adds the baseline column.
+  void _writeFinding(
+    StringBuffer buf,
+    Finding f,
+    Set<String>? newFingerprints,
+    bool tty,
+  ) {
+    final loc = f.column == null ? '${f.line}' : '${f.line}:${f.column}';
+    final severityLabel = _severityLabel(f.severity, tty);
+    final marker = newFingerprints == null
+        ? ''
+        : _baselineMarker(newFingerprints.contains(f.fingerprint), tty);
+
+    buf.writeln(
+      '  ${loc.padRight(8)}$marker$severityLabel  ${f.ruleId}  ${f.message}',
+    );
+    // WCAG reference note — shown only for accessibility findings.
+    if (f.wcagRef != null) {
+      final ref = f.wcagRef!;
+      final note = '          WCAG ${ref.number} ${ref.title}: ${ref.url}';
+      if (tty) {
+        buf.writeln('$_grey$note$_reset');
+      } else {
+        buf.writeln(note);
+      }
+    }
+  }
+
+  /// The fixed-width baseline column: `new` for a finding missing from the
+  /// baseline, blank for a frozen one.
+  String _baselineMarker(bool isNew, bool tty) {
+    if (!isNew) return '     ';
+    return tty ? '$_bold${_red}new$_reset  ' : 'new  ';
   }
 
   /// `' (N suppressed)'` when [suppressed] > 0, else `''`.

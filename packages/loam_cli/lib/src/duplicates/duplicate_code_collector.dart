@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../config/loam_config.dart' show kDefaultSourceDirs;
 import '../loader/project_loader.dart';
 import '../rules/generated_file.dart';
+import 'boilerplate_matcher.dart';
 import 'duplicate_cluster.dart';
 
 export 'duplicate_cluster.dart';
@@ -68,12 +69,17 @@ class DuplicateCodeCollector {
   /// `test/`, `tool/` and `example/` duplicates are excluded by default, exactly
   /// like `complexity-hotspots`. Widen it via `source_dirs` in `loam.yaml`.
   ///
+  /// [boilerplate] decides which methods are skipped as intentional boilerplate
+  /// (`copyWith`, `==`, `hashCode`, `fromJson`, …); the collector itself skips
+  /// nothing by default, the `code-duplicates` rule passes the configured one.
+  ///
   /// Never throws. Returns an empty list when [result.resolved] is empty or
   /// when no blocks with ≥ [kMinDuplicateTokens] tokens are duplicated.
   List<DuplicateCluster> collect(
     ProjectLoadResult result,
     String projectRoot, {
     List<String> sourceDirs = kDefaultSourceDirs,
+    BoilerplateMatcher boilerplate = const BoilerplateMatcher.disabled(),
   }) {
     // Step 1: extract normalised token sequences from every resolvable,
     // non-generated source file (within sourceDirs).
@@ -87,7 +93,11 @@ class DuplicateCodeCollector {
       final lineInfo = file.result.lineInfo;
 
       // Visit the compilation unit's AST to collect all function bodies.
-      final visitor = _BodyCollector(relPath: relPath, lineInfo: lineInfo);
+      final visitor = _BodyCollector(
+        relPath: relPath,
+        lineInfo: lineInfo,
+        boilerplate: boilerplate,
+      );
       file.result.unit.accept(visitor);
       blocks.addAll(visitor.blocks);
     }
@@ -224,9 +234,16 @@ class _Block {
 /// matches a meaningful unit of work — matching sub-statement windows (Rabin-
 /// Karp line-level) is out of scope for this iteration.
 class _BodyCollector extends RecursiveAstVisitor<void> {
-  _BodyCollector({required this.relPath, required this.lineInfo});
+  _BodyCollector({
+    required this.relPath,
+    required this.lineInfo,
+    required this.boilerplate,
+  });
 
   final String relPath;
+
+  /// Methods recognised as intentional boilerplate are not collected.
+  final BoilerplateMatcher boilerplate;
 
   /// The analyzer line-info object for offset → line conversion.
   final LineInfo lineInfo;
@@ -245,13 +262,13 @@ class _BodyCollector extends RecursiveAstVisitor<void> {
 
   @override
   void visitMethodDeclaration(MethodDeclaration node) {
-    _collectBody(node.body);
+    if (!boilerplate.isBoilerplateMethod(node)) _collectBody(node.body);
     super.visitMethodDeclaration(node);
   }
 
   @override
   void visitConstructorDeclaration(ConstructorDeclaration node) {
-    _collectBody(node.body);
+    if (!boilerplate.isBoilerplateConstructor(node)) _collectBody(node.body);
     super.visitConstructorDeclaration(node);
   }
 

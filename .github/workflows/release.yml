@@ -1,142 +1,30 @@
 name: Release
 
-# Baut bei jedem Versions-Tag (v*) die loam-Binaries nativ je Plattform,
-# hängt sie als Assets an das GitHub-Release und aktualisiert die Homebrew-Formula
-# im Tap-Repo silvio-l/homebrew-loam. Dart kann NICHT nach macOS cross-compilen,
-# darum baut jede macOS-Architektur auf ihrem eigenen Runner. Der erste Build
-# gegen einen bereits existierenden Tag ist via workflow_dispatch auslösbar.
+# GitHub builds NOTHING for a release (Actions minutes are scarce, issue #15).
+# The native binaries, their .sha256 files, the GitHub-release assets and the
+# Homebrew formula are produced locally by tool/release-local.sh (macOS on the
+# Mac, Linux/Windows on the test-lab VMs). The only job left here publishes
+# the package to pub.dev via OIDC on the tag push; it compiles no binaries.
 
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Existierender Tag, gegen den gebaut/released wird (z. B. v0.1.0)'
-        required: true
 
+# Least privilege: the single job overrides this with what it needs.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build ${{ matrix.asset }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-14        # Apple Silicon (arm64)
-            asset: loam-macos-arm64.tar.gz
-          - runner: ubuntu-latest   # Linux x86_64
-            asset: loam-linux-x86_64.tar.gz
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref_name }}
-
-      # Pinned, matching qa.yml — see the comment there. Reproducible release
-      # builds shouldn't depend on whatever Dart's rolling stable channel is
-      # on release day.
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: '3.12.1'
-
-      - name: dart pub get
-        working-directory: packages/loam_cli
-        run: dart pub get
-
-      - name: Compile native binary
-        working-directory: packages/loam_cli
-        run: |
-          mkdir -p dist
-          dart compile exe bin/loam.dart -o dist/loam
-
-      - name: Package + checksum
-        working-directory: packages/loam_cli/dist
-        run: |
-          tar czf "${{ matrix.asset }}" loam
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "${{ matrix.asset }}" | awk '{print $1}' > "${{ matrix.asset }}.sha256"
-          else
-            shasum -a 256 "${{ matrix.asset }}" | awk '{print $1}' > "${{ matrix.asset }}.sha256"
-          fi
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: dist-${{ matrix.asset }}
-          path: |
-            packages/loam_cli/dist/${{ matrix.asset }}
-            packages/loam_cli/dist/${{ matrix.asset }}.sha256
-
-  publish:
-    name: Release + update Homebrew formula
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7   # nur für tool/homebrew/loam.rb.tmpl
-
-      - uses: actions/download-artifact@v8
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Attach binaries to the release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: artifacts/*.tar.gz
-
-      - name: Render formula + commit to tap (Contents API)
-        env:
-          # Fine-grained PATs werden von Git-über-HTTPS-Basic-Auth abgelehnt
-          # („password authentication is not supported"), funktionieren aber
-          # als Bearer-Token gegen die REST-API. Darum Datei via Contents-API
-          # schreiben statt git clone + push.
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: |
-          set -euo pipefail
-          VERSION="${TAG#v}"
-          REPO="silvio-l/homebrew-loam"
-          FORMULA_PATH="Formula/loam.rb"
-          sha() { tr -d '[:space:]' < "artifacts/$1.sha256"; }
-
-          sed \
-            -e "s|__VERSION__|${VERSION}|g" \
-            -e "s|__SHA_MACOS_ARM64__|$(sha loam-macos-arm64.tar.gz)|g" \
-            -e "s|__SHA_LINUX_X86_64__|$(sha loam-linux-x86_64.tar.gz)|g" \
-            tool/homebrew/loam.rb.tmpl > loam.rb
-
-          content_b64="$(base64 -w0 loam.rb)"
-          # Bei Update den Blob-SHA der bestehenden Datei mitgeben; bei Erst-Anlage leer.
-          existing_sha="$(gh api "repos/${REPO}/contents/${FORMULA_PATH}" --jq .sha 2>/dev/null || true)"
-
-          args=(--method PUT "repos/${REPO}/contents/${FORMULA_PATH}"
-                -f "message=chore(formula): loam ${VERSION}"
-                -f "content=${content_b64}"
-                -f "committer[name]=github-actions[bot]"
-                -f "committer[email]=41898282+github-actions[bot]@users.noreply.github.com")
-          [ -n "${existing_sha}" ] && args+=(-f "sha=${existing_sha}")
-
-          gh api "${args[@]}" --jq '.commit.sha' \
-            | sed 's/^/Formula committed to tap: /'
-
   pub-dev:
     name: Publish to pub.dev (OIDC)
-    needs: build
-    # pub.dev vertraut nur dem OIDC-Token eines Runs, dessen eigener Trigger-Ref
-    # ein Tag ist (github.ref_type == 'tag' bei push:tags). Ein workflow_dispatch-
-    # Run läuft dagegen immer auf einem Branch-Ref, selbst mit `inputs.tag`
-    # gesetzt — pub.dev lehnt das mit "refType 'branch'" ab. Diesen Job bei
-    # workflow_dispatch überspringen statt ihn zuverlässig rot laufen zu lassen;
-    # ein echter Tag-Push (auch erneut ausgelöst durch Tag löschen+neu pushen)
-    # ist der einzige Weg, den Publish-Schritt tatsächlich durchzubringen.
-    if: github.event_name == 'push'
+    # pub.dev only trusts the OIDC token of a run whose own trigger ref is a tag
+    # (push:tags). A workflow_dispatch run has a branch ref and is rejected, so
+    # this workflow has no manual trigger: re-publish by deleting + re-pushing
+    # the tag.
     runs-on: ubuntu-latest
     # Job-Level-permissions ERSETZEN die Top-Level-Defaults: id-token fürs
     # OIDC-Publishing, contents:read fürs checkout. Kein pub.dev-Secret nötig —
@@ -148,12 +36,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          ref: ${{ github.ref_name }}
 
-      # Pinned, matching qa.yml/build above — reproducible pub.dev publishes.
+      # Pinned, matching qa.yml — reproducible pub.dev publishes.
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: '3.12.1'
+          sdk: '3.13.7'
 
       - name: dart pub get
         working-directory: packages/loam_cli

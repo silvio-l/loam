@@ -7,6 +7,7 @@ import 'package:loam/src/duplicates/duplicate_code_collector.dart';
 import 'package:loam/src/loader/project_loader.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,6 +50,8 @@ Future<List<DuplicateCluster>> _collectFromParallelFixture() async {
 // ---------------------------------------------------------------------------
 
 void main() {
+  useSharedAnalyzerStore();
+
   // -------------------------------------------------------------------------
   // AC: value objects
   // -------------------------------------------------------------------------

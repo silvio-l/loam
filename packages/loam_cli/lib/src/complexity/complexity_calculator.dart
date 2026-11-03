@@ -24,6 +24,9 @@ export 'complexity_metrics.dart';
 /// - `??` binary operator: +1
 /// - `?:` conditional expression: +1
 /// - `when` guard in a pattern (`GuardedPattern`): +1
+/// - collection `if` / `for` element: +1 each
+/// - non-wildcard arm of a switch expression: +1 each
+/// - `||` / `&&` in a pattern: +1 each (like the binary operators)
 ///
 /// `default` clauses, `else` branches, and `else-if` branches do NOT add
 /// extra cyclomatic points (they represent the "else" path of an existing
@@ -32,6 +35,8 @@ export 'complexity_metrics.dart';
 /// **What is counted (Cognitive — rules described in [ComplexityMetrics]):**
 /// - Nesting-aware: `if`, `for`, `while`, `do`, `switch`, `catch` add
 ///   `1 + nestingDepth` and increase the nesting depth for their body.
+/// - Collection `if`/`for` and switch expressions nest like their statement
+///   counterparts.
 /// - Flat +1: `??`, `?:`, `when` guard; logical-operator sequences (`&&`/`||`
 ///   — the first operator in a same-type run, or a switch of operator type,
 ///   adds +1; same-type continuation does not).
@@ -120,6 +125,8 @@ class _ComplexityVisitor extends RecursiveAstVisitor<void> {
 
     // Visit the condition at the current depth (before entering body).
     node.expression.accept(this);
+    // `if (x case P when g)`: the pattern and its guard are decision points.
+    node.caseClause?.accept(this);
 
     _enterNested();
     node.thenStatement.accept(this);
@@ -142,6 +149,68 @@ class _ComplexityVisitor extends RecursiveAstVisitor<void> {
       }
     }
     // Do NOT call super.visitIfStatement — children were handled manually.
+  }
+
+  // ---- Collection elements (`[if (c) a else b, for (...) x]`) --------------
+
+  @override
+  void visitIfElement(IfElement node) {
+    _cyclomaticIncrement++;
+    if (_ifIsContinuation) {
+      _cognitiveScore++;
+      _ifIsContinuation = false;
+    } else {
+      _addNested();
+    }
+
+    node.expression.accept(this);
+    node.caseClause?.accept(this);
+
+    _enterNested();
+    node.thenElement.accept(this);
+    _exitNested();
+
+    final elseElement = node.elseElement;
+    if (elseElement == null) return;
+    if (elseElement is IfElement) {
+      _ifIsContinuation = true;
+      elseElement.accept(this);
+      _ifIsContinuation = false;
+    } else {
+      _cognitiveScore++;
+      _enterNested();
+      elseElement.accept(this);
+      _exitNested();
+    }
+  }
+
+  @override
+  void visitForElement(ForElement node) {
+    _cyclomaticIncrement++;
+    _addNested();
+    _enterNested();
+    super.visitForElement(node);
+    _exitNested();
+  }
+
+  // ---- Switch expressions --------------------------------------------------
+
+  @override
+  void visitSwitchExpression(SwitchExpression node) {
+    _addNested();
+    _enterNested();
+    super.visitSwitchExpression(node);
+    _exitNested();
+  }
+
+  @override
+  void visitSwitchExpressionCase(SwitchExpressionCase node) {
+    // A bare `_ =>` arm is the catch-all (like `default`): no decision point.
+    final guarded = node.guardedPattern;
+    final isCatchAll =
+        guarded.pattern is WildcardPattern && guarded.whenClause == null;
+    if (!isCatchAll) _cyclomaticIncrement++;
+    super.visitSwitchExpressionCase(node);
   }
 
   @override
@@ -254,6 +323,34 @@ class _ComplexityVisitor extends RecursiveAstVisitor<void> {
           parent.leftOperand == node;
     }
     return false;
+  }
+
+  // ---- Logical patterns (`P1 || P2`, `P1 && P2`) ---------------------------
+
+  @override
+  void visitLogicalOrPattern(LogicalOrPattern node) {
+    final parent = node.parent;
+    _countLogicalPattern(
+      continuesRun: parent is LogicalOrPattern && parent.leftOperand == node,
+    );
+    super.visitLogicalOrPattern(node);
+  }
+
+  @override
+  void visitLogicalAndPattern(LogicalAndPattern node) {
+    final parent = node.parent;
+    _countLogicalPattern(
+      continuesRun: parent is LogicalAndPattern && parent.leftOperand == node,
+    );
+    super.visitLogicalAndPattern(node);
+  }
+
+  /// Mirrors the binary-operator rule: +1 cyclomatic per operator, +1
+  /// cognitive per run of the same operator ([continuesRun] is true when the
+  /// node is the left operand of an equal parent).
+  void _countLogicalPattern({required bool continuesRun}) {
+    _cyclomaticIncrement++;
+    if (!continuesRun) _cognitiveScore++;
   }
 
   // ---- Conditional expression ----------------------------------------------

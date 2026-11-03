@@ -7,8 +7,11 @@ import 'package:loam/src/model/finding.dart';
 import 'package:loam/src/runner/analysis_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import '../support/shared_store.dart';
 
 void main() {
+  useSharedAnalyzerStore();
+
   final fixturePath = p.normalize(
     p.join(
       Directory.current.path,
@@ -18,6 +21,29 @@ void main() {
     ),
   );
 
+  // The tests below only read these results, so each analysis runs once.
+  late List<Finding> findings;
+  late List<Finding> secondRun;
+  late AnalysisOutcome outcome;
+  late AnalysisOutcome suppressionOutcome;
+
+  setUpAll(() async {
+    final runner = AnalysisRunner();
+    findings = await runner.run(fixturePath);
+    secondRun = await runner.run(fixturePath);
+    outcome = await runner.analyze(fixturePath);
+    suppressionOutcome = await runner.analyze(
+      p.normalize(
+        p.join(
+          Directory.current.path,
+          'test',
+          'fixtures',
+          'inline_suppression_fixture',
+        ),
+      ),
+    );
+  });
+
   // ---------------------------------------------------------------------------
   // AC1: AnalysisRunner.run() returns sorted findings via the active rule(s)
   // ---------------------------------------------------------------------------
@@ -25,15 +51,11 @@ void main() {
   test(
     'run() returns a non-empty list of findings for fixture project',
     () async {
-      final runner = AnalysisRunner();
-      final findings = await runner.run(fixturePath);
       expect(findings, isNotEmpty);
     },
   );
 
   test('run() returns only Finding instances', () async {
-    final runner = AnalysisRunner();
-    final findings = await runner.run(fixturePath);
     expect(findings, everyElement(isA<Finding>()));
   });
 
@@ -44,9 +66,6 @@ void main() {
   test(
     'findings are sorted deterministically by filePath, line, fingerprint',
     () async {
-      final runner = AnalysisRunner();
-      final findings = await runner.run(fixturePath);
-
       for (var i = 0; i < findings.length - 1; i++) {
         final a = findings[i];
         final b = findings[i + 1];
@@ -84,9 +103,8 @@ void main() {
   test(
     'two consecutive runs produce identical findings (Invariant 5)',
     () async {
-      final runner = AnalysisRunner();
-      final run1 = await runner.run(fixturePath);
-      final run2 = await runner.run(fixturePath);
+      final run1 = findings;
+      final run2 = secondRun;
 
       expect(run1.length, equals(run2.length));
       for (var i = 0; i < run1.length; i++) {
@@ -127,8 +145,6 @@ void main() {
   test(
     'findings include unused-public-exports entries (fixture has unused symbols)',
     () async {
-      final runner = AnalysisRunner();
-      final findings = await runner.run(fixturePath);
       final unusedExportFindings = findings
           .where((f) => f.ruleId == 'unused-public-exports')
           .toList();
@@ -165,9 +181,7 @@ void main() {
 
   group('analyze() outcome', () {
     test('findings match run() exactly', () async {
-      final runner = AnalysisRunner();
-      final viaRun = await runner.run(fixturePath);
-      final outcome = await runner.analyze(fixturePath);
+      final viaRun = findings;
       expect(
         outcome.findings.map((f) => f.fingerprint),
         viaRun.map((f) => f.fingerprint),
@@ -175,7 +189,6 @@ void main() {
     });
 
     test('stats report files, lib subset and all active rules', () async {
-      final outcome = await AnalysisRunner().analyze(fixturePath);
       expect(outcome.stats.filesAnalyzed, greaterThan(0));
       expect(
         outcome.stats.libFilesAnalyzed,
@@ -188,17 +201,8 @@ void main() {
     test(
       'suppressedCount counts inline-ignored findings (raw − surviving)',
       () async {
-        final suppressionFixture = p.normalize(
-          p.join(
-            Directory.current.path,
-            'test',
-            'fixtures',
-            'inline_suppression_fixture',
-          ),
-        );
-        final outcome = await AnalysisRunner().analyze(suppressionFixture);
         expect(
-          outcome.suppressedCount,
+          suppressionOutcome.suppressedCount,
           greaterThan(0),
           reason: 'the fixture carries real // loam-ignore: directives',
         );
