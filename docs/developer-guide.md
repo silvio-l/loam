@@ -119,12 +119,12 @@ the profile, switching never rewrites the baseline or triggers the ruleset-chang
 warning. Upgrading from a loam without profiles keeps the gate green where only
 `strict`-profile findings would have failed it — set `profile: strict` to keep the
 old behaviour. The rule-to-profile mapping lives in one place,
-`lib/src/rules/rule_profile.dart` ([ADR-0006](./adr/0006-rule-profiles.md)).
+`lib/src/rules/rule_profile.dart`.
 
 ### Reporter
 
 A **Reporter** converts Findings into output. It is a pure renderer: it has no
-influence on the gate decision or exit code (pure renderer, ADR 0001).
+influence on the gate decision or exit code (pure renderer).
 
 Available formats: see [Output formats](#output-formats) below.
 

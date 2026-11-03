@@ -34,6 +34,24 @@ antivocab() { perl -ne "print \"  \$.: \$_\" if /$ANTIVOCAB/" "$1" 2>/dev/null |
 fail=0
 note() { echo "  ✗ $1"; fail=1; }
 
+# Public docs may only link files that go into the GitHub export (.ossallowlist: exact files or
+# directory prefixes ending in "/"). The allowlist itself is internal, so in the exported tree
+# the check is skipped and the existence check alone applies there.
+ALLOWLIST="$ROOT/.ossallowlist"
+normpath() { perl -e '@o=(); for (split m{/}, $ARGV[0]) { next if $_ eq "" || $_ eq "."; if ($_ eq "..") { pop @o } else { push @o, $_ } } print join("/", @o)' "$1"; }
+public_path() {
+  [ -f "$ALLOWLIST" ] || return 0
+  local p="$1" e
+  while IFS= read -r e || [ -n "$e" ]; do
+    e="${e%%#*}"; e="${e//[[:space:]]/}"; [ -z "$e" ] && continue
+    if [ "$p" = "$e" ] || [ "$p/" = "$e" ]; then return 0; fi
+    # A directory link is public if anything below it is exported (e.g. docs/ -> docs/developer-guide.md).
+    case "$e" in "$p"/*) [ -d "$ROOT/$p" ] && return 0 ;; esac
+    case "$e" in */) case "$p" in "$e"*) return 0 ;; esac ;; esac
+  done < "$ALLOWLIST"
+  return 1
+}
+
 # Live-Rule-IDs aus fullRegistryIds in analysis_runner.dart (die EINE Quelle für
 # „welche Rule ist aktiv"). Gibt die sortierten, eindeutigen IDs (eine pro Zeile)
 # auf stdout aus. Fehlt die Runner-Datei (Fresh Clone), liefert sie eine leere
@@ -68,6 +86,7 @@ check_readme() {
     case "$r" in http://*|https://*|mailto:*|\#*) continue ;; esac
     r="${r%%#*}"; r="${r%%\?*}"; [ -z "$r" ] && continue
     [ -e "$ROOT/$r" ] || note "README verweist auf fehlenden Pfad: $r"
+    public_path "$(normpath "$r")" || note "README verweist auf internen, nicht exportierten Pfad: $r"
   done <<< "$refs"
 
   # Anti-Vokabular
@@ -244,6 +263,7 @@ check_devguide() {
     local target; target="$(cd "$ROOT/docs" && realpath -m "$r" 2>/dev/null || echo "")"
     [ -z "$target" ] && target="$ROOT/docs/$r"
     [ -e "$target" ] || note "Developer-Guide verweist auf fehlenden Pfad: $r"
+    public_path "$(normpath "docs/$r")" || note "Developer-Guide verweist auf internen, nicht exportierten Pfad: $r"
   done <<< "$refs"
 
   # Anti-Vokabular

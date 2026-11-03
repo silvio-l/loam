@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Developer guide: no dead link.** The rule profiles section linked an
+  internal design note that is not published; the link is gone, the section
+  still names `lib/src/rules/rule_profile.dart` as the one place of the
+  mapping.
+
 ## 0.1.16
 
 - **The HTML report has the loam.dev look.** `loam scan --format html` now

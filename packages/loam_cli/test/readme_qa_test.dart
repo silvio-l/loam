@@ -284,4 +284,58 @@ void main() {
       });
     },
   );
+
+  test(
+    'Doku-Link auf nicht exportierten Pfad erzwingt Rot (.ossallowlist)',
+    skip: _noBashOnWindows,
+    () {
+      final repoRoot = Directory.current.uri.resolve('../../').toFilePath();
+      final qa = File('${repoRoot}tool/docs-attest.sh');
+      if (!qa.existsSync()) {
+        markTestSkipped('Repo-only-Test übersprungen (Tool fehlt)');
+        return;
+      }
+      // Sandbox-Repo: das Skript leitet ROOT aus seinem Ort ab. Nur
+      // docs/developer-guide.md ist exportiert, PRD.md existiert, ist aber intern.
+      final root = Directory.systemTemp.createTempSync('loam_ossallow_');
+      try {
+        void put(String path, String body) {
+          final f = File('${root.path}/$path')..createSync(recursive: true);
+          f.writeAsStringSync(body);
+        }
+
+        put('tool/docs-attest.sh', qa.readAsStringSync());
+        put('.ossallowlist', 'docs/developer-guide.md\n');
+        put('packages/loam_cli/bin/loam.dart', '// no commands\n');
+        put('internal-notes', '# prd\n');
+        put(
+          'docs/developer-guide.md',
+          '[ok](developer-guide.md) [intern](PRD.md)\n',
+        );
+        put(
+          'README.md',
+          '[ok](docs/developer-guide.md) [intern](internal-notes)\n',
+        );
+        final r = Process.runSync('bash', [
+          'tool/docs-attest.sh',
+          'check',
+        ], workingDirectory: root.path);
+        final out = '${r.stdout}';
+        expect(r.exitCode, isNot(0), reason: out);
+        expect(out, contains('README verweist auf internen'));
+        expect(out, contains('internal-notes'));
+        expect(out, contains('Developer-Guide verweist auf internen'));
+        expect(
+          out,
+          isNot(
+            contains(
+              'internen, nicht exportierten Pfad: docs/developer-guide.md',
+            ),
+          ),
+        );
+      } finally {
+        root.deleteSync(recursive: true);
+      }
+    },
+  );
 }
