@@ -11,7 +11,7 @@ baseline.json
 # Default output of `loam scan --format html` — never commit a generated report.
 loam-report.html
 
-# Local scratch folder (issues live in Forgejo; the folder is only kept ignored)
+# Local scratch folder (issues live in internal forge; the folder is only kept ignored)
 .scratch/
 
 # Lokales Dev-Tooling (PROTECTED — niemals nach GitHub)
